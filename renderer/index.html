@@ -66,7 +66,7 @@
   </div>
   <input type="file" id="profile-file" accept="image/*" style="display:none" />
 
-  <!-- 테마 / 글꼴 설정 모달 -->
+  <!-- 테마 모달 -->
   <div class="modal-overlay" id="theme-overlay">
     <div class="modal">
       <div class="modal-head">
@@ -74,56 +74,62 @@
         <button class="icon-btn" id="theme-close">✕</button>
       </div>
       <div class="theme-list" id="theme-list"></div>
-      <div class="font-section">
-        <div class="font-row">
-          <span class="font-label">글꼴 (전체)</span>
-          <select id="font-family"></select>
-        </div>
-        <div class="font-row">
-          <span class="font-label">글자 크기 (전체)</span>
-          <div class="font-size-ctl">
-            <button id="font-dec">A-</button>
-            <span id="font-size-val">100%</span>
-            <button id="font-inc">A+</button>
-          </div>
-        </div>
-        <p class="sync-hint">메모 본문은 서식 도구가 따로 있어 전체 글꼴 설정의 영향을 받지 않아요.</p>
-      </div>
     </div>
   </div>
 
-  <!-- 색상 선택 팝오버 (메모 색상 변경) -->
+  <!-- 더블클릭 시 뜨는 전체 글꼴/크기 도구 -->
+  <div class="font-pop" id="font-pop">
+    <div class="fp-row">
+      <span class="fp-label">크기</span>
+      <button id="fp-dec">A-</button>
+      <span id="fp-size">100%</span>
+      <button id="fp-inc">A+</button>
+    </div>
+    <div class="fp-row">
+      <span class="fp-label">글꼴</span>
+      <select id="fp-font"></select>
+    </div>
+  </div>
+
+  <!-- 색상 선택 팝오버 -->
   <div class="color-pop" id="color-pop"></div>
 
   <!-- 메모 본문 텍스트 선택 시 뜨는 서식 툴바 -->
   <div class="format-toolbar" id="format-toolbar">
-    <div class="ft-row">
-      <button data-cmd="bold" title="굵게"><b>B</b></button>
-      <button data-cmd="italic" title="기울임"><i>I</i></button>
-      <button data-cmd="underline" title="밑줄"><u>U</u></button>
-      <button data-cmd="strikeThrough" title="취소선"><s>S</s></button>
-      <button data-cmd="hilite" class="ft-hl" title="형광펜"></button>
-      <button data-cmd="removeFormat" class="ft-clear" title="서식 지우기">⌫</button>
+    <div class="ft-line">
+      <span class="ft-tag">서식</span>
+      <div class="ft-row">
+        <button data-cmd="bold" title="굵게"><b>B</b></button>
+        <button data-cmd="italic" title="기울임"><i>I</i></button>
+        <button data-cmd="underline" title="밑줄"><u>U</u></button>
+        <button data-cmd="strikeThrough" title="취소선"><s>S</s></button>
+        <button data-cmd="hilite" title="형광펜"><svg viewBox="0 0 20 20"><path d="M4 13 L12 5 L15 8 L7 16 L4 16 Z"/><rect class="hl-line" x="3" y="18" width="14" height="2"/></svg></button>
+        <button data-cmd="code" class="ft-code" title="코드">&lt;/&gt;</button>
+      </div>
     </div>
-    <div class="ft-row">
+    <div class="ft-line">
       <span class="ft-tag">색</span>
       <span class="ft-colors" id="ft-colors"></span>
-      <input type="text" id="ft-hex" class="ft-hex" placeholder="#hex" maxlength="7" />
+      <button class="ft-addcolor" id="ft-addcolor" title="색 추가">+</button>
+      <input type="color" id="ft-colorpick" style="position:absolute;opacity:0;width:0;height:0" />
     </div>
-    <div class="ft-row">
+    <div class="ft-line">
       <span class="ft-tag">크기</span>
-      <button data-size="dec" class="ft-az">A-</button>
-      <button data-size="inc" class="ft-az">A+</button>
+      <button data-size="dec" class="ft-arrow" title="작게">◀</button>
+      <span id="ft-size-val">14pt</span>
+      <button data-size="inc" class="ft-arrow" title="크게">▶</button>
+    </div>
+    <div class="ft-line">
       <span class="ft-tag">글꼴</span>
       <select id="ft-font"></select>
     </div>
-    <div class="ft-row">
-      <span class="ft-tag">정렬</span>
-      <button data-cmd="justifyLeft" title="왼쪽">≡</button>
-      <button data-cmd="justifyCenter" title="가운데">≡</button>
-      <button data-cmd="justifyRight" title="오른쪽">≡</button>
+    <div class="ft-line ft-align">
+      <button data-cmd="justifyLeft" title="왼쪽"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg></button>
+      <button data-cmd="justifyCenter" title="가운데"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="3.5" y="7" width="9" height="2"/><rect x="2" y="12" width="12" height="2"/></svg></button>
+      <button data-cmd="justifyRight" title="오른쪽"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="6" y="7" width="9" height="2"/><rect x="3" y="12" width="12" height="2"/></svg></button>
+      <span class="ft-sep"></span>
       <button data-cmd="quote" title="인용구">❝</button>
-      <button data-cmd="link" title="링크">↗</button>
+      <button data-cmd="link" title="링크"><svg viewBox="0 0 16 16"><path d="M6 10 a3 3 0 0 1 0-4 l2-2 a3 3 0 0 1 4 4 l-1 1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 6 a3 3 0 0 1 0 4 l-2 2 a3 3 0 0 1-4-4 l1-1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
     </div>
   </div>
 

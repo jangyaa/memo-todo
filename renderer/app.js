@@ -17,6 +17,23 @@ function colorIndexOf(item) {
 }
 function accentOf(item) { return ACCENTS[colorIndexOf(item)]; }
 function blockBg(item) { return hexA(SOFTS[colorIndexOf(item)], BLOCK_ALPHA); }
+
+// 색상 변경 버튼 (현재 색 스와치 점 표시) — 투두/메모 공용
+function makeColorButton(item) {
+  const btn = document.createElement('button');
+  btn.className = 'icon-btn small color-btn';
+  btn.title = '색상 변경';
+  const dot = document.createElement('span');
+  dot.className = 'swatch-dot';
+  dot.style.background = accentOf(item);
+  btn.appendChild(dot);
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const r = btn.getBoundingClientRect();
+    openColorPop(r.left, r.bottom + 4, item);
+  });
+  return btn;
+}
 function hexA(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
@@ -41,6 +58,13 @@ let state = {
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+// 인라인 SVG 아이콘 (이모지 대신)
+const SVG = {
+  folder: '<svg viewBox="0 0 16 16"><path d="M1.5 3.5h4l1.2 1.5h7.8v7.5h-13z" fill="currentColor" opacity="0.85"/></svg>',
+  eye: '<svg viewBox="0 0 16 16"><path d="M8 3.5C4.5 3.5 1.8 6 1 8c.8 2 3.5 4.5 7 4.5s6.2-2.5 7-4.5c-.8-2-3.5-4.5-7-4.5z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>',
+  eyeOff: '<svg viewBox="0 0 16 16"><path d="M2 4c1.5 2 3.6 3.2 6 3.2S12.5 6 14 4" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="3" y1="13" x2="13" y2="3" stroke="currentColor" stroke-width="1.3"/></svg>'
+};
 const nextMemoColor = () => BLOCK_COLORS[state.memos.length % BLOCK_COLORS.length];
 const sortTags = (tags) => [...tags].sort((a, b) => a.localeCompare(b, 'ko'));
 
@@ -320,6 +344,8 @@ function buildBlock(todo) {
     renderTodos();
   });
 
+  const colorBtn = makeColorButton(todo);
+
   const del = document.createElement('button');
   del.className = 'icon-btn small block-del';
   del.textContent = '✕';
@@ -330,10 +356,15 @@ function buildBlock(todo) {
     renderTodos();
   });
 
+  const tools = document.createElement('div');
+  tools.className = 'memo-tools';
+  tools.appendChild(pin);
+  tools.appendChild(colorBtn);
+  tools.appendChild(del);
+
   head.appendChild(handle);
   head.appendChild(title);
-  head.appendChild(pin);
-  head.appendChild(del);
+  head.appendChild(tools);
   block.appendChild(head);
 
   const list = document.createElement('div');
@@ -452,9 +483,12 @@ function allTags() {
 }
 
 function visibleMemos() {
-  if (activeTags.size === 0) return state.memos;
-  return state.memos.filter((m) =>
-    [...activeTags].every((t) => (m.tags || []).includes(t)));
+  const hidden = new Set(state.folders.filter((f) => f.hidden).map((f) => f.id));
+  let arr = state.memos.filter((m) => !(m.folderId && hidden.has(m.folderId)));
+  if (activeTags.size > 0) {
+    arr = arr.filter((m) => [...activeTags].every((t) => (m.tags || []).includes(t)));
+  }
+  return arr;
 }
 
 function addMemo() {
@@ -546,15 +580,7 @@ function buildMemoBlock(memo) {
     renderMemos();
   });
 
-  const colorBtn = document.createElement('button');
-  colorBtn.className = 'icon-btn small memo-color';
-  colorBtn.textContent = '◑';
-  colorBtn.title = '색상 변경';
-  colorBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const r = colorBtn.getBoundingClientRect();
-    openColorPop(r.left, r.bottom + 4, memo);
-  });
+  const colorBtn = makeColorButton(memo);
 
   const del = document.createElement('button');
   del.className = 'icon-btn small memo-del';
@@ -655,13 +681,15 @@ function buildMemoBlock(memo) {
     }
   });
   tagBar.appendChild(tagAdd);
-  // 태그 바 영역을 클릭하면 바로 입력 활성화
-  tagBar.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.tag-chip')) return;
+  block.appendChild(tagBar);
+
+  // 메모 블록 하단(본문/헤더/칩/링크 제외) 아무 곳이나 누르면 태그 입력 활성화
+  block.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.note-body') || e.target.closest('.memo-head') ||
+        e.target.closest('.tag-chip') || e.target.closest('.link')) return;
     e.preventDefault();
     tagAdd.focus();
   });
-  block.appendChild(tagBar);
 
   return block;
 }
@@ -763,6 +791,8 @@ function buildFolderEl(folder, vis) {
   el.className = 'folder' + (folder.collapsed ? ' collapsed' : '');
   el.dataset.id = folder.id;
 
+  if (folder.hidden) el.classList.add('hidden-folder');
+
   const head = document.createElement('div');
   head.className = 'folder-head';
   head.draggable = true;
@@ -770,19 +800,38 @@ function buildFolderEl(folder, vis) {
   const caret = document.createElement('span');
   caret.className = 'folder-caret';
   caret.textContent = folder.collapsed ? '▸' : '▾';
+  caret.addEventListener('click', (e) => {
+    e.stopPropagation();
+    folder.collapsed = !folder.collapsed;
+    save();
+    renderMemoIndex();
+  });
+
+  const ficon = document.createElement('span');
+  ficon.className = 'folder-icon';
+  ficon.innerHTML = SVG.folder;
 
   const name = document.createElement('span');
   name.className = 'folder-name';
   name.textContent = folder.name || '새 폴더';
 
-  head.appendChild(caret);
-  head.appendChild(name);
-
-  head.addEventListener('click', () => {
-    folder.collapsed = !folder.collapsed;
+  // 표시/숨김(눈) 토글 — 우측 끝
+  const eye = document.createElement('button');
+  eye.className = 'folder-eye';
+  eye.innerHTML = folder.hidden ? SVG.eyeOff : SVG.eye;
+  eye.title = folder.hidden ? '폴더 보이기' : '폴더 숨기기';
+  eye.addEventListener('click', (e) => {
+    e.stopPropagation();
+    folder.hidden = !folder.hidden;
     save();
-    renderMemoIndex();
+    renderMemos();
   });
+
+  head.appendChild(caret);
+  head.appendChild(ficon);
+  head.appendChild(name);
+  head.appendChild(eye);
+
   head.addEventListener('dblclick', (e) => {
     e.stopPropagation();
     startFolderRename(head, name, folder);
@@ -913,23 +962,24 @@ function startIndexRename(chip, label, memo) {
 const ctxMenu = document.getElementById('ctx-menu');
 const colorPop = document.getElementById('color-pop');
 
-function placeMenu(el, x, y) {
+function placeMenu(el, x, y, pinIndex = true) {
   el.style.left = x + 'px';
   el.style.top = y + 'px';
   el.classList.add('open');
-  document.getElementById('memo-index').classList.add('pinned');
+  if (pinIndex) document.getElementById('memo-index').classList.add('pinned');
 }
 
-function buildSwatches(memo) {
+function buildSwatches(item) {
   const swatches = document.createElement('div');
   swatches.className = 'ctx-swatches';
   BLOCK_COLORS.forEach((c, i) => {
     const sw = document.createElement('button');
-    sw.className = 'ctx-swatch' + (memo.color === c ? ' on' : '');
+    sw.className = 'ctx-swatch' + (item.color === c ? ' on' : '');
     sw.style.background = ACCENTS[i];
     sw.addEventListener('click', () => {
-      memo.color = c;
+      item.color = c;
       save();
+      renderTodos();
       renderMemos();
       hideMenus();
     });
@@ -957,11 +1007,11 @@ function openCtxMenu(x, y, memo) {
   placeMenu(ctxMenu, x, y);
 }
 
-// 메모 색상 버튼: 색상만
-function openColorPop(x, y, memo) {
+// 색상 버튼: 색상만 (인덱스 확장하지 않음)
+function openColorPop(x, y, item) {
   colorPop.innerHTML = '';
-  colorPop.appendChild(buildSwatches(memo));
-  placeMenu(colorPop, x, y);
+  colorPop.appendChild(buildSwatches(item));
+  placeMenu(colorPop, x, y, false);
 }
 
 // 폴더 우클릭: 이름 변경 / 폴더 삭제
@@ -1438,11 +1488,10 @@ function setupProfileTheme() {
     fileInput.value = '';
   });
 
-  // 테마 변경 → 모달 (테마 목록 + 전체 글꼴/크기)
+  // 테마 변경 → 모달 (테마 목록만)
   document.getElementById('pm-theme').addEventListener('click', () => {
     profileMenu.classList.remove('open');
     renderThemeList();
-    setupFontControls();
     themeOverlay.classList.add('open');
   });
   document.getElementById('theme-close').addEventListener('click',
@@ -1469,34 +1518,47 @@ function renderThemeList() {
   });
 }
 
-let fontControlsReady = false;
-function setupFontControls() {
-  const famSel = document.getElementById('font-family');
-  const sizeVal = document.getElementById('font-size-val');
-  const updateSize = () => { sizeVal.textContent = (state.settings.fontSize || 100) + '%'; };
+/* 더블클릭 시 뜨는 전체 글꼴/크기 도구 (기능 2개: 크기, 글꼴) */
+function setupFontPop() {
+  const pop = document.getElementById('font-pop');
+  const famSel = document.getElementById('fp-font');
+  const sizeEl = document.getElementById('fp-size');
+  FONTS.forEach((f) => {
+    const o = document.createElement('option');
+    o.value = f.id; o.textContent = f.name;
+    famSel.appendChild(o);
+  });
+  const sync = () => {
+    sizeEl.textContent = (state.settings.fontSize || 100) + '%';
+    famSel.value = state.settings.fontFamily || '';
+  };
+  famSel.addEventListener('change', () => {
+    state.settings.fontFamily = famSel.value; save(); applySettings(); sync();
+  });
+  document.getElementById('fp-dec').addEventListener('click', () => {
+    state.settings.fontSize = Math.max(70, (state.settings.fontSize || 100) - 10);
+    save(); applySettings(); sync();
+  });
+  document.getElementById('fp-inc').addEventListener('click', () => {
+    state.settings.fontSize = Math.min(160, (state.settings.fontSize || 100) + 10);
+    save(); applySettings(); sync();
+  });
 
-  if (!fontControlsReady) {
-    FONTS.forEach((f) => {
-      const o = document.createElement('option');
-      o.value = f.id; o.textContent = f.name;
-      famSel.appendChild(o);
-    });
-    famSel.addEventListener('change', () => {
-      state.settings.fontFamily = famSel.value;
-      save(); applySettings();
-    });
-    document.getElementById('font-dec').addEventListener('click', () => {
-      state.settings.fontSize = Math.max(70, (state.settings.fontSize || 100) - 10);
-      save(); applySettings(); updateSize();
-    });
-    document.getElementById('font-inc').addEventListener('click', () => {
-      state.settings.fontSize = Math.min(150, (state.settings.fontSize || 100) + 10);
-      save(); applySettings(); updateSize();
-    });
-    fontControlsReady = true;
-  }
-  famSel.value = state.settings.fontFamily || '';
-  updateSize();
+  // 어디서든 더블클릭하면(편집/인덱스/메모서식 제외) 도구를 띄움
+  document.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.note-body') || e.target.closest('.index-chip') ||
+        e.target.closest('.folder-head') || e.target.closest('.font-pop') ||
+        e.target.closest('.modal') || e.target.closest('.format-toolbar')) return;
+    sync();
+    let x = Math.min(e.clientX, window.innerWidth - 200);
+    let y = Math.min(e.clientY, window.innerHeight - 110);
+    pop.style.left = Math.max(8, x) + 'px';
+    pop.style.top = Math.max(8, y) + 'px';
+    pop.classList.add('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!pop.contains(e.target)) pop.classList.remove('open');
+  });
 }
 
 /* =========================================================================
@@ -1507,9 +1569,10 @@ let hideFormatToolbar = () => {};
 function setupFormatToolbar() {
   const bar = document.getElementById('format-toolbar');
   const colors = document.getElementById('ft-colors');
-  const hex = document.getElementById('ft-hex');
   const fontSel = document.getElementById('ft-font');
-  const PALETTE = ['#4a4148', '#ec5f8a', '#8b6cff', '#2f9e8f', '#e0883a', '#3a7bd5'];
+  const sizeVal = document.getElementById('ft-size-val');
+  const colorPick = document.getElementById('ft-colorpick');
+  const PALETTE = ['#4a4148', '#9aa0b0', '#ec5f8a', '#f6c0d4', '#ffffff'];
 
   colors.innerHTML = '';
   PALETTE.forEach((c) => {
@@ -1527,7 +1590,7 @@ function setupFormatToolbar() {
 
   let savedRange = null;
   let savedBody = null;
-  let sizeLevel = 3; // execCommand fontSize 1~7
+  let sizePt = 14;
 
   function currentBody() {
     const sel = window.getSelection();
@@ -1537,7 +1600,11 @@ function setupFormatToolbar() {
     return (node && node.closest && node.closest('.note-body')) || null;
   }
 
-  function hide() { bar.classList.remove('open'); savedRange = null; savedBody = null; }
+  function hide() {
+    bar.classList.remove('open');
+    document.body.classList.remove('ft-open');
+    savedRange = null; savedBody = null;
+  }
   hideFormatToolbar = hide;
 
   function showForSelection() {
@@ -1548,7 +1615,9 @@ function setupFormatToolbar() {
     if (!rect || (rect.width === 0 && rect.height === 0)) { hide(); return; }
     savedRange = range.cloneRange();
     savedBody = body;
+    sizeVal.textContent = sizePt + 'pt';
     bar.classList.add('open');
+    document.body.classList.add('ft-open'); // 인덱스 확장 잠금
     const bw = bar.offsetWidth || 240;
     let left = rect.left + rect.width / 2 - bw / 2;
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
@@ -1573,22 +1642,40 @@ function setupFormatToolbar() {
     return true;
   }
 
+  function persist() {
+    const memo = savedBody && state.memos.find((m) => m.id === savedBody.dataset.id);
+    if (memo) { memo.content = savedBody.innerHTML; save(); updateIndexTitle(memo); }
+  }
+
+  function applySizePt(pt) {
+    if (!restoreSelection() || !savedBody) return;
+    sizePt = Math.max(8, Math.min(48, pt));
+    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    document.execCommand('fontSize', false, '7');
+    savedBody.querySelectorAll('font[size="7"]').forEach((f) => {
+      f.removeAttribute('size');
+      f.style.fontSize = sizePt + 'pt';
+    });
+    sizeVal.textContent = sizePt + 'pt';
+    persist();
+    setTimeout(showForSelection, 0);
+  }
+
   function run(cmd, value) {
     if (!restoreSelection() || !savedBody) return;
     try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
     if (cmd === 'hilite') document.execCommand('hiliteColor', false, '#ffe9a8');
     else if (cmd === 'quote') document.execCommand('formatBlock', false, 'blockquote');
-    else if (cmd === 'link') {
+    else if (cmd === 'code') {
+      const text = window.getSelection().toString();
+      if (text) document.execCommand('insertHTML', false, '<code>' + escapeHtml(text) + '</code>');
+    } else if (cmd === 'link') {
       const url = prompt('링크 주소(URL)를 입력하세요', 'https://');
       if (url) document.execCommand('createLink', false, url);
-    } else if (cmd === 'fontSizeStep') {
-      sizeLevel = Math.max(1, Math.min(7, sizeLevel + value));
-      document.execCommand('fontSize', false, String(sizeLevel));
     } else {
       document.execCommand(cmd, false, value || null);
     }
-    const memo = state.memos.find((m) => m.id === savedBody.dataset.id);
-    if (memo) { memo.content = savedBody.innerHTML; save(); updateIndexTitle(memo); }
+    persist();
     setTimeout(showForSelection, 0);
   }
 
@@ -1598,7 +1685,7 @@ function setupFormatToolbar() {
   bar.querySelectorAll('button[data-size]').forEach((btn) => {
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      run('fontSizeStep', btn.dataset.size === 'inc' ? 1 : -1);
+      applySizePt(sizePt + (btn.dataset.size === 'inc' ? 1 : -1));
     });
   });
   colors.addEventListener('mousedown', (e) => {
@@ -1607,19 +1694,12 @@ function setupFormatToolbar() {
     e.preventDefault();
     run('foreColor', d.dataset.color);
   });
-  // 커스텀 헥사 색
-  hex.addEventListener('mousedown', (e) => e.stopPropagation());
-  hex.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      let v = hex.value.trim();
-      if (/^#?[0-9a-fA-F]{3,6}$/.test(v)) {
-        if (v[0] !== '#') v = '#' + v;
-        run('foreColor', v);
-        hex.value = '';
-      }
-    }
+  // 커스텀 색 추가 (시스템 색상 선택기)
+  document.getElementById('ft-addcolor').addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    colorPick.click();
   });
+  colorPick.addEventListener('input', () => run('foreColor', colorPick.value));
   // 글꼴 변경 (select 포커스로 선택이 풀려도 savedRange로 복원)
   fontSel.addEventListener('mousedown', (e) => e.stopPropagation());
   fontSel.addEventListener('change', () => { run('fontName', fontSel.value); });
@@ -1637,6 +1717,7 @@ async function init() {
   setupDnd();
   setupGlobalKeys();
   setupProfileTheme();
+  setupFontPop();
   setupFormatToolbar();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);

@@ -95,14 +95,16 @@ body {
 }
 .titlebar > * { -webkit-app-region: no-drag; }
 
-/* 프로필 아이콘 (가장 왼쪽, 동그랗게 / 테두리 없음) */
+/* 프로필 아이콘 (가장 왼쪽, 동그랗게 / 테두리 없음 / 아바타와 동일 렌더링) */
 .profile-btn {
   align-self: center;
   width: 30px;
   height: 30px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.3) center center no-repeat;
+  background-color: var(--pink);
+  background-position: center center;
+  background-repeat: no-repeat;
   background-size: cover;
   color: #fff;
   font-size: 15px;
@@ -114,7 +116,6 @@ body {
   align-items: center;
   justify-content: center;
 }
-.profile-btn.has-img { background-color: transparent; }
 
 /* 좌측 파일형 탭 (서로 붙어 있음, 좌측 정렬) */
 .titlebar-tabs {
@@ -734,17 +735,20 @@ body {
   justify-content: center;
   box-shadow: 0 4px 14px rgba(236, 150, 179, 0.4);
 }
-.pm-avatar.has-img { background-color: transparent; }
 .pm-image {
+  display: block;
+  width: 100%;
+  text-align: center;
   border: none;
   background: transparent;
   color: var(--ink);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  padding: 6px;
+  padding: 8px 6px;
+  border-radius: 8px;
 }
-.pm-image:hover { color: var(--pink-deep); }
+.pm-image:hover { background: var(--pink-soft); color: var(--pink-deep); }
 .pm-theme-label {
   margin-top: 14px;
   font-size: 13px;
@@ -799,7 +803,7 @@ body {
 }
 .folder-head:hover { background: var(--pink-soft); }
 .folder-caret { width: 12px; flex-shrink: 0; color: var(--ink-soft); }
-.folder-name { overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity 0.15s; }
+.folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity 0.15s; }
 .memo-index:hover .folder-name, .memo-index.pinned .folder-name { opacity: 1; }
 .folder-children { padding-left: 12px; }
 .folder.collapsed .folder-children { display: none; }
@@ -827,41 +831,50 @@ body {
   position: fixed;
   z-index: 300;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
+  width: 230px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
 }
 .format-toolbar.open { display: flex; }
-.ft-row { display: flex; align-items: center; gap: 3px; }
-.ft-tag { font-size: 11px; color: var(--ink-soft); margin: 0 4px 0 2px; }
+.ft-line { display: flex; align-items: center; gap: 4px; }
+.ft-tag { font-size: 12px; color: var(--ink-soft); width: 30px; flex-shrink: 0; }
+.ft-row { display: flex; align-items: center; gap: 2px; }
 .format-toolbar button {
   border: none;
   background: transparent;
   color: var(--ink);
-  min-width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 13px;
-  padding: 0 6px;
+  font-size: 14px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .format-toolbar button:hover { background: var(--pink-soft); }
-.ft-hl { background: #ffe9a8 !important; width: 26px; }
-.ft-clear { color: var(--ink-soft); }
-.ft-az { font-weight: 700; }
-.ft-colors { display: inline-flex; gap: 4px; }
+.format-toolbar button svg { width: 16px; height: 16px; fill: currentColor; }
+.format-toolbar .hl-line { fill: #ffcf3f; }
+.ft-code { font-size: 12px; color: var(--ink-soft); }
+.ft-arrow { color: var(--ink-soft); }
+#ft-size-val { font-size: 13px; min-width: 42px; text-align: center; }
+.ft-colors { display: inline-flex; gap: 5px; }
 .ft-color {
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 20px; height: 20px; border-radius: 50%;
   border: 1px solid var(--line); cursor: pointer; padding: 0;
 }
-.ft-hex {
-  width: 64px; border: 1px solid var(--line); border-radius: 6px;
-  padding: 3px 6px; font-size: 11px; outline: none; margin-left: 4px;
+.ft-addcolor {
+  width: 24px; height: 24px; border: 1.5px solid var(--ink-soft) !important;
+  border-radius: 50%; color: var(--ink-soft); margin-left: 2px;
 }
-#ft-font { border: 1px solid var(--line); border-radius: 6px; font-size: 11px; padding: 2px; }
+#ft-font { border: 1px solid var(--line); border-radius: 8px; font-size: 12px; padding: 3px 6px; }
+.ft-align { gap: 2px; }
+.ft-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
 
 /* 색상 선택 팝오버 */
 .color-pop {
@@ -875,6 +888,57 @@ body {
   padding: 8px;
 }
 .color-pop.open { display: block; }
+
+/* 색상 변경 버튼(스와치 점) — 투두/메모 공용 */
+.color-btn { padding: 0; }
+.swatch-dot {
+  width: 13px; height: 13px; border-radius: 50%;
+  display: inline-block; box-shadow: 0 0 0 1.5px #fff, 0 1px 2px rgba(0,0,0,0.25);
+}
+
+/* 더블클릭 글꼴/크기 도구 */
+.font-pop {
+  display: none;
+  position: fixed;
+  z-index: 300;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  width: 190px;
+}
+.font-pop.open { display: block; }
+.fp-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.fp-row:last-child { margin-bottom: 0; }
+.fp-label { font-size: 12px; color: var(--ink-soft); }
+.fp-row button {
+  border: 1px solid var(--line); background: #fff; border-radius: 8px;
+  width: 30px; height: 26px; cursor: pointer; font-weight: 700;
+}
+.fp-row button:hover { background: var(--pink-soft); }
+.fp-row select { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font-size: 12px; }
+#fp-size { font-size: 12px; min-width: 40px; text-align: center; }
+
+/* 인덱스 폴더 아이콘 / 눈 토글 */
+.folder-icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--ink-soft); display: inline-flex; }
+.folder-icon svg { width: 16px; height: 16px; }
+.folder-eye {
+  margin-left: auto; border: none; background: transparent; cursor: pointer;
+  color: var(--ink-soft); width: 18px; height: 18px; padding: 0;
+  opacity: 0; flex-shrink: 0;
+}
+.folder-eye svg { width: 14px; height: 14px; }
+.memo-index:hover .folder-eye, .memo-index.pinned .folder-eye { opacity: 0.7; }
+.folder-eye:hover { opacity: 1; }
+.folder.hidden-folder .folder-head { opacity: 0.5; }
+
+/* 서식 툴바 떠 있는 동안 인덱스 확장 잠금 */
+body.ft-open .memo-index:hover { width: 50px; }
+body.ft-open .memo-index:hover .label,
+body.ft-open .memo-index:hover .folder-name,
+body.ft-open .memo-index:hover .index-title,
+body.ft-open .memo-index:hover .folder-eye { opacity: 0; }
 
 /* 서식 적용 결과 (형광펜 등) */
 .note-body mark, .note-body [style*="background"] { border-radius: 2px; }
