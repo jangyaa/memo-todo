@@ -11,6 +11,9 @@
   --shadow: 0 6px 20px rgba(170, 150, 160, 0.13);
   --radius: 16px;
   --titlebar: linear-gradient(180deg, #cdb6c0, #c4abb6);
+  --indicator: #e08ab0; /* 이동 미리보기 선 (테마별로 덮어씀) */
+  --bg-aura: radial-gradient(120% 80% at 25% 15%, #fbeef4 0%, transparent 55%),
+             radial-gradient(120% 90% at 80% 90%, #f6e9f0 0%, transparent 60%);
 
   /* 투두 블럭 파스텔 색상 팔레트 (저채도·고명도) */
   --c0: #f8f1f4;
@@ -21,40 +24,62 @@
   --c5: #f8f1f1;
 }
 
-/* ===== 테마 (단색 + Y2K 패턴 배경) ===== */
+/* ===== 테마 (Y2K 오라 + 패턴) ===== */
+/* 도트 핑크 */
 body[data-theme="dot"] {
   --bg: #fdf4f8; --pink: #f3c9dc; --pink-deep: #d98fb2; --pink-soft: #fbeef4;
-  --titlebar: linear-gradient(180deg, #e6a9c4, #dd9bb8);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='5' cy='5' r='2.2' fill='%23f0c2d6'/%3E%3C/svg%3E");
+  --titlebar: linear-gradient(180deg, #e6a9c4, #dd9bb8); --indicator: #d56fa1;
+  --bg-aura: radial-gradient(90% 70% at 20% 12%, #ffd9ea 0%, transparent 55%),
+             radial-gradient(90% 70% at 85% 88%, #ffe4f1 0%, transparent 55%);
+  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='5' cy='5' r='2.2' fill='%23ffffff'/%3E%3C/svg%3E");
 }
+/* 토마토 (코랄 오라 + 초록 별) */
 body[data-theme="tomato"] {
-  --bg: #fff5f1; --pink: #f3c3b6; --pink-deep: #dd8773; --pink-soft: #fcefe9;
-  --titlebar: linear-gradient(180deg, #e98b76, #e27d68);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cg transform='translate(22,24)'%3E%3Ccircle r='6.5' fill='%23ef9080'/%3E%3Cpath d='M0 -6 l-3 -4 M0 -6 l3 -4' stroke='%2386b079' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+  --bg: #fff3ee; --pink: #f3c3b6; --pink-deep: #e08066; --pink-soft: #fcefe9;
+  --titlebar: linear-gradient(180deg, #ec8a72, #e57c63); --indicator: #e2664a;
+  --bg-aura: radial-gradient(45% 32% at 22% 22%, #f4a18c 0%, transparent 60%),
+             radial-gradient(50% 36% at 78% 62%, #f29a83 0%, transparent 62%),
+             radial-gradient(42% 30% at 60% 92%, #f3a690 0%, transparent 60%);
+  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M30 22 l1.8 3.6 l4 .6 l-2.9 2.8 l.7 4 l-3.6 -1.9 l-3.6 1.9 l.7 -4 l-2.9 -2.8 l4 -.6 Z' fill='%23a7cf96'/%3E%3C/svg%3E");
 }
+/* 네잎클로버 */
 body[data-theme="clover"] {
-  --bg: #f4faf2; --pink: #cfe6c5; --pink-deep: #85b576; --pink-soft: #eef6ea;
-  --titlebar: linear-gradient(180deg, #9cc78f, #8dbd80);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='42'%3E%3Cg transform='translate(21,20)' fill='%23b3d6a4'%3E%3Ccircle cx='-3.5' cy='-3.5' r='3.5'/%3E%3Ccircle cx='3.5' cy='-3.5' r='3.5'/%3E%3Ccircle cx='-3.5' cy='3.5' r='3.5'/%3E%3Ccircle cx='3.5' cy='3.5' r='3.5'/%3E%3C/g%3E%3C/svg%3E");
+  --bg: #f4faf2; --pink: #cfe6c5; --pink-deep: #7eb56f; --pink-soft: #eef6ea;
+  --titlebar: linear-gradient(180deg, #9cc78f, #8dbd80); --indicator: #6aae57;
+  --bg-aura: radial-gradient(90% 70% at 20% 15%, #dcefd3 0%, transparent 55%),
+             radial-gradient(90% 70% at 82% 85%, #e7f4e0 0%, transparent 55%);
+  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cg transform='translate(22,21)' fill='%23ffffff'%3E%3Ccircle cx='-3.5' cy='-3.5' r='3.4'/%3E%3Ccircle cx='3.5' cy='-3.5' r='3.4'/%3E%3Ccircle cx='-3.5' cy='3.5' r='3.4'/%3E%3Ccircle cx='3.5' cy='3.5' r='3.4'/%3E%3C/g%3E%3C/svg%3E");
 }
+/* 하늘색 별 (블루 오라 + 흰 별) */
 body[data-theme="bluestar"] {
-  --bg: #f1f7fd; --pink: #c2dbf3; --pink-deep: #7ea8d8; --pink-soft: #eaf2fb;
-  --titlebar: linear-gradient(180deg, #8fb6e2, #7fa9da);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M20 12 l2.2 4.5 l5 .7 l-3.6 3.5 l.9 5 l-4.5 -2.4 l-4.5 2.4 l.9 -5 l-3.6 -3.5 l5 -.7 Z' fill='%23b3cdee'/%3E%3C/svg%3E");
+  --bg: #eef5fd; --pink: #c2dbf3; --pink-deep: #6f9fd6; --pink-soft: #eaf2fb;
+  --titlebar: linear-gradient(180deg, #8fb6e2, #7fa9da); --indicator: #4f8fd6;
+  --bg-aura: radial-gradient(70% 55% at 30% 25%, #b9d6f4 0%, transparent 60%),
+             radial-gradient(70% 55% at 75% 80%, #cfe2f8 0%, transparent 60%);
+  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52'%3E%3Cpath d='M26 16 l2.6 5.3 l5.8 .8 l-4.2 4 l1 5.7 l-5.2 -2.7 l-5.2 2.7 l1 -5.7 l-4.2 -4 l5.8 -.8 Z' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E");
 }
+/* 분홍 별 */
 body[data-theme="pinkstar"] {
   --bg: #fdf2f8; --pink: #f3c9de; --pink-deep: #d98fb6; --pink-soft: #fbeef5;
-  --titlebar: linear-gradient(180deg, #e8a6c6, #df97ba);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M20 12 l2.2 4.5 l5 .7 l-3.6 3.5 l.9 5 l-4.5 -2.4 l-4.5 2.4 l.9 -5 l-3.6 -3.5 l5 -.7 Z' fill='%23f0bcd6'/%3E%3C/svg%3E");
+  --titlebar: linear-gradient(180deg, #e8a6c6, #df97ba); --indicator: #d56fa6;
+  --bg-aura: radial-gradient(70% 55% at 28% 22%, #ffd7ec 0%, transparent 60%),
+             radial-gradient(70% 55% at 78% 82%, #ffe6f3 0%, transparent 60%);
+  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52'%3E%3Cpath d='M26 16 l2.6 5.3 l5.8 .8 l-4.2 4 l1 5.7 l-5.2 -2.7 l-5.2 2.7 l1 -5.7 l-4.2 -4 l5.8 -.8 Z' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E");
 }
+/* 라벤더 */
 body[data-theme="lavender"] {
   --bg: #f6f3fc; --pink: #d8cdee; --pink-deep: #a892d6; --pink-soft: #efeaf9;
-  --titlebar: linear-gradient(180deg, #b9a6e0, #ad98d8);
+  --titlebar: linear-gradient(180deg, #b9a6e0, #ad98d8); --indicator: #9a7fd0;
+  --bg-aura: radial-gradient(90% 70% at 20% 15%, #e7defa 0%, transparent 55%),
+             radial-gradient(90% 70% at 82% 85%, #efe8fb 0%, transparent 55%);
   --c0: #f2edfb; --c1: #efeaf7; --c2: #eef4ef; --c3: #eceffb; --c4: #f6f1ea; --c5: #f7eef5;
 }
+/* 민트 */
 body[data-theme="mint"] {
-  --bg: #f1faf6; --pink: #bce6d6; --pink-deep: #7cc4ab; --pink-soft: #e9f6f0;
-  --titlebar: linear-gradient(180deg, #9bd3bf, #8ac9b2);
+  --bg: #f1faf6; --pink: #bce6d6; --pink-deep: #6fc0a6; --pink-soft: #e9f6f0;
+  --titlebar: linear-gradient(180deg, #9bd3bf, #8ac9b2); --indicator: #4fb795;
+  --bg-aura: radial-gradient(90% 70% at 20% 15%, #d6f1e7 0%, transparent 55%),
+             radial-gradient(90% 70% at 82% 85%, #e4f6ef 0%, transparent 55%);
   --c0: #eaf7f1; --c1: #eef4f4; --c2: #edf6ed; --c3: #eaf3f8; --c4: #f6f2ea; --c5: #f6eef1;
 }
 
@@ -83,7 +108,10 @@ body {
   flex-direction: column;
   height: 100vh;
   background-color: var(--bg);
-  background-image: var(--bg-pattern, none);
+  background-image: var(--bg-pattern, none), var(--bg-aura, none);
+  background-repeat: repeat, no-repeat;
+  background-size: auto, cover;
+  background-position: center, center;
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -200,7 +228,7 @@ body {
   bottom: 16px;
   z-index: 30;
   border: none;
-  background: var(--pink);
+  background: var(--pink-deep);
   color: #fff;
   width: 44px;
   height: 44px;
@@ -208,7 +236,8 @@ body {
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(236, 150, 179, 0.5);
+  box-shadow: 0 0 16px 2px color-mix(in srgb, var(--pink-deep) 60%, transparent),
+              0 4px 12px color-mix(in srgb, var(--pink-deep) 45%, transparent);
   transition: transform 0.1s;
 }
 .fab:hover { transform: scale(1.08); }
@@ -539,10 +568,10 @@ body {
 /* 드래그 중 블록 + 드롭 위치 미리보기 선 */
 .dragging { opacity: 0.4; }
 .drop-indicator {
-  height: 4px;
-  background: #d9799e;
-  border-radius: 4px;
-  margin: -8px 4px;
+  height: 3px;
+  background: var(--indicator);
+  border-radius: 3px;
+  margin: -7px 6px;
   pointer-events: none;
 }
 
@@ -751,7 +780,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(236, 150, 179, 0.4);
+  box-shadow: 0 0 22px 3px color-mix(in srgb, var(--pink-deep) 55%, transparent),
+              0 4px 14px color-mix(in srgb, var(--pink-deep) 40%, transparent);
 }
 .pm-image {
   display: block;
