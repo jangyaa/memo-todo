@@ -57,22 +57,24 @@
   <!-- 우클릭 컨텍스트 메뉴 -->
   <div class="ctx-menu" id="ctx-menu"></div>
 
-  <!-- 프로필 드롭다운 -->
+  <!-- 프로필 드롭다운 (가운데 정렬 카드) -->
   <div class="profile-menu" id="profile-menu">
-    <button class="ctx-item" id="pm-image">프로필 이미지 변경</button>
-    <button class="ctx-item" id="pm-theme">테마 변경</button>
+    <div class="pm-avatar" id="pm-avatar">♡</div>
+    <button class="pm-image" id="pm-image">프로필 이미지 변경</button>
+    <div class="pm-theme-label">테마 변경</div>
+    <div class="pm-themes" id="pm-themes"></div>
   </div>
   <input type="file" id="profile-file" accept="image/*" style="display:none" />
 
-  <!-- 테마 선택 패널 -->
-  <div class="modal-overlay" id="theme-overlay">
-    <div class="modal">
-      <div class="modal-head">
-        <span>테마 변경</span>
-        <button class="icon-btn" id="theme-close">✕</button>
-      </div>
-      <div class="theme-list" id="theme-list"></div>
-    </div>
+  <!-- 메모 본문 텍스트 선택 시 뜨는 서식 툴바 -->
+  <div class="format-toolbar" id="format-toolbar">
+    <button data-cmd="bold" title="굵게"><b>B</b></button>
+    <button data-cmd="italic" title="기울임"><i>I</i></button>
+    <button data-cmd="underline" title="밑줄"><u>U</u></button>
+    <button data-cmd="strikeThrough" title="취소선"><s>S</s></button>
+    <button data-cmd="hilite" class="ft-hl" title="형광펜">H</button>
+    <span class="ft-sep"></span>
+    <span class="ft-colors" id="ft-colors"></span>
   </div>
 
   <!-- ===================== 동기화 패널 ===================== -->

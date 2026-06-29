@@ -7,6 +7,27 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
+// 블록 배경은 반투명 흰색으로 통일하고, 색은 강조(해시태그/제목 막대)에만 사용
+const ACCENTS = ['#ef9ab9', '#b48be6', '#86c97f', '#7fb2e6', '#e0ad57', '#e58a8a'];
+function accentOf(item) {
+  const i = BLOCK_COLORS.indexOf(item && item.color);
+  return ACCENTS[i < 0 ? 0 : i];
+}
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+/* HTML 여부 판단 / HTML→텍스트 (제목 추출용) */
+function looksHtml(s) { return /<[a-z!/]|&[a-z]+;|&#/i.test(s || ''); }
+function htmlToText(html) {
+  return (html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(div|p|li|h\d)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+}
 
 let state = {
   todos: [], // { id, title, color, items: [{ id, text, done }] }
@@ -38,10 +59,41 @@ function linkifyHtml(text) {
   return out.replace(/\n/g, '<br>');
 }
 
+/* 서식(HTML)을 유지한 채 텍스트 노드의 URL만 링크로 변환 */
+function linkifyElement(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const targets = [];
+  let n;
+  while ((n = walker.nextNode())) {
+    if (n.parentElement && n.parentElement.closest('.link')) continue;
+    if (/https?:\/\//i.test(n.nodeValue)) targets.push(n);
+  }
+  targets.forEach((node) => {
+    const text = node.nodeValue;
+    const frag = document.createDocumentFragment();
+    const re = /https?:\/\/[^\s<]+/g;
+    let last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const span = document.createElement('span');
+      span.className = 'link';
+      span.dataset.href = m[0];
+      span.textContent = m[0];
+      frag.appendChild(span);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  });
+}
+
 function normalizeMemo(m, i) {
+  let content = m.content || '';
+  // 예전 평문 메모는 HTML로 1회 변환 (이후 서식 가능)
+  if (content && !looksHtml(content)) content = linkifyHtml(content);
   return {
     id: m.id || uid(),
-    content: m.content || '',
+    content,
     tags: sortTags(Array.isArray(m.tags) ? m.tags : []),
     color: m.color || BLOCK_COLORS[i % BLOCK_COLORS.length]
   };
@@ -184,6 +236,14 @@ function autoGrow(el) {
   el.style.height = el.scrollHeight + 'px';
 }
 
+// 고정(pinned)된 블럭을 위로 (먼저 고정한 순). 나머지는 기존 순서 유지
+function orderedTodos() {
+  const pinned = state.todos.filter((t) => t.pinned)
+    .sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0));
+  const rest = state.todos.filter((t) => !t.pinned);
+  return [...pinned, ...rest];
+}
+
 function renderTodos() {
   todoBoard.innerHTML = '';
   if (state.todos.length === 0) {
@@ -193,13 +253,13 @@ function renderTodos() {
     todoBoard.appendChild(hint);
     return;
   }
-  state.todos.forEach((todo) => todoBoard.appendChild(buildBlock(todo)));
+  orderedTodos().forEach((todo) => todoBoard.appendChild(buildBlock(todo)));
 }
 
 function buildBlock(todo) {
+  const accent = accentOf(todo);
   const block = document.createElement('div');
-  block.className = 'todo-block';
-  block.style.background = todo.color;
+  block.className = 'todo-block' + (todo.pinned ? ' pinned' : '');
   block.dataset.id = todo.id;
 
   const head = document.createElement('div');
@@ -218,6 +278,7 @@ function buildBlock(todo) {
   title.className = 'block-title';
   title.placeholder = 'To-do';
   title.value = todo.title || '';
+  title.style.borderLeftColor = accent; // 제목 앞 막대
   title.addEventListener('input', () => { todo.title = title.value; save(); });
   title.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === 'Tab') {
@@ -235,6 +296,18 @@ function buildBlock(todo) {
     }
   });
 
+  // 상단 고정 토글
+  const pin = document.createElement('button');
+  pin.className = 'icon-btn small block-pin' + (todo.pinned ? ' active' : '');
+  pin.textContent = '⤒';
+  pin.title = todo.pinned ? '고정 해제' : '상단 고정';
+  pin.addEventListener('click', () => {
+    todo.pinned = !todo.pinned;
+    todo.pinnedAt = todo.pinned ? Date.now() : 0;
+    save();
+    renderTodos();
+  });
+
   const del = document.createElement('button');
   del.className = 'icon-btn small block-del';
   del.textContent = '✕';
@@ -247,6 +320,7 @@ function buildBlock(todo) {
 
   head.appendChild(handle);
   head.appendChild(title);
+  head.appendChild(pin);
   head.appendChild(del);
   block.appendChild(head);
 
@@ -285,9 +359,10 @@ function buildItem(todo, item) {
   box.textContent = item.done ? '✓' : '';
   box.addEventListener('click', () => {
     item.done = !item.done;
-    // 세부항목이 있고 전부 완료되면 블럭 자체를 제거
+    // 세부항목이 있고 전부 완료되면: 고정 블럭은 항목만 비우고, 아니면 블럭 제거
     if (todo.items.length > 0 && todo.items.every((x) => x.done)) {
-      state.todos = state.todos.filter((t) => t.id !== todo.id);
+      if (todo.pinned) todo.items = [];
+      else state.todos = state.todos.filter((t) => t.id !== todo.id);
     }
     save();
     renderTodos();
@@ -352,7 +427,8 @@ const memoTagbar = document.getElementById('memo-tagbar');
 let activeTags = new Set(); // AND 필터
 
 function noteTitle(content) {
-  const lines = (content || '').split('\n');
+  const text = looksHtml(content) ? htmlToText(content) : (content || '');
+  const lines = text.split('\n');
   for (const line of lines) if (line.trim()) return line.trim();
   return '제목 없음';
 }
@@ -427,9 +503,9 @@ function renderMemoPage() {
 }
 
 function buildMemoBlock(memo) {
+  const accent = accentOf(memo);
   const block = document.createElement('div');
   block.className = 'memo-block';
-  block.style.background = memo.color;
   block.dataset.id = memo.id;
 
   // 헤더: 드래그 핸들(좌) + 삭제(우, hover 시 노출)
@@ -455,27 +531,30 @@ function buildMemoBlock(memo) {
   head.appendChild(del);
   block.appendChild(head);
 
-  // 본문
+  // 본문 (서식 가능한 HTML). 제목(첫 줄) 앞 막대는 left border로 표현
   const body = document.createElement('div');
   body.className = 'note-body';
   body.dataset.id = memo.id;
   body.contentEditable = 'true';
   body.spellcheck = false;
-  body.innerHTML = linkifyHtml(memo.content || '');
+  body.style.borderLeftColor = accent;
+  body.innerHTML = looksHtml(memo.content) ? memo.content : linkifyHtml(memo.content || '');
   body.addEventListener('input', () => {
-    memo.content = body.innerText;
+    memo.content = body.innerHTML;
     save();
     updateIndexTitle(memo);
   });
   body.addEventListener('blur', () => {
-    body.innerHTML = linkifyHtml(body.innerText);
+    linkifyElement(body);
+    memo.content = body.innerHTML;
+    save();
   });
   body.addEventListener('keydown', (e) => {
     // Shift+Enter: 현재 메모 다음에 새 메모 블록 (전역 핸들러와 중복 방지)
     if (e.shiftKey && e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      memo.content = body.innerText;
+      memo.content = body.innerHTML;
       const idx = state.memos.findIndex((m) => m.id === memo.id);
       const nm = { id: uid(), content: '', tags: [], color: nextMemoColor() };
       state.memos.splice(idx + 1, 0, nm);
@@ -486,7 +565,7 @@ function buildMemoBlock(memo) {
       const idx = state.memos.findIndex((m) => m.id === memo.id);
       if (idx > 0) {
         e.preventDefault();
-        memo.content = body.innerText;
+        memo.content = body.innerHTML;
         const prev = state.memos[idx - 1];
         prev.content = (prev.content || '') + (memo.content || '');
         state.memos.splice(idx, 1);
@@ -498,12 +577,14 @@ function buildMemoBlock(memo) {
   });
   block.appendChild(body);
 
-  // 태그 바 (메모 최하단)
+  // 태그 바 (메모 최하단) — 빈 영역을 눌러도 바로 태그 입력
   const tagBar = document.createElement('div');
   tagBar.className = 'note-tags';
   sortTags(memo.tags || []).forEach((t) => {
     const chip = document.createElement('span');
     chip.className = 'tag-chip';
+    chip.style.background = hexA(accent, 0.18);
+    chip.style.color = accent;
     chip.innerHTML = '#' + t + ' <b>×</b>';
     chip.querySelector('b').addEventListener('click', () => {
       memo.tags = memo.tags.filter((x) => x !== t);
@@ -515,7 +596,7 @@ function buildMemoBlock(memo) {
   });
   const tagAdd = document.createElement('input');
   tagAdd.className = 'tag-add';
-  tagAdd.placeholder = '＋태그';
+  tagAdd.placeholder = '태그 입력';
   tagAdd.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -532,6 +613,10 @@ function buildMemoBlock(memo) {
     }
   });
   tagBar.appendChild(tagAdd);
+  // 태그 바의 빈 곳을 클릭하면 입력칸으로 포커스
+  tagBar.addEventListener('click', (e) => {
+    if (e.target === tagBar) tagAdd.focus();
+  });
   block.appendChild(tagBar);
 
   return block;
@@ -583,7 +668,7 @@ function renderMemoIndex() {
 
     const sq = document.createElement('span');
     sq.className = 'chip-square';
-    sq.style.background = memo.color;
+    sq.style.background = accentOf(memo);
 
     const label = document.createElement('span');
     label.className = 'label';
@@ -1033,29 +1118,33 @@ function applySettings() {
   else document.body.removeAttribute('data-theme');
 
   const btn = document.getElementById('btn-profile');
+  const avatar = document.getElementById('pm-avatar');
   const img = state.settings && state.settings.profileImage;
-  if (img) {
-    btn.style.backgroundImage = `url(${img})`;
-    btn.classList.add('has-img');
-    btn.textContent = '';
-  } else {
-    btn.style.backgroundImage = '';
-    btn.classList.remove('has-img');
-    btn.textContent = '♡';
-  }
+  [btn, avatar].forEach((el) => {
+    if (!el) return;
+    if (img) {
+      el.style.backgroundImage = `url(${img})`;
+      el.classList.add('has-img');
+      el.textContent = '';
+    } else {
+      el.style.backgroundImage = '';
+      el.classList.remove('has-img');
+      el.textContent = '♡';
+    }
+  });
 }
 
 function setupProfileTheme() {
   const profileBtn = document.getElementById('btn-profile');
   const profileMenu = document.getElementById('profile-menu');
-  const themeOverlay = document.getElementById('theme-overlay');
   const fileInput = document.getElementById('profile-file');
 
   profileBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const r = profileBtn.getBoundingClientRect();
     profileMenu.style.left = r.left + 'px';
-    profileMenu.style.top = (r.bottom + 4) + 'px';
+    profileMenu.style.top = (r.bottom + 6) + 'px';
+    if (!profileMenu.classList.contains('open')) renderThemeDots();
     profileMenu.classList.toggle('open');
   });
   document.addEventListener('click', (e) => {
@@ -1064,10 +1153,7 @@ function setupProfileTheme() {
     }
   });
 
-  document.getElementById('pm-image').addEventListener('click', () => {
-    profileMenu.classList.remove('open');
-    fileInput.click();
-  });
+  document.getElementById('pm-image').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
     const f = fileInput.files[0];
     if (!f) return;
@@ -1080,34 +1166,99 @@ function setupProfileTheme() {
     reader.readAsDataURL(f);
     fileInput.value = '';
   });
-
-  document.getElementById('pm-theme').addEventListener('click', () => {
-    profileMenu.classList.remove('open');
-    renderThemeList();
-    themeOverlay.classList.add('open');
-  });
-  document.getElementById('theme-close').addEventListener('click',
-    () => themeOverlay.classList.remove('open'));
-  themeOverlay.addEventListener('click', (e) => {
-    if (e.target === themeOverlay) themeOverlay.classList.remove('open');
-  });
 }
 
-function renderThemeList() {
-  const list = document.getElementById('theme-list');
-  list.innerHTML = '';
+function renderThemeDots() {
+  const wrap = document.getElementById('pm-themes');
+  wrap.innerHTML = '';
   THEMES.forEach((th) => {
     const b = document.createElement('button');
-    b.className = 'theme-item' +
-      (state.settings.theme === th.id ? ' on' : '');
-    b.innerHTML = `<span class="theme-dot" style="background:${th.swatch}"></span>${th.name}`;
+    b.className = 'theme-dot' + (state.settings.theme === th.id ? ' on' : '');
+    b.style.background = th.swatch;
+    b.title = th.name; // 마우스 올리면 테마 이름
     b.addEventListener('click', () => {
       state.settings.theme = th.id;
       save();
       applySettings();
-      renderThemeList();
+      renderThemeDots();
     });
-    list.appendChild(b);
+    wrap.appendChild(b);
+  });
+}
+
+/* =========================================================================
+ * 메모 서식 툴바 (텍스트 선택 시)
+ * ========================================================================= */
+function setupFormatToolbar() {
+  const bar = document.getElementById('format-toolbar');
+  const colors = document.getElementById('ft-colors');
+  const PALETTE = ['#4a4148', '#ec5f8a', '#8b6cff', '#2f9e8f', '#e0883a'];
+  colors.innerHTML = '';
+  PALETTE.forEach((c) => {
+    const d = document.createElement('button');
+    d.className = 'ft-color';
+    d.style.background = c;
+    d.dataset.color = c;
+    colors.appendChild(d);
+  });
+
+  // 현재 선택이 메모 본문 안에 있는지
+  function activeBody() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+    let node = sel.anchorNode;
+    node = node && (node.nodeType === 1 ? node : node.parentElement);
+    const body = node && node.closest && node.closest('.note-body');
+    return body || null;
+  }
+
+  function saveBody(body) {
+    const memo = state.memos.find((m) => m.id === body.dataset.id);
+    if (memo) { memo.content = body.innerHTML; save(); }
+  }
+
+  function hide() { bar.classList.remove('open'); }
+
+  function showForSelection() {
+    const body = activeBody();
+    if (!body) { hide(); return; }
+    const rect = window.getSelection().getRangeAt(0).getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) { hide(); return; }
+    bar.classList.add('open');
+    const bw = bar.offsetWidth || 220;
+    let left = rect.left + rect.width / 2 - bw / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+    let top = rect.top - bar.offsetHeight - 8;
+    if (top < 4) top = rect.bottom + 8;
+    bar.style.left = left + 'px';
+    bar.style.top = top + 'px';
+  }
+
+  document.addEventListener('mouseup', () => setTimeout(showForSelection, 0));
+  document.addEventListener('keyup', (e) => {
+    if (e.shiftKey || e.key === 'ArrowLeft' || e.key === 'ArrowRight') showForSelection();
+  });
+  memoPage.addEventListener('scroll', hide);
+
+  function applyCmd(cmd, value) {
+    const body = activeBody();
+    if (!body) return;
+    if (cmd === 'hilite') document.execCommand('hiliteColor', false, '#ffe9a8');
+    else if (cmd === 'foreColor') document.execCommand('foreColor', false, value);
+    else document.execCommand(cmd, false, null);
+    saveBody(body);
+    showForSelection();
+  }
+
+  // mousedown으로 처리해 선택이 풀리지 않게 함
+  bar.querySelectorAll('button[data-cmd]').forEach((btn) => {
+    btn.addEventListener('mousedown', (e) => { e.preventDefault(); applyCmd(btn.dataset.cmd); });
+  });
+  colors.addEventListener('mousedown', (e) => {
+    const d = e.target.closest('.ft-color');
+    if (!d) return;
+    e.preventDefault();
+    applyCmd('foreColor', d.dataset.color);
   });
 }
 
@@ -1123,6 +1274,7 @@ async function init() {
   setupDnd();
   setupGlobalKeys();
   setupProfileTheme();
+  setupFormatToolbar();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());

@@ -91,7 +91,9 @@ body {
   height: 46px;
   padding: 0 8px;
   background: var(--titlebar);
+  -webkit-app-region: drag; /* 빈 영역을 잡고 창 이동 */
 }
+.titlebar > * { -webkit-app-region: no-drag; }
 
 /* 프로필 아이콘 (가장 왼쪽, 동그랗게) */
 .profile-btn {
@@ -124,13 +126,14 @@ body {
 
 .tab {
   border: none;
-  background: rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 13px;
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   text-align: left;
-  min-width: 140px;
-  padding: 9px 18px 8px;
+  min-width: 150px;
+  padding: 10px 20px 9px;
   border-radius: 12px 12px 0 0;
   margin-right: 2px;
   cursor: pointer;
@@ -207,15 +210,20 @@ body {
   gap: 12px;
 }
 
-/* 투두 블럭(네모) */
+/* 투두 블럭(반투명 흰색) */
 .todo-block {
-  background: var(--c0);
+  background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
   padding: 12px 14px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
   transition: box-shadow 0.15s;
 }
 .todo-block:hover { box-shadow: 0 4px 12px rgba(180, 150, 165, 0.2); }
+.todo-block.pinned { box-shadow: 0 2px 10px rgba(180, 150, 165, 0.28); }
+
+.block-pin { opacity: 0; transition: opacity 0.15s; }
+.todo-block:hover .block-pin, .block-pin.active { opacity: 1; }
+.block-pin.active { color: var(--pink-deep); }
 
 .block-head {
   display: flex;
@@ -235,7 +243,11 @@ body {
 .drag-handle:active { cursor: grabbing; }
 .block-title {
   flex: 1;
+  min-width: 0;
   border: none;
+  border-left: 4px solid var(--pink); /* 제목 앞 막대 (색은 JS로 지정) */
+  border-radius: 1px;
+  padding-left: 8px;
   background: transparent;
   font-size: 20px;
   font-weight: 700;
@@ -413,13 +425,15 @@ body {
 .memo-index:hover .index-chip .label,
 .memo-index.pinned .index-chip .label { opacity: 1; }
 
-/* 메모별 태그 바 (메모 최하단) */
+/* 메모별 태그 바 (메모 최하단) — 빈 영역 클릭하면 태그 입력 */
 .note-tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;
   margin-top: 8px;
+  min-height: 22px;
+  cursor: text;
 }
 .tag-chip {
   font-size: 11px;
@@ -510,9 +524,9 @@ body {
   pointer-events: none;
 }
 
-/* 메모 한 개 = 컬러 블록 */
+/* 메모 한 개 = 반투명 흰색 블록 */
 .memo-block {
-  background: var(--c1);
+  background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
   padding: 8px 14px 12px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
@@ -534,6 +548,9 @@ body {
 
 .note-body {
   border: none;
+  border-left: 4px solid var(--pink); /* 제목(첫 줄) 앞 막대 (색은 JS로 지정) */
+  border-radius: 1px;
+  padding-left: 10px;
   background: transparent;
   outline: none;
   font-size: 14px;
@@ -684,31 +701,59 @@ body {
   display: none;
   position: fixed;
   z-index: 200;
+  width: 260px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 18px;
   box-shadow: var(--shadow);
-  padding: 6px;
-  min-width: 178px;
+  padding: 22px 20px 18px;
+  text-align: center;
 }
 .profile-menu.open { display: block; }
 
-.theme-list { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
-.theme-item {
+.pm-avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  margin: 0 auto 14px;
+  background: var(--pink) center/cover no-repeat;
+  color: #fff;
+  font-size: 40px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  border: 1px solid var(--line);
-  background: #fff;
-  border-radius: 10px;
-  padding: 9px 11px;
-  font-size: 13px;
-  color: var(--ink);
-  cursor: pointer;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(236, 150, 179, 0.4);
 }
-.theme-item:hover { background: var(--pink-soft); }
-.theme-item.on { border-color: var(--pink); background: var(--pink-soft); font-weight: 700; }
-.theme-dot { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.pm-image {
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px;
+}
+.pm-image:hover { color: var(--pink-deep); }
+.pm-theme-label {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.pm-themes {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.theme-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.theme-dot.on { border-color: var(--ink); }
 
 /* 인덱스 제목 수정 인풋 */
 .index-rename {
@@ -725,6 +770,41 @@ body {
 /* ======================= 하이퍼링크 (평소엔 티 안 남) ======================= */
 .link { color: inherit; text-decoration: none; }
 .link:hover { color: var(--pink-deep); text-decoration: underline; cursor: pointer; }
+
+/* ======================= 서식 툴바 ======================= */
+.format-toolbar {
+  display: none;
+  position: fixed;
+  z-index: 300;
+  align-items: center;
+  gap: 2px;
+  background: #2f2a2e;
+  border-radius: 10px;
+  padding: 4px 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+.format-toolbar.open { display: flex; }
+.format-toolbar button {
+  border: none;
+  background: transparent;
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.format-toolbar button:hover { background: rgba(255, 255, 255, 0.18); }
+.format-toolbar .ft-hl { background: #ffe9a8; color: #5a4a1f; }
+.ft-sep { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.25); margin: 0 4px; }
+.ft-colors { display: inline-flex; gap: 4px; }
+.ft-color {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4); cursor: pointer; padding: 0;
+}
+
+/* 서식 적용 결과 (형광펜 등) */
+.note-body mark, .note-body [style*="background"] { border-radius: 2px; }
 
 /* ======================= 메모 검색 하이라이트 ======================= */
 ::highlight(find) { background: #ffe9a8; }
