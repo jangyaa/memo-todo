@@ -7,9 +7,9 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-// 블록 배경(반투명 색) + 강조색(해시태그/제목 막대)
-const SOFTS = ['#fde7ee', '#f3eafc', '#e9f5e8', '#e6f1fb', '#fdf3e3', '#fbe9e9'];
-const ACCENTS = ['#ef9ab9', '#b48be6', '#86c97f', '#7fb2e6', '#e0ad57', '#e58a8a'];
+// 블록 배경(반투명 색) + 강조색(해시태그 등) — 저채도
+const SOFTS = ['#f5ecf0', '#efeaf4', '#eaf0ea', '#e9eff5', '#f4efe6', '#f4ecec'];
+const ACCENTS = ['#cf9aac', '#a99ac6', '#94b694', '#93aecb', '#cbb189', '#cf9b9b'];
 const BLOCK_ALPHA = 0.4; // 투두/메모 공통 불투명도
 function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
@@ -298,21 +298,19 @@ function buildBlock(todo) {
   block.dataset.id = todo.id;
   block.style.background = blockBg(todo);
 
+  // 상단 영역(헤더)을 잡고 드래그하면 순서 이동
   const head = document.createElement('div');
   head.className = 'block-head';
-
-  // 드래그 핸들 (순서 변경)
-  const handle = document.createElement('span');
-  handle.className = 'drag-handle';
-  handle.textContent = '⠿';
-  handle.title = '드래그해서 순서 변경';
-  handle.draggable = true;
-  handle.addEventListener('dragstart', (e) => startBlockDrag(e, 'todo', block, todo.id));
-  handle.addEventListener('dragend', endBlockDrag);
+  head.draggable = true;
+  head.addEventListener('dragstart', (e) => {
+    if (e.target.closest('.icon-btn')) { e.preventDefault(); return; }
+    startBlockDrag(e, 'todo', block, todo.id);
+  });
+  head.addEventListener('dragend', endBlockDrag);
 
   const title = document.createElement('input');
   title.className = 'block-title';
-  title.placeholder = 'To-do';
+  title.placeholder = '제목';
   title.value = todo.title || '';
   title.addEventListener('input', () => { todo.title = title.value; save(); });
   title.addEventListener('keydown', (e) => {
@@ -361,7 +359,6 @@ function buildBlock(todo) {
   tools.appendChild(colorBtn);
   tools.appendChild(del);
 
-  head.appendChild(handle);
   head.appendChild(title);
   head.appendChild(tools);
   block.appendChild(head);
@@ -554,16 +551,15 @@ function buildMemoBlock(memo) {
   block.dataset.id = memo.id;
   block.style.background = blockBg(memo);
 
-  // 헤더: 드래그 핸들(좌) + [고정/색상/삭제](우, hover 시 노출)
+  // 상단 영역(헤더)을 잡고 드래그하면 순서 이동
   const head = document.createElement('div');
   head.className = 'memo-head';
-  const handle = document.createElement('span');
-  handle.className = 'drag-handle';
-  handle.textContent = '⠿';
-  handle.title = '드래그해서 순서 변경';
-  handle.draggable = true;
-  handle.addEventListener('dragstart', (e) => startBlockDrag(e, 'memo', block, memo.id));
-  handle.addEventListener('dragend', endBlockDrag);
+  head.draggable = true;
+  head.addEventListener('dragstart', (e) => {
+    if (e.target.closest('.icon-btn')) { e.preventDefault(); return; }
+    startBlockDrag(e, 'memo', block, memo.id);
+  });
+  head.addEventListener('dragend', endBlockDrag);
 
   const tools = document.createElement('div');
   tools.className = 'memo-tools';
@@ -594,17 +590,15 @@ function buildMemoBlock(memo) {
   tools.appendChild(pin);
   tools.appendChild(colorBtn);
   tools.appendChild(del);
-  head.appendChild(handle);
   head.appendChild(tools);
   block.appendChild(head);
 
-  // 본문 (서식 가능한 HTML). 제목(첫 줄)에만 막대 → CSS ::before + --bar
+  // 본문 (서식 가능한 HTML)
   const body = document.createElement('div');
   body.className = 'note-body';
   body.dataset.id = memo.id;
   body.contentEditable = 'true';
   body.spellcheck = false;
-  body.style.setProperty('--bar', accent);
   body.innerHTML = looksHtml(memo.content) ? memo.content : linkifyHtml(memo.content || '');
   body.addEventListener('input', () => {
     memo.content = body.innerHTML;
@@ -1645,6 +1639,8 @@ function setupFormatToolbar() {
   hideFormatToolbar = hide;
 
   function showForSelection() {
+    // 더블클릭 글꼴 도구가 떠 있으면 서식 툴바는 표시하지 않음
+    if (document.getElementById('font-pop').classList.contains('open')) return;
     const body = currentBody();
     if (!body) { hide(); return; }
     const range = window.getSelection().getRangeAt(0);
@@ -1702,13 +1698,18 @@ function setupFormatToolbar() {
     if (!restoreSelection() || !savedBody) return;
     try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
     if (cmd === 'hilite') document.execCommand('hiliteColor', false, '#ffe9a8');
-    else if (cmd === 'quote') document.execCommand('formatBlock', false, 'blockquote');
-    else if (cmd === 'code') {
-      const text = window.getSelection().toString();
-      if (text) document.execCommand('insertHTML', false, '<code>' + escapeHtml(text) + '</code>');
-    } else if (cmd === 'link') {
-      const url = prompt('링크 주소(URL)를 입력하세요', 'https://');
-      if (url) document.execCommand('createLink', false, url);
+    else if (cmd === 'quote') {
+      // 토글: 이미 인용구 안이면 해제
+      const sel = window.getSelection();
+      let n = sel.anchorNode;
+      n = n && (n.nodeType === 1 ? n : n.parentElement);
+      if (n && n.closest && n.closest('blockquote')) {
+        document.execCommand('formatBlock', false, 'div');
+      } else {
+        document.execCommand('formatBlock', false, 'blockquote');
+      }
+    } else if (cmd === 'hr') {
+      document.execCommand('insertHorizontalRule', false, null);
     } else {
       document.execCommand(cmd, false, value || null);
     }
@@ -1731,12 +1732,46 @@ function setupFormatToolbar() {
     e.preventDefault();
     run('foreColor', d.dataset.color);
   });
-  // 커스텀 색 추가 (헥사 입력칸 토글 — 시스템 색상창 안 씀)
-  const hexInput = document.getElementById('ft-hex');
+  // 커스텀 색 추가 → 색상 팝오버(시각적 선택 + hex). 시스템 RGB창 안 씀
+  const colorPop = document.getElementById('ft-colorpop');
+  const grid = document.getElementById('ftc-grid');
+  const hexInput = document.getElementById('ftc-hex');
+  const GRID = [
+    '#000000', '#5a5560', '#9a8f96', '#c9c2c7', '#ffffff',
+    '#e0667f', '#ec96b3', '#f6c0d4', '#c79bab', '#8b6cff',
+    '#7fa7e0', '#4a90d9', '#3aa39a', '#86c79a', '#bde85a',
+    '#e0ad57', '#e58a5a', '#b5713a'
+  ];
+  grid.innerHTML = '';
+  GRID.forEach((c) => {
+    const sw = document.createElement('button');
+    sw.className = 'ftc-sw';
+    sw.style.background = c;
+    sw.dataset.color = c;
+    grid.appendChild(sw);
+  });
+
+  function openColorPop() {
+    const r = document.getElementById('ft-addcolor').getBoundingClientRect();
+    colorPop.classList.add('open');
+    let x = r.left, y = r.bottom + 4;
+    const cr = colorPop.getBoundingClientRect();
+    if (x + cr.width > window.innerWidth - 8) x = window.innerWidth - 8 - cr.width;
+    if (y + cr.height > window.innerHeight - 8) y = r.top - cr.height - 4;
+    colorPop.style.left = Math.max(8, x) + 'px';
+    colorPop.style.top = Math.max(8, y) + 'px';
+  }
   document.getElementById('ft-addcolor').addEventListener('mousedown', (e) => {
     e.preventDefault();
-    hexInput.classList.toggle('open');
-    if (hexInput.classList.contains('open')) hexInput.focus();
+    if (colorPop.classList.contains('open')) colorPop.classList.remove('open');
+    else openColorPop();
+  });
+  grid.addEventListener('mousedown', (e) => {
+    const sw = e.target.closest('.ftc-sw');
+    if (!sw) return;
+    e.preventDefault();
+    run('foreColor', sw.dataset.color);
+    colorPop.classList.remove('open');
   });
   hexInput.addEventListener('mousedown', (e) => e.stopPropagation());
   hexInput.addEventListener('keydown', (e) => {
@@ -1747,10 +1782,14 @@ function setupFormatToolbar() {
         if (v[0] !== '#') v = '#' + v;
         run('foreColor', v);
         hexInput.value = '';
-        hexInput.classList.remove('open');
+        colorPop.classList.remove('open');
       }
     }
   });
+  // 서식 툴바가 닫힐 때 색 팝오버도 닫기
+  const _hide0 = hide;
+  hide = function () { colorPop.classList.remove('open'); _hide0(); };
+  hideFormatToolbar = hide;
   // 글꼴 변경 (select 포커스로 선택이 풀려도 savedRange로 복원)
   fontSel.addEventListener('mousedown', (e) => e.stopPropagation());
   fontSel.addEventListener('change', () => { run('fontName', fontSel.value); });

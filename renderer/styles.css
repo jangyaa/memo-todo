@@ -1,24 +1,24 @@
 /* ======================= 기본/테마 ======================= */
 :root {
-  --bg: #fdf6f8;
+  --bg: #f9f5f6;
   --panel: #ffffff;
-  --ink: #4a4148;
-  --ink-soft: #9b9098;
-  --line: #f0e3e8;
-  --pink: #f7b8cc;
-  --pink-deep: #ec96b3;
-  --pink-soft: #fde7ee;
-  --shadow: 0 6px 20px rgba(214, 150, 175, 0.18);
+  --ink: #4f484c;
+  --ink-soft: #a8a0a5;
+  --line: #ece3e7;
+  --pink: #e3c3ce;
+  --pink-deep: #c79bab;
+  --pink-soft: #f3ecef;
+  --shadow: 0 6px 20px rgba(170, 150, 160, 0.16);
   --radius: 16px;
-  --titlebar: linear-gradient(180deg, #c97da0, #bf7195);
+  --titlebar: linear-gradient(180deg, #bd9dab, #b3919f);
 
-  /* 투두 블럭 파스텔 색상 팔레트 */
-  --c0: #fde7ee;
-  --c1: #f3eafc;
-  --c2: #e9f5e8;
-  --c3: #e6f1fb;
-  --c4: #fdf3e3;
-  --c5: #fbe9e9;
+  /* 투두 블럭 파스텔 색상 팔레트 (저채도) */
+  --c0: #f5ecf0;
+  --c1: #efeaf4;
+  --c2: #eaf0ea;
+  --c3: #e9eff5;
+  --c4: #f4efe6;
+  --c5: #f4ecec;
 }
 
 /* ===== 테마 (Y2K 임시 팔레트, 색은 추후 조정) ===== */
@@ -91,9 +91,9 @@ body {
   height: 46px;
   padding: 0 8px;
   background: var(--titlebar);
-  -webkit-app-region: drag; /* 빈 영역을 잡고 창 이동 */
+  -webkit-app-region: drag; /* 빈 영역(탭 사이/여백)을 잡고 창 이동 */
 }
-.titlebar > * { -webkit-app-region: no-drag; }
+.profile-btn, .titlebar-right, .tab { -webkit-app-region: no-drag; }
 
 /* 프로필 아이콘 (가장 왼쪽, 동그랗게 / 테두리 없음 / 아바타와 동일 렌더링) */
 .profile-btn {
@@ -117,28 +117,34 @@ body {
   justify-content: center;
 }
 
-/* 좌측 파일형 탭 (서로 붙어 있음, 좌측 정렬) */
+/* 좌측 파일형 탭 — 창 너비에 따라 늘었다 줄었다 (프로필/우측 아이콘은 고정) */
 .titlebar-tabs {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  gap: 0;
+  gap: 4px;
   align-items: flex-end;
   -webkit-app-region: no-drag;
 }
-.titlebar-drag { flex: 1; align-self: stretch; -webkit-app-region: drag; }
 
 .tab {
+  flex: 1;
+  min-width: 0;
   border: none;
   background: rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: inherit; /* 본문과 동일(Pretendard 우선) */
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  text-align: left;
-  min-width: 140px;
-  padding: 9px 18px 8px;
+  text-align: center;
+  max-width: 180px;
+  padding: 9px 14px 8px;
   border-radius: 12px 12px 0 0;
-  margin-right: 2px;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: background 0.12s, color 0.12s, transform 0.12s;
 }
 .tab:hover { background: rgba(255, 255, 255, 0.26); }
@@ -216,7 +222,7 @@ body {
 .todo-block {
   background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 16px 16px 18px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
   transition: box-shadow 0.15s;
 }
@@ -228,8 +234,10 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  cursor: grab;
 }
+.block-head:active { cursor: grabbing; }
 .drag-handle {
   cursor: grab;
   color: var(--ink-soft);
@@ -254,7 +262,7 @@ body {
 .block-title::placeholder { color: rgba(74, 65, 72, 0.35); }
 
 
-.checklist { display: flex; flex-direction: column; gap: 2px; }
+.checklist { display: flex; flex-direction: column; gap: 5px; }
 
 .check-item {
   display: flex;
@@ -533,10 +541,13 @@ body {
 .memo-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   height: 18px;
   margin-bottom: 2px;
+  cursor: grab;
 }
+.memo-head:active { cursor: grabbing; }
+.note-body hr { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
 .memo-head .drag-handle { opacity: 0; }
 .memo-block:hover .memo-head .drag-handle { opacity: 0.5; }
 /* 고정/색상/삭제 버튼: 블록에 마우스를 올렸을 때만 표시 (투두·메모 공용) */
@@ -545,12 +556,12 @@ body {
 .todo-block:hover .memo-tools .icon-btn,
 .memo-block:hover .memo-tools .icon-btn { opacity: 1; }
 .memo-tools .icon-btn:hover { color: var(--pink-deep); }
-.memo-pin.active, .block-pin.active { color: var(--pink-deep); opacity: 1; }
+/* 고정 상태는 색으로만 표시(아이콘 자체는 hover 시에만 노출) */
+.memo-pin.active, .block-pin.active { color: var(--pink-deep); }
 
 .note-body {
   position: relative;
   border: none;
-  padding-left: 12px;
   background: transparent;
   outline: none;
   font-size: 14px;
@@ -559,17 +570,6 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
   -webkit-app-region: no-drag;
-}
-/* 제목(첫 줄) 앞 막대 — 첫 줄 높이만큼만 */
-.note-body::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 5px;
-  width: 4px;
-  height: 1.1em;
-  border-radius: 2px;
-  background: var(--bar, var(--pink));
 }
 .note-body:empty::after {
   content: "여기에 메모를 작성하세요.\A첫 줄이 제목이 됩니다.";
@@ -802,7 +802,8 @@ body {
   white-space: nowrap;
 }
 .folder-head:hover { background: var(--pink-soft); }
-.folder-caret { width: 12px; flex-shrink: 0; color: var(--ink-soft); }
+.folder-caret { width: 12px; flex-shrink: 0; color: var(--ink-soft); opacity: 0; transition: opacity 0.15s; }
+.memo-index:hover .folder-caret, .memo-index.pinned .folder-caret { opacity: 1; }
 .folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity 0.15s; }
 .memo-index:hover .folder-name, .memo-index.pinned .folder-name { opacity: 1; }
 .folder-children { padding-left: 12px; }
@@ -883,7 +884,7 @@ body {
 .ft-align { gap: 2px; }
 .ft-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
 
-/* 색상 선택 팝오버 */
+/* 색상 선택 팝오버 (블록 색) */
 .color-pop {
   display: none;
   position: fixed;
@@ -895,6 +896,24 @@ body {
   padding: 8px;
 }
 .color-pop.open { display: block; }
+
+/* 글자 색 팝오버 (서식) */
+.ft-colorpop {
+  display: none;
+  position: fixed;
+  z-index: 320;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 10px;
+  width: 172px;
+}
+.ft-colorpop.open { display: block; }
+.ftc-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 8px; }
+.ftc-sw { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); cursor: pointer; padding: 0; }
+#ftc-hex { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font-size: 11px; outline: none; }
+#ftc-hex:focus { border-color: var(--pink); }
 
 /* 색상 변경 버튼(스와치 점) — 투두/메모 공용 */
 .color-btn { padding: 0; }

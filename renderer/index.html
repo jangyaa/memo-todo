@@ -12,7 +12,6 @@
     <header class="titlebar">
       <button class="profile-btn" id="btn-profile" title="프로필">♡</button>
       <div class="titlebar-tabs" id="tabs"></div>
-      <div class="titlebar-drag"></div>
       <div class="titlebar-right">
         <button class="icon-btn" id="btn-sync" title="클라우드 동기화">☁</button>
         <button class="icon-btn" id="btn-min" title="최소화">─</button>
@@ -91,8 +90,14 @@
     </div>
   </div>
 
-  <!-- 색상 선택 팝오버 -->
+  <!-- 색상 선택 팝오버 (블록 색) -->
   <div class="color-pop" id="color-pop"></div>
+
+  <!-- 글자 색 선택 팝오버 (서식) -->
+  <div class="ft-colorpop" id="ft-colorpop">
+    <div class="ftc-grid" id="ftc-grid"></div>
+    <input type="text" id="ftc-hex" placeholder="#hex 코드" maxlength="7" />
+  </div>
 
   <!-- 메모 본문 텍스트 선택 시 뜨는 서식 툴바 -->
   <div class="format-toolbar" id="format-toolbar">
@@ -104,14 +109,12 @@
         <button data-cmd="underline" title="밑줄"><u>U</u></button>
         <button data-cmd="strikeThrough" title="취소선"><s>S</s></button>
         <button data-cmd="hilite" title="형광펜"><svg viewBox="0 0 20 20"><path d="M4 13 L12 5 L15 8 L7 16 L4 16 Z"/><rect class="hl-line" x="3" y="18" width="14" height="2"/></svg></button>
-        <button data-cmd="code" class="ft-code" title="코드">&lt;/&gt;</button>
       </div>
     </div>
     <div class="ft-line">
       <span class="ft-tag">색</span>
       <span class="ft-colors" id="ft-colors"></span>
       <button class="ft-addcolor" id="ft-addcolor" title="색 추가">+</button>
-      <input type="text" id="ft-hex" class="ft-hex" placeholder="#hex" maxlength="7" />
     </div>
     <div class="ft-line">
       <span class="ft-tag">크기</span>
@@ -129,7 +132,7 @@
       <button data-cmd="justifyRight" title="오른쪽"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="6" y="7" width="9" height="2"/><rect x="3" y="12" width="12" height="2"/></svg></button>
       <span class="ft-sep"></span>
       <button data-cmd="quote" title="인용구">❝</button>
-      <button data-cmd="link" title="링크"><svg viewBox="0 0 16 16"><path d="M6 10 a3 3 0 0 1 0-4 l2-2 a3 3 0 0 1 4 4 l-1 1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 6 a3 3 0 0 1 0 4 l-2 2 a3 3 0 0 1-4-4 l1-1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+      <button data-cmd="hr" title="구분선">―</button>
     </div>
   </div>
 
