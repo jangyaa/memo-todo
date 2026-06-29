@@ -51,43 +51,43 @@ body {
   box-shadow: var(--shadow);
 }
 
-/* ======================= 타이틀바 ======================= */
+/* ======================= 타이틀바 (짙은 바) ======================= */
 .titlebar {
   display: flex;
   align-items: flex-end;
-  height: 42px;
+  height: 44px;
   padding: 0 8px;
-  background: linear-gradient(180deg, #fff, #fff9fb);
-  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #c97da0, #bf7195);
+  border-bottom: 1px solid #b06485;
 }
 
-/* 좌측 크롬형 탭 */
+/* 좌측 파일형 탭 (서로 붙어 있음, 좌측 정렬) */
 .titlebar-tabs {
   display: flex;
-  gap: 3px;
+  gap: 0;
   align-items: flex-end;
   -webkit-app-region: no-drag;
 }
 .titlebar-drag { flex: 1; align-self: stretch; -webkit-app-region: drag; }
 
 .tab {
-  border: 1px solid transparent;
-  border-bottom: none;
-  background: #f7e6ed;
-  color: var(--ink-soft);
-  font-size: 12.5px;
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
   font-weight: 600;
-  padding: 7px 16px 6px;
-  border-radius: 10px 10px 0 0;
+  text-align: left;
+  min-width: 104px;
+  padding: 9px 20px 8px;
+  border-radius: 12px 12px 0 0;
+  margin-right: 2px;
   cursor: pointer;
   transition: background 0.12s, color 0.12s, transform 0.12s;
 }
-.tab:hover { background: #fce3ec; }
+.tab:hover { background: rgba(255, 255, 255, 0.26); }
 .tab.active {
   background: var(--bg);
   color: var(--pink-deep);
-  border-color: var(--line);
-  border-bottom: none;
 }
 .tab.tearing { opacity: 0.4; transform: translateY(8px) scale(0.92); }
 
@@ -96,9 +96,11 @@ body {
   gap: 2px;
   align-items: center;
   align-self: center;
-  margin-bottom: 0;
   -webkit-app-region: no-drag;
 }
+.titlebar-right .icon-btn { color: rgba(255, 255, 255, 0.9); }
+.titlebar-right .icon-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+.titlebar-right .icon-btn.active { background: rgba(255, 255, 255, 0.85); color: var(--pink-deep); }
 
 .icon-btn {
   border: none;
@@ -120,37 +122,34 @@ body {
 
 /* ======================= 뷰 전환 ======================= */
 .view { display: none; flex: 1; min-height: 0; }
-.view.active { display: flex; flex-direction: column; }
+.view.active { display: flex; flex-direction: column; position: relative; }
 
-/* ======================= 투두 뷰 ======================= */
-.todo-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 10px 12px 4px;
-}
-
-.add-btn {
+/* 우측 하단 떠 있는 추가(+) 버튼 */
+.fab {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 30;
   border: none;
   background: var(--pink);
   color: #fff;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  font-size: 20px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
-  flex-shrink: 0;
-  box-shadow: 0 3px 8px rgba(236, 150, 179, 0.4);
+  box-shadow: 0 4px 12px rgba(236, 150, 179, 0.5);
   transition: transform 0.1s;
 }
-.add-btn:hover { transform: scale(1.08); }
-.add-btn:active { transform: scale(0.96); }
+.fab:hover { transform: scale(1.08); }
+.fab:active { transform: scale(0.96); }
 
+/* ======================= 투두 뷰 ======================= */
 .todo-board {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 12px 16px;
+  padding: 14px 12px 70px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -303,7 +302,8 @@ body {
   overflow: hidden;
   transition: width 0.18s ease;
 }
-.memo-index:hover { width: 172px; }
+.memo-index:hover,
+.memo-index.pinned { width: 172px; }
 
 .index-toolbar {
   display: flex;
@@ -321,7 +321,8 @@ body {
   opacity: 0;
   transition: opacity 0.15s;
 }
-.memo-index:hover .index-title { opacity: 1; }
+.memo-index:hover .index-title,
+.memo-index.pinned .index-title { opacity: 1; }
 
 .index-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 7px; }
 
@@ -353,15 +354,16 @@ body {
   opacity: 0;
   transition: opacity 0.15s;
 }
-.memo-index:hover .index-chip .label { opacity: 1; }
+.memo-index:hover .index-chip .label,
+.memo-index.pinned .index-chip .label { opacity: 1; }
 
-/* 메모별 태그 바 */
+/* 메모별 태그 바 (메모 최하단) */
 .note-tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;
-  margin-bottom: 6px;
+  margin-top: 8px;
 }
 .tag-chip {
   font-size: 11px;
@@ -435,22 +437,44 @@ body {
 .memo-page {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px 40px;
+  padding: 12px 14px 70px;
   user-select: text;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+/* 드래그 중 블록 + 드롭 위치 미리보기 선 */
+.dragging { opacity: 0.4; }
+.drop-indicator {
+  height: 3px;
+  background: var(--pink-deep);
+  border-radius: 3px;
+  margin: -7px 2px;
+  pointer-events: none;
+}
+
 /* 메모 한 개 = 컬러 블록 */
 .memo-block {
   background: var(--c1);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 8px 14px 12px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
   transition: box-shadow 0.15s;
 }
 .memo-block:hover { box-shadow: 0 4px 12px rgba(180, 150, 165, 0.2); }
+
+.memo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 18px;
+  margin-bottom: 2px;
+}
+.memo-head .drag-handle { opacity: 0; }
+.memo-block:hover .memo-head .drag-handle { opacity: 0.5; }
+.memo-del { opacity: 0; transition: opacity 0.15s; }
+.memo-block:hover .memo-del { opacity: 1; }
 
 .note-body {
   border: none;

@@ -61,7 +61,7 @@ const params = new URLSearchParams(location.search);
 let myViews = (params.get('views') || 'todo,memo').split(',').filter(Boolean);
 let currentView = myViews[0] || 'todo';
 
-const VIEW_LABEL = { todo: '할 일', memo: '메모' };
+const VIEW_LABEL = { todo: '투두 리스트', memo: '메모' };
 
 function applyView() {
   document.getElementById('view-todo').classList.toggle('active', currentView === 'todo');
@@ -169,36 +169,21 @@ function buildBlock(todo) {
   block.style.background = todo.color;
   block.dataset.id = todo.id;
 
-  // 드래그로 순서 변경 (블럭 전체를 드롭 타겟으로)
-  block.addEventListener('dragover', (e) => e.preventDefault());
-  block.addEventListener('drop', (e) => {
-    e.preventDefault();
-    const draggedId = e.dataTransfer.getData('text/todo');
-    if (!draggedId || draggedId === todo.id) return;
-    const from = state.todos.findIndex((t) => t.id === draggedId);
-    const to = state.todos.findIndex((t) => t.id === todo.id);
-    if (from < 0 || to < 0) return;
-    const [moved] = state.todos.splice(from, 1);
-    state.todos.splice(to, 0, moved);
-    save();
-    renderTodos();
-  });
-
   const head = document.createElement('div');
   head.className = 'block-head';
 
-  // 드래그 핸들
+  // 드래그 핸들 (순서 변경)
   const handle = document.createElement('span');
   handle.className = 'drag-handle';
   handle.textContent = '⠿';
   handle.title = '드래그해서 순서 변경';
   handle.draggable = true;
-  handle.addEventListener('dragstart', (e) =>
-    e.dataTransfer.setData('text/todo', todo.id));
+  handle.addEventListener('dragstart', (e) => startBlockDrag(e, 'todo', block, todo.id));
+  handle.addEventListener('dragend', endBlockDrag);
 
   const title = document.createElement('input');
   title.className = 'block-title';
-  title.placeholder = '할 일';
+  title.placeholder = 'To-do';
   title.value = todo.title || '';
   title.addEventListener('input', () => { todo.title = title.value; save(); });
   title.addEventListener('keydown', (e) => {
@@ -279,7 +264,7 @@ function buildItem(todo, item) {
   text.className = 'check-text';
   text.rows = 1;
   text.value = item.text || '';
-  text.placeholder = '세부 항목';
+  text.placeholder = '세부항목';
   text.addEventListener('input', () => {
     item.text = text.value;
     autoGrow(text);
@@ -417,40 +402,28 @@ function buildMemoBlock(memo) {
   block.style.background = memo.color;
   block.dataset.id = memo.id;
 
-  // 태그 바
-  const tagBar = document.createElement('div');
-  tagBar.className = 'note-tags';
-  sortTags(memo.tags || []).forEach((t) => {
-    const chip = document.createElement('span');
-    chip.className = 'tag-chip';
-    chip.innerHTML = '#' + t + ' <b>×</b>';
-    chip.querySelector('b').addEventListener('click', () => {
-      memo.tags = memo.tags.filter((x) => x !== t);
-      activeTags.delete(t);
-      save();
-      renderMemos();
-    });
-    tagBar.appendChild(chip);
+  // 헤더: 드래그 핸들(좌) + 삭제(우, hover 시 노출)
+  const head = document.createElement('div');
+  head.className = 'memo-head';
+  const handle = document.createElement('span');
+  handle.className = 'drag-handle';
+  handle.textContent = '⠿';
+  handle.title = '드래그해서 순서 변경';
+  handle.draggable = true;
+  handle.addEventListener('dragstart', (e) => startBlockDrag(e, 'memo', block, memo.id));
+  handle.addEventListener('dragend', endBlockDrag);
+  const del = document.createElement('button');
+  del.className = 'icon-btn small memo-del';
+  del.textContent = '✕';
+  del.title = '메모 삭제';
+  del.addEventListener('click', () => {
+    state.memos = state.memos.filter((m) => m.id !== memo.id);
+    save();
+    renderMemos();
   });
-  const tagAdd = document.createElement('input');
-  tagAdd.className = 'tag-add';
-  tagAdd.placeholder = '＋태그';
-  tagAdd.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const t = tagAdd.value.trim().replace(/^#/, '');
-      if (t && !memo.tags.includes(t)) {
-        memo.tags = sortTags([...memo.tags, t]);
-        save();
-        renderMemos();
-        focusTagAdd(memo.id); // 연속 입력
-      } else {
-        tagAdd.value = '';
-      }
-    }
-  });
-  tagBar.appendChild(tagAdd);
-  block.appendChild(tagBar);
+  head.appendChild(handle);
+  head.appendChild(del);
+  block.appendChild(head);
 
   // 본문
   const body = document.createElement('div');
@@ -465,9 +438,10 @@ function buildMemoBlock(memo) {
     updateIndexTitle(memo);
   });
   body.addEventListener('keydown', (e) => {
-    // Shift+Enter: 새 메모 블록
+    // Shift+Enter: 현재 메모 다음에 새 메모 블록 (전역 핸들러와 중복 방지)
     if (e.shiftKey && e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       memo.content = body.innerText;
       const idx = state.memos.findIndex((m) => m.id === memo.id);
       const nm = { id: uid(), content: '', tags: [], color: nextMemoColor() };
@@ -490,6 +464,42 @@ function buildMemoBlock(memo) {
     }
   });
   block.appendChild(body);
+
+  // 태그 바 (메모 최하단)
+  const tagBar = document.createElement('div');
+  tagBar.className = 'note-tags';
+  sortTags(memo.tags || []).forEach((t) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.innerHTML = '#' + t + ' <b>×</b>';
+    chip.querySelector('b').addEventListener('click', () => {
+      memo.tags = memo.tags.filter((x) => x !== t);
+      activeTags.delete(t);
+      save();
+      renderMemos();
+    });
+    tagBar.appendChild(chip);
+  });
+  const tagAdd = document.createElement('input');
+  tagAdd.className = 'tag-add';
+  tagAdd.placeholder = '＋태그';
+  tagAdd.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      const t = tagAdd.value.trim().replace(/^#/, '');
+      if (t && !memo.tags.includes(t)) {
+        memo.tags = sortTags([...memo.tags, t]);
+        save();
+        renderMemos();
+        focusTagAdd(memo.id); // 연속 입력
+      } else {
+        tagAdd.value = '';
+      }
+    }
+  });
+  tagBar.appendChild(tagAdd);
+  block.appendChild(tagBar);
 
   return block;
 }
@@ -610,9 +620,14 @@ function openCtxMenu(x, y, memo) {
   ctxMenu.style.left = x + 'px';
   ctxMenu.style.top = y + 'px';
   ctxMenu.classList.add('open');
+  // 메뉴가 떠 있는 동안 인덱스가 접히지 않도록 고정
+  document.getElementById('memo-index').classList.add('pinned');
 }
 
-function hideCtxMenu() { ctxMenu.classList.remove('open'); }
+function hideCtxMenu() {
+  ctxMenu.classList.remove('open');
+  document.getElementById('memo-index').classList.remove('pinned');
+}
 
 function setupCtxMenu() {
   document.addEventListener('click', (e) => {
@@ -808,6 +823,97 @@ async function reloadFromLocal() {
 }
 
 /* =========================================================================
+ * 블록 순서 변경 (드래그 + 드롭 위치 미리보기)
+ * ========================================================================= */
+const dropIndicator = document.createElement('div');
+dropIndicator.className = 'drop-indicator';
+let blockDrag = null; // { kind:'todo'|'memo', id, block }
+let dropBeforeId = null;
+
+function startBlockDrag(e, kind, block, id) {
+  blockDrag = { kind, id, block };
+  dropBeforeId = null;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  }
+  requestAnimationFrame(() => block.classList.add('dragging'));
+}
+
+function endBlockDrag() {
+  if (blockDrag) blockDrag.block.classList.remove('dragging');
+  if (dropIndicator.parentNode) dropIndicator.parentNode.removeChild(dropIndicator);
+  blockDrag = null;
+  dropBeforeId = null;
+}
+
+function positionIndicator(container, selector, y) {
+  const blocks = [...container.querySelectorAll(selector)]
+    .filter((b) => !b.classList.contains('dragging'));
+  dropBeforeId = null;
+  for (const b of blocks) {
+    const rect = b.getBoundingClientRect();
+    if (y < rect.top + rect.height / 2) {
+      container.insertBefore(dropIndicator, b);
+      dropBeforeId = b.dataset.id;
+      return;
+    }
+  }
+  container.appendChild(dropIndicator);
+}
+
+function reorderList(list, draggedId, beforeId) {
+  const from = list.findIndex((x) => x.id === draggedId);
+  if (from < 0) return;
+  const [moved] = list.splice(from, 1);
+  if (beforeId == null) { list.push(moved); return; }
+  const to = list.findIndex((x) => x.id === beforeId);
+  list.splice(to < 0 ? list.length : to, 0, moved);
+}
+
+function setupDnd() {
+  todoBoard.addEventListener('dragover', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'todo') return;
+    e.preventDefault();
+    positionIndicator(todoBoard, '.todo-block', e.clientY);
+  });
+  todoBoard.addEventListener('drop', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'todo') return;
+    e.preventDefault();
+    reorderList(state.todos, blockDrag.id, dropBeforeId);
+    save();
+    renderTodos();
+  });
+
+  memoPage.addEventListener('dragover', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'memo') return;
+    e.preventDefault();
+    positionIndicator(memoPage, '.memo-block', e.clientY);
+  });
+  memoPage.addEventListener('drop', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'memo') return;
+    e.preventDefault();
+    reorderList(state.memos, blockDrag.id, dropBeforeId);
+    save();
+    renderMemos();
+  });
+}
+
+/* 메모 뷰에서 본문 밖이어도 Shift+Enter로 메모 추가 */
+function setupGlobalKeys() {
+  document.addEventListener('keydown', (e) => {
+    if (e.shiftKey && e.key === 'Enter' &&
+        document.getElementById('view-memo').classList.contains('active')) {
+      const t = e.target;
+      // 본문/태그입력 안에서는 각자의 핸들러가 처리
+      if (t && (t.classList.contains('note-body') || t.classList.contains('tag-add'))) return;
+      e.preventDefault();
+      addMemo();
+    }
+  });
+}
+
+/* =========================================================================
  * 초기화
  * ========================================================================= */
 async function init() {
@@ -816,6 +922,8 @@ async function init() {
   setupFind();
   setupSync();
   setupCtxMenu();
+  setupDnd();
+  setupGlobalKeys();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
