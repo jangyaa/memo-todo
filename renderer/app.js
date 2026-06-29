@@ -10,12 +10,33 @@ const BLOCK_COLORS = [
 
 let state = {
   todos: [], // { id, title, color, items: [{ id, text, done }] }
-  memos: []  // { id, content, tags: [], color }
+  memos: [], // { id, content, tags: [], color }
+  settings: { theme: 'default', profileImage: null }
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const nextMemoColor = () => BLOCK_COLORS[state.memos.length % BLOCK_COLORS.length];
 const sortTags = (tags) => [...tags].sort((a, b) => a.localeCompare(b, 'ko'));
+
+/* URL을 클릭 가능한 링크로 변환 (평소엔 일반 텍스트처럼 보이고 hover 시에만 티남) */
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function linkifyHtml(text) {
+  let out = '';
+  let last = 0;
+  const re = /https?:\/\/[^\s<]+/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    out += escapeHtml(text.slice(last, m.index));
+    const safe = escapeHtml(m[0]);
+    out += `<span class="link" data-href="${safe}">${safe}</span>`;
+    last = m.index + m[0].length;
+  }
+  out += escapeHtml(text.slice(last));
+  return out.replace(/\n/g, '<br>');
+}
 
 function normalizeMemo(m, i) {
   return {
@@ -34,12 +55,21 @@ function save() {
   }, 350);
 }
 
+function normalizeSettings(s) {
+  return {
+    theme: (s && s.theme) || 'default',
+    profileImage: (s && s.profileImage) || null
+  };
+}
+
 async function load() {
   const data = await window.api.loadData();
   if (data && typeof data === 'object') {
     state.todos = Array.isArray(data.todos) ? data.todos : [];
     state.memos = Array.isArray(data.memos) ? data.memos.map(normalizeMemo) : [];
+    state.settings = normalizeSettings(data.settings);
   }
+  applySettings();
 }
 
 window.api.onDataChanged((data) => {
@@ -50,6 +80,8 @@ window.api.onDataChanged((data) => {
   if (!data) return;
   state.todos = data.todos || [];
   state.memos = (data.memos || []).map(normalizeMemo);
+  state.settings = normalizeSettings(data.settings);
+  applySettings();
   renderTodos();
   renderMemos();
 });
@@ -61,7 +93,8 @@ const params = new URLSearchParams(location.search);
 let myViews = (params.get('views') || 'todo,memo').split(',').filter(Boolean);
 let currentView = myViews[0] || 'todo';
 
-const VIEW_LABEL = { todo: '투두 리스트', memo: '메모' };
+// ︎ = 텍스트(비이모지) 표시 강제
+const VIEW_LABEL = { todo: '☑︎ 투두 리스트', memo: '✎︎ 메모' };
 
 function applyView() {
   document.getElementById('view-todo').classList.toggle('active', currentView === 'todo');
@@ -260,16 +293,14 @@ function buildItem(todo, item) {
     renderTodos();
   });
 
-  const text = document.createElement('textarea');
+  const text = document.createElement('div');
   text.className = 'check-text';
-  text.rows = 1;
-  text.value = item.text || '';
-  text.placeholder = '세부항목';
-  text.addEventListener('input', () => {
-    item.text = text.value;
-    autoGrow(text);
-    save();
-  });
+  text.contentEditable = 'true';
+  text.spellcheck = false;
+  text.dataset.placeholder = '세부항목';
+  text.innerHTML = linkifyHtml(item.text || '');
+  text.addEventListener('input', () => { item.text = text.innerText; save(); });
+  text.addEventListener('blur', () => { text.innerHTML = linkifyHtml(text.innerText); });
   text.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -279,7 +310,7 @@ function buildItem(todo, item) {
       save();
       renderTodos();
       focusItem(todo.id, it.id);
-    } else if (e.key === 'Backspace' && text.value === '') {
+    } else if (e.key === 'Backspace' && text.innerText === '') {
       e.preventDefault();
       todo.items = todo.items.filter((x) => x.id !== item.id);
       save();
@@ -299,7 +330,6 @@ function buildItem(todo, item) {
   row.appendChild(box);
   row.appendChild(text);
   row.appendChild(del);
-  requestAnimationFrame(() => autoGrow(text));
   return row;
 }
 
@@ -431,11 +461,14 @@ function buildMemoBlock(memo) {
   body.dataset.id = memo.id;
   body.contentEditable = 'true';
   body.spellcheck = false;
-  body.innerText = memo.content || '';
+  body.innerHTML = linkifyHtml(memo.content || '');
   body.addEventListener('input', () => {
     memo.content = body.innerText;
     save();
     updateIndexTitle(memo);
+  });
+  body.addEventListener('blur', () => {
+    body.innerHTML = linkifyHtml(body.innerText);
   });
   body.addEventListener('keydown', (e) => {
     // Shift+Enter: 현재 메모 다음에 새 메모 블록 (전역 핸들러와 중복 방지)
@@ -546,6 +579,7 @@ function renderMemoIndex() {
     const chip = document.createElement('div');
     chip.className = 'index-chip';
     chip.dataset.id = memo.id;
+    chip.draggable = true;
 
     const sq = document.createElement('span');
     sq.className = 'chip-square';
@@ -572,9 +606,54 @@ function renderMemoIndex() {
       e.preventDefault();
       openCtxMenu(e.clientX, e.clientY, memo);
     });
+    // 인덱스에서도 드래그로 순서 변경
+    chip.addEventListener('dragstart', (e) => startBlockDrag(e, 'memo', chip, memo.id));
+    chip.addEventListener('dragend', endBlockDrag);
+    // 더블클릭 → 인덱스에서 제목 수정
+    chip.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      startIndexRename(chip, label, memo);
+    });
 
     indexList.appendChild(chip);
   });
+}
+
+/* 인덱스에서 제목(첫 줄) 수정 */
+function setMemoTitle(memo, newTitle) {
+  const lines = (memo.content || '').split('\n');
+  const idx = lines.findIndex((l) => l.trim() !== '');
+  if (idx < 0) memo.content = newTitle;
+  else { lines[idx] = newTitle; memo.content = lines.join('\n'); }
+}
+
+function startIndexRename(chip, label, memo) {
+  const memoIndex = document.getElementById('memo-index');
+  memoIndex.classList.add('pinned'); // 수정 중 인덱스 고정
+  chip.draggable = false;
+  const input = document.createElement('input');
+  input.className = 'index-rename';
+  input.value = noteTitle(memo.content);
+  label.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    if (commit) {
+      setMemoTitle(memo, input.value.trim());
+      save();
+    }
+    memoIndex.classList.remove('pinned');
+    renderMemos();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
 }
 
 /* =========================================================================
@@ -897,6 +976,28 @@ function setupDnd() {
     save();
     renderMemos();
   });
+
+  // 인덱스에서 드래그로 메모 순서 변경
+  indexList.addEventListener('dragover', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'memo') return;
+    e.preventDefault();
+    positionIndicator(indexList, '.index-chip', e.clientY);
+  });
+  indexList.addEventListener('drop', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'memo') return;
+    e.preventDefault();
+    reorderList(state.memos, blockDrag.id, dropBeforeId);
+    save();
+    renderMemos();
+  });
+
+  // 링크 클릭 → 외부 브라우저로 (편집 모드 진입 방지 위해 mousedown에서 처리)
+  [todoBoard, memoPage].forEach((c) => {
+    c.addEventListener('mousedown', (e) => {
+      const a = e.target.closest('.link');
+      if (a) { e.preventDefault(); window.api.openExternal(a.dataset.href); }
+    });
+  });
 }
 
 /* 메모 뷰에서 본문 밖이어도 Shift+Enter로 메모 추가 */
@@ -914,6 +1015,103 @@ function setupGlobalKeys() {
 }
 
 /* =========================================================================
+ * 프로필 / 테마
+ * ========================================================================= */
+// Y2K 느낌 임시 팔레트 (색은 나중에 다듬을 예정)
+const THEMES = [
+  { id: 'default', name: '베이비 핑크', swatch: '#f7b8cc' },
+  { id: 'bubblegum', name: '버블검', swatch: '#ff8fc8' },
+  { id: 'cyber', name: '사이버 라일락', swatch: '#b9a3ff' },
+  { id: 'lime', name: 'Y2K 라임', swatch: '#bde85a' },
+  { id: 'aqua', name: '아쿠아 글로우', swatch: '#7fd8e8' },
+  { id: 'silver', name: '실버 홀로', swatch: '#c9cede' }
+];
+
+function applySettings() {
+  const t = (state.settings && state.settings.theme) || 'default';
+  if (t && t !== 'default') document.body.dataset.theme = t;
+  else document.body.removeAttribute('data-theme');
+
+  const btn = document.getElementById('btn-profile');
+  const img = state.settings && state.settings.profileImage;
+  if (img) {
+    btn.style.backgroundImage = `url(${img})`;
+    btn.classList.add('has-img');
+    btn.textContent = '';
+  } else {
+    btn.style.backgroundImage = '';
+    btn.classList.remove('has-img');
+    btn.textContent = '♡';
+  }
+}
+
+function setupProfileTheme() {
+  const profileBtn = document.getElementById('btn-profile');
+  const profileMenu = document.getElementById('profile-menu');
+  const themeOverlay = document.getElementById('theme-overlay');
+  const fileInput = document.getElementById('profile-file');
+
+  profileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const r = profileBtn.getBoundingClientRect();
+    profileMenu.style.left = r.left + 'px';
+    profileMenu.style.top = (r.bottom + 4) + 'px';
+    profileMenu.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!profileMenu.contains(e.target) && e.target !== profileBtn) {
+      profileMenu.classList.remove('open');
+    }
+  });
+
+  document.getElementById('pm-image').addEventListener('click', () => {
+    profileMenu.classList.remove('open');
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.settings.profileImage = reader.result;
+      save();
+      applySettings();
+    };
+    reader.readAsDataURL(f);
+    fileInput.value = '';
+  });
+
+  document.getElementById('pm-theme').addEventListener('click', () => {
+    profileMenu.classList.remove('open');
+    renderThemeList();
+    themeOverlay.classList.add('open');
+  });
+  document.getElementById('theme-close').addEventListener('click',
+    () => themeOverlay.classList.remove('open'));
+  themeOverlay.addEventListener('click', (e) => {
+    if (e.target === themeOverlay) themeOverlay.classList.remove('open');
+  });
+}
+
+function renderThemeList() {
+  const list = document.getElementById('theme-list');
+  list.innerHTML = '';
+  THEMES.forEach((th) => {
+    const b = document.createElement('button');
+    b.className = 'theme-item' +
+      (state.settings.theme === th.id ? ' on' : '');
+    b.innerHTML = `<span class="theme-dot" style="background:${th.swatch}"></span>${th.name}`;
+    b.addEventListener('click', () => {
+      state.settings.theme = th.id;
+      save();
+      applySettings();
+      renderThemeList();
+    });
+    list.appendChild(b);
+  });
+}
+
+/* =========================================================================
  * 초기화
  * ========================================================================= */
 async function init() {
@@ -924,6 +1122,7 @@ async function init() {
   setupCtxMenu();
   setupDnd();
   setupGlobalKeys();
+  setupProfileTheme();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());

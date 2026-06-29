@@ -10,6 +10,7 @@
   <div class="app">
     <!-- 커스텀 타이틀바: 좌측 크롬형 탭 + 우측 컨트롤 -->
     <header class="titlebar">
+      <button class="profile-btn" id="btn-profile" title="프로필">♡</button>
       <div class="titlebar-tabs" id="tabs"></div>
       <div class="titlebar-drag"></div>
       <div class="titlebar-right">
@@ -55,6 +56,24 @@
 
   <!-- 우클릭 컨텍스트 메뉴 -->
   <div class="ctx-menu" id="ctx-menu"></div>
+
+  <!-- 프로필 드롭다운 -->
+  <div class="profile-menu" id="profile-menu">
+    <button class="ctx-item" id="pm-image">프로필 이미지 변경</button>
+    <button class="ctx-item" id="pm-theme">테마 변경</button>
+  </div>
+  <input type="file" id="profile-file" accept="image/*" style="display:none" />
+
+  <!-- 테마 선택 패널 -->
+  <div class="modal-overlay" id="theme-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <span>테마 변경</span>
+        <button class="icon-btn" id="theme-close">✕</button>
+      </div>
+      <div class="theme-list" id="theme-list"></div>
+    </div>
+  </div>
 
   <!-- ===================== 동기화 패널 ===================== -->
   <div class="modal-overlay" id="sync-overlay">

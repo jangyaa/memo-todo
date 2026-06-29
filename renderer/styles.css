@@ -10,6 +10,7 @@
   --pink-soft: #fde7ee;
   --shadow: 0 6px 20px rgba(214, 150, 175, 0.18);
   --radius: 16px;
+  --titlebar: linear-gradient(180deg, #c97da0, #bf7195);
 
   /* 투두 블럭 파스텔 색상 팔레트 */
   --c0: #fde7ee;
@@ -18,6 +19,38 @@
   --c3: #e6f1fb;
   --c4: #fdf3e3;
   --c5: #fbe9e9;
+}
+
+/* ===== 테마 (Y2K 임시 팔레트, 색은 추후 조정) ===== */
+body[data-theme="bubblegum"] {
+  --bg: #fff0f6; --panel: #fff; --ink: #5a2a45; --ink-soft: #c08aa6;
+  --line: #ffd9ea; --pink: #ff8fc8; --pink-deep: #ff5fa9; --pink-soft: #ffe1f0;
+  --titlebar: linear-gradient(180deg, #ff79bc, #ff5fa9);
+  --c0: #ffe1f0; --c1: #ffe9f6; --c2: #e7fbff; --c3: #e6efff; --c4: #fff4d9; --c5: #ffe0e9;
+}
+body[data-theme="cyber"] {
+  --bg: #f4f1ff; --panel: #fff; --ink: #3b2f66; --ink-soft: #9b8fcf;
+  --line: #e4dcff; --pink: #b9a3ff; --pink-deep: #8b6cff; --pink-soft: #ece5ff;
+  --titlebar: linear-gradient(180deg, #9f86ff, #7c5cff);
+  --c0: #ece5ff; --c1: #f0e7ff; --c2: #e4fff4; --c3: #e2f0ff; --c4: #fff0e6; --c5: #ffe6f3;
+}
+body[data-theme="lime"] {
+  --bg: #f7ffe9; --panel: #fff; --ink: #3f4a1f; --ink-soft: #9bab6f;
+  --line: #e6f3c8; --pink: #bde85a; --pink-deep: #97c72f; --pink-soft: #eef9d2;
+  --titlebar: linear-gradient(180deg, #aedb4c, #8fc72f);
+  --c0: #eef9d2; --c1: #f3fbe0; --c2: #ffe9f3; --c3: #e2f5ff; --c4: #fff6d9; --c5: #e9fbe4;
+}
+body[data-theme="aqua"] {
+  --bg: #effdff; --panel: #fff; --ink: #1f4a4f; --ink-soft: #6f9fa8;
+  --line: #c8eef3; --pink: #7fd8e8; --pink-deep: #35b9cd; --pink-soft: #d6f6fb;
+  --titlebar: linear-gradient(180deg, #5fcfe2, #35b9cd);
+  --c0: #d6f6fb; --c1: #e0f6fb; --c2: #e9fbe8; --c3: #e6f1ff; --c4: #fff3e3; --c5: #ffe6f1;
+}
+body[data-theme="silver"] {
+  --bg: #f5f6fa; --panel: #fff; --ink: #3a3f4a; --ink-soft: #9aa0b0;
+  --line: #e2e5ee; --pink: #c9cede; --pink-deep: #98a0bd; --pink-soft: #eceef6;
+  --titlebar: linear-gradient(180deg, #aab0c6, #8c93ad);
+  --c0: #eceef6; --c1: #eef0f8; --c2: #e9f3ee; --c3: #e6eefb; --c4: #f6f1ea; --c5: #f3e9ef;
 }
 
 * {
@@ -47,7 +80,6 @@ body {
   background: var(--bg);
   border-radius: var(--radius);
   overflow: hidden;
-  border: 1px solid var(--line);
   box-shadow: var(--shadow);
 }
 
@@ -55,11 +87,31 @@ body {
 .titlebar {
   display: flex;
   align-items: flex-end;
-  height: 44px;
+  gap: 6px;
+  height: 46px;
   padding: 0 8px;
-  background: linear-gradient(180deg, #c97da0, #bf7195);
-  border-bottom: 1px solid #b06485;
+  background: var(--titlebar);
 }
+
+/* 프로필 아이콘 (가장 왼쪽, 동그랗게) */
+.profile-btn {
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.25) center/cover no-repeat;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.profile-btn:hover { border-color: #fff; }
+.profile-btn.has-img { background-color: #fff; }
 
 /* 좌측 파일형 탭 (서로 붙어 있음, 좌측 정렬) */
 .titlebar-tabs {
@@ -77,8 +129,8 @@ body {
   font-size: 13px;
   font-weight: 600;
   text-align: left;
-  min-width: 104px;
-  padding: 9px 20px 8px;
+  min-width: 140px;
+  padding: 9px 18px 8px;
   border-radius: 12px 12px 0 0;
   margin-right: 2px;
   cursor: pointer;
@@ -229,16 +281,22 @@ body {
 
 .check-text {
   flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   font-size: 13.5px;
   color: var(--ink);
   outline: none;
-  resize: none;
-  overflow: hidden;
   line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
   -webkit-app-region: no-drag;
   font-family: inherit;
+}
+.check-text:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-soft);
+  opacity: 0.6;
 }
 .check-item.done .check-text {
   text-decoration: line-through;
@@ -308,9 +366,7 @@ body {
 .index-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 8px 6px 10px;
-  border-bottom: 1px solid var(--line);
+  padding: 8px 8px 6px 12px;
   min-height: 36px;
 }
 .index-title {
@@ -622,6 +678,53 @@ body {
 }
 .ctx-item:hover { background: var(--pink-soft); }
 .ctx-del { color: #e06b7e; }
+
+/* ======================= 프로필 메뉴 / 테마 ======================= */
+.profile-menu {
+  display: none;
+  position: fixed;
+  z-index: 200;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  min-width: 178px;
+}
+.profile-menu.open { display: block; }
+
+.theme-list { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+.theme-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.theme-item:hover { background: var(--pink-soft); }
+.theme-item.on { border-color: var(--pink); background: var(--pink-soft); font-weight: 700; }
+.theme-dot { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+
+/* 인덱스 제목 수정 인풋 */
+.index-rename {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--pink);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 12px;
+  outline: none;
+  -webkit-app-region: no-drag;
+}
+
+/* ======================= 하이퍼링크 (평소엔 티 안 남) ======================= */
+.link { color: inherit; text-decoration: none; }
+.link:hover { color: var(--pink-deep); text-decoration: underline; cursor: pointer; }
 
 /* ======================= 메모 검색 하이라이트 ======================= */
 ::highlight(find) { background: #ffe9a8; }

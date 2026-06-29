@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('api', {
   onViewsSet: (callback) =>
     ipcRenderer.on('views:set', (_e, views) => callback(views)),
 
+  // 외부 링크 열기
+  openExternal: (url) => ipcRenderer.invoke('open:external', url),
+
   // 클라우드 동기화
   sync: {
     status: () => ipcRenderer.invoke('sync:status'),
