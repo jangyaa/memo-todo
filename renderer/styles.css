@@ -130,12 +130,12 @@ body {
   border: none;
   background: rgba(255, 255, 255, 0.16);
   color: rgba(255, 255, 255, 0.85);
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
   text-align: left;
-  min-width: 150px;
-  padding: 10px 20px 9px;
+  min-width: 140px;
+  padding: 9px 18px 8px;
   border-radius: 12px 12px 0 0;
   margin-right: 2px;
   cursor: pointer;
@@ -439,7 +439,7 @@ body {
 }
 .tag-chip b { cursor: pointer; opacity: 0.6; margin-left: 2px; }
 .tag-chip b:hover { opacity: 1; }
-/* 항상 보이는 넓은 클릭 영역 (남은 가로폭 전부 차지) */
+/* 넓은 클릭 영역(남은 폭 전부)이지만 평소엔 숨김, hover/포커스 시 표시 */
 .tag-add {
   flex: 1;
   min-width: 80px;
@@ -450,8 +450,11 @@ body {
   outline: none;
   padding: 2px 4px;
   cursor: text;
+  opacity: 0;
+  transition: opacity 0.15s;
   -webkit-app-region: no-drag;
 }
+.memo-block:hover .tag-add, .tag-add:focus { opacity: 1; }
 .tag-add::placeholder { color: var(--ink-soft); opacity: 0.6; }
 
 .memo-main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
@@ -536,11 +539,13 @@ body {
 }
 .memo-head .drag-handle { opacity: 0; }
 .memo-block:hover .memo-head .drag-handle { opacity: 0.5; }
-/* 고정/색상/삭제 버튼은 항상 보이게 (투두·메모 공용) */
+/* 고정/색상/삭제 버튼: 블록에 마우스를 올렸을 때만 표시 (투두·메모 공용) */
 .memo-tools { display: flex; align-items: center; gap: 2px; }
-.memo-tools .icon-btn { color: var(--ink-soft); }
+.memo-tools .icon-btn { color: var(--ink-soft); opacity: 0; transition: opacity 0.15s; }
+.todo-block:hover .memo-tools .icon-btn,
+.memo-block:hover .memo-tools .icon-btn { opacity: 1; }
 .memo-tools .icon-btn:hover { color: var(--pink-deep); }
-.memo-pin.active, .block-pin.active { color: var(--pink-deep); }
+.memo-pin.active, .block-pin.active { color: var(--pink-deep); opacity: 1; }
 
 .note-body {
   position: relative;
@@ -719,7 +724,7 @@ body {
   width: 92px;
   height: 92px;
   border-radius: 50%;
-  margin: 0 auto 14px;
+  margin: 4px auto 22px;
   background: var(--pink) center center no-repeat;
   background-size: cover;
   color: #fff;
@@ -867,6 +872,13 @@ body {
   width: 24px; height: 24px; border: 1.5px solid var(--ink-soft) !important;
   border-radius: 50%; color: var(--ink-soft); margin-left: 2px;
 }
+.ft-hex {
+  display: none;
+  width: 70px; border: 1px solid var(--line); border-radius: 6px;
+  padding: 3px 6px; font-size: 11px; outline: none; margin-left: 4px;
+}
+.ft-hex.open { display: inline-block; }
+.ft-hex:focus { border-color: var(--pink); }
 #ft-font { border: 1px solid var(--line); border-radius: 8px; font-size: 12px; padding: 3px 6px; }
 .ft-align { gap: 2px; }
 .ft-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }

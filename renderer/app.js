@@ -181,8 +181,7 @@ const params = new URLSearchParams(location.search);
 let myViews = (params.get('views') || 'todo,memo').split(',').filter(Boolean);
 let currentView = myViews[0] || 'todo';
 
-// ︎ = 텍스트(비이모지) 표시 강제
-const VIEW_LABEL = { todo: '☑︎ 투두 리스트', memo: '✎︎ 메모' };
+const VIEW_LABEL = { todo: '투두 리스트', memo: '메모' };
 
 function applyView() {
   document.getElementById('view-todo').classList.toggle('active', currentView === 'todo');
@@ -1556,7 +1555,8 @@ function setupFontPop() {
     if (!restore()) return;
     sizePt = Math.max(8, Math.min(48, pt));
     const root = editableRoot();
-    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    // size 트릭은 <font size> 가 필요하므로 styleWithCSS=false
+    try { document.execCommand('styleWithCSS', false, false); } catch (_) {}
     document.execCommand('fontSize', false, '7');
     (root || document).querySelectorAll('font[size="7"]').forEach((f) => {
       f.removeAttribute('size');
@@ -1578,14 +1578,15 @@ function setupFontPop() {
   document.getElementById('fp-dec').addEventListener('mousedown', (e) => { e.preventDefault(); applySize(sizePt - 1); });
   document.getElementById('fp-inc').addEventListener('mousedown', (e) => { e.preventDefault(); applySize(sizePt + 1); });
 
-  // 더블클릭(선택된 단어) → 도구 표시. 메모 본문은 자체 서식 툴바가 담당하므로 제외
+  // 더블클릭(선택된 단어) → 글꼴/크기 도구 표시 (편집 가능한 텍스트 대상)
   document.addEventListener('dblclick', (e) => {
-    if (e.target.closest('.note-body') || e.target.closest('.index-chip') ||
-        e.target.closest('.folder-head') || e.target.closest('.font-pop') ||
-        e.target.closest('.modal') || e.target.closest('.format-toolbar')) return;
+    if (e.target.closest('.index-chip') || e.target.closest('.folder-head') ||
+        e.target.closest('.font-pop') || e.target.closest('.modal') ||
+        e.target.closest('.format-toolbar')) return;
     const sel = window.getSelection();
     if (!sel.rangeCount || sel.isCollapsed) { pop.classList.remove('open'); return; }
     savedRange = sel.getRangeAt(0).cloneRange();
+    if (typeof hideFormatToolbar === 'function') hideFormatToolbar(); // 서식 툴바와 중복 방지
     sizeEl.textContent = sizePt + 'pt';
     const x = Math.min(e.clientX, window.innerWidth - 200);
     const y = Math.min(e.clientY, window.innerHeight - 120);
@@ -1608,7 +1609,6 @@ function setupFormatToolbar() {
   const colors = document.getElementById('ft-colors');
   const fontSel = document.getElementById('ft-font');
   const sizeVal = document.getElementById('ft-size-val');
-  const colorPick = document.getElementById('ft-colorpick');
   const PALETTE = ['#4a4148', '#9aa0b0', '#ec5f8a', '#f6c0d4', '#ffffff'];
 
   colors.innerHTML = '';
@@ -1669,7 +1669,6 @@ function setupFormatToolbar() {
     if (e.shiftKey || e.key.startsWith('Arrow')) showForSelection();
   });
   memoPage.addEventListener('scroll', hide);
-  window.addEventListener('blur', hide);
 
   function restoreSelection() {
     if (!savedRange) return false;
@@ -1687,7 +1686,8 @@ function setupFormatToolbar() {
   function applySizePt(pt) {
     if (!restoreSelection() || !savedBody) return;
     sizePt = Math.max(8, Math.min(48, pt));
-    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    // size 트릭은 <font size>가 필요 → styleWithCSS=false
+    try { document.execCommand('styleWithCSS', false, false); } catch (_) {}
     document.execCommand('fontSize', false, '7');
     savedBody.querySelectorAll('font[size="7"]').forEach((f) => {
       f.removeAttribute('size');
@@ -1731,12 +1731,26 @@ function setupFormatToolbar() {
     e.preventDefault();
     run('foreColor', d.dataset.color);
   });
-  // 커스텀 색 추가 (시스템 색상 선택기)
+  // 커스텀 색 추가 (헥사 입력칸 토글 — 시스템 색상창 안 씀)
+  const hexInput = document.getElementById('ft-hex');
   document.getElementById('ft-addcolor').addEventListener('mousedown', (e) => {
     e.preventDefault();
-    colorPick.click();
+    hexInput.classList.toggle('open');
+    if (hexInput.classList.contains('open')) hexInput.focus();
   });
-  colorPick.addEventListener('input', () => run('foreColor', colorPick.value));
+  hexInput.addEventListener('mousedown', (e) => e.stopPropagation());
+  hexInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      let v = hexInput.value.trim();
+      if (/^#?[0-9a-fA-F]{3,6}$/.test(v)) {
+        if (v[0] !== '#') v = '#' + v;
+        run('foreColor', v);
+        hexInput.value = '';
+        hexInput.classList.remove('open');
+      }
+    }
+  });
   // 글꼴 변경 (select 포커스로 선택이 풀려도 savedRange로 복원)
   fontSel.addEventListener('mousedown', (e) => e.stopPropagation());
   fontSel.addEventListener('change', () => { run('fontName', fontSel.value); });
