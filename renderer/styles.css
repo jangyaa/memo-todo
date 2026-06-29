@@ -1,24 +1,24 @@
 /* ======================= 기본/테마 ======================= */
 :root {
-  --bg: #f9f5f6;
+  --bg: #faf8f9;
   --panel: #ffffff;
-  --ink: #4f484c;
-  --ink-soft: #a8a0a5;
-  --line: #ece3e7;
-  --pink: #e3c3ce;
-  --pink-deep: #c79bab;
-  --pink-soft: #f3ecef;
-  --shadow: 0 6px 20px rgba(170, 150, 160, 0.16);
+  --ink: #555055;
+  --ink-soft: #b0a9ae;
+  --line: #f0eaed;
+  --pink: #edd9e0;
+  --pink-deep: #cdb0bb;
+  --pink-soft: #f7f2f4;
+  --shadow: 0 6px 20px rgba(170, 150, 160, 0.13);
   --radius: 16px;
-  --titlebar: linear-gradient(180deg, #bd9dab, #b3919f);
+  --titlebar: linear-gradient(180deg, #cdb6c0, #c4abb6);
 
-  /* 투두 블럭 파스텔 색상 팔레트 (저채도) */
-  --c0: #f5ecf0;
-  --c1: #efeaf4;
-  --c2: #eaf0ea;
-  --c3: #e9eff5;
-  --c4: #f4efe6;
-  --c5: #f4ecec;
+  /* 투두 블럭 파스텔 색상 팔레트 (저채도·고명도) */
+  --c0: #f8f1f4;
+  --c1: #f4f0f7;
+  --c2: #eff5ef;
+  --c3: #eff4f9;
+  --c4: #f8f3ec;
+  --c5: #f8f1f1;
 }
 
 /* ===== 테마 (Y2K 임시 팔레트, 색은 추후 조정) ===== */
@@ -88,7 +88,7 @@ body {
   display: flex;
   align-items: flex-end;
   gap: 6px;
-  height: 46px;
+  height: 38px;
   padding: 0 8px;
   background: var(--titlebar);
   -webkit-app-region: drag; /* 빈 영역(탭 사이/여백)을 잡고 창 이동 */
@@ -137,7 +137,7 @@ body {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  text-align: center;
+  text-align: left;
   max-width: 180px;
   padding: 9px 14px 8px;
   border-radius: 12px 12px 0 0;
@@ -233,8 +233,9 @@ body {
 .block-head {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 12px;
+  justify-content: flex-end;
+  height: 18px;
+  margin-bottom: 2px;
   cursor: grab;
 }
 .block-head:active { cursor: grabbing; }
@@ -259,6 +260,7 @@ body {
   outline: none;
   -webkit-app-region: no-drag;
 }
+.block-title { margin-bottom: 10px; }
 .block-title::placeholder { color: rgba(74, 65, 72, 0.35); }
 
 
@@ -427,6 +429,15 @@ body {
 .memo-index:hover .index-chip .label,
 .memo-index.pinned .index-chip .label { opacity: 1; }
 
+/* 인덱스 축소 상태: 정사각형/폴더아이콘을 가운데 정렬로 한 줄에 맞춤 */
+.memo-index:not(:hover):not(.pinned) .index-chip { justify-content: center; }
+.memo-index:not(:hover):not(.pinned) .index-chip .label { display: none; }
+.memo-index:not(:hover):not(.pinned) .folder-head { justify-content: center; }
+.memo-index:not(:hover):not(.pinned) .folder-caret,
+.memo-index:not(:hover):not(.pinned) .folder-name,
+.memo-index:not(:hover):not(.pinned) .folder-eye { display: none; }
+.memo-index:not(:hover):not(.pinned) .folder-children { padding-left: 0; }
+
 /* 메모별 태그 바 (메모 최하단) — 빈 영역 클릭하면 태그 입력 */
 .note-tags {
   display: flex;
@@ -521,11 +532,12 @@ body {
 /* 드래그 중 블록 + 드롭 위치 미리보기 선 */
 .dragging { opacity: 0.4; }
 .drop-indicator {
-  height: 3px;
-  background: var(--pink-deep);
-  border-radius: 3px;
-  margin: -7px 2px;
+  height: 4px;
+  background: #d9799e;
+  border-radius: 4px;
+  margin: -8px 4px;
   pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 
 /* 메모 한 개 = 반투명 흰색 블록 */
@@ -832,8 +844,8 @@ body {
   position: fixed;
   z-index: 300;
   flex-direction: column;
-  gap: 6px;
-  width: 230px;
+  gap: 7px;
+  width: 252px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -841,7 +853,7 @@ body {
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
 }
 .format-toolbar.open { display: flex; }
-.ft-line { display: flex; align-items: center; gap: 4px; }
+.ft-line { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .ft-tag { font-size: 12px; color: var(--ink-soft); width: 30px; flex-shrink: 0; }
 .ft-row { display: flex; align-items: center; gap: 2px; }
 .format-toolbar button {
@@ -864,14 +876,14 @@ body {
 .ft-code { font-size: 12px; color: var(--ink-soft); }
 .ft-arrow { color: var(--ink-soft); }
 #ft-size-val { font-size: 13px; min-width: 42px; text-align: center; }
-.ft-colors { display: inline-flex; gap: 5px; }
+.ft-colors { display: inline-flex; gap: 4px; }
 .ft-color {
-  width: 20px; height: 20px; border-radius: 50%;
+  width: 18px; height: 18px; min-width: 18px; border-radius: 50%;
   border: 1px solid var(--line); cursor: pointer; padding: 0;
 }
 .ft-addcolor {
-  width: 24px; height: 24px; border: 1.5px solid var(--ink-soft) !important;
-  border-radius: 50%; color: var(--ink-soft); margin-left: 2px;
+  width: 20px; height: 20px; min-width: 20px; border: 1.5px solid var(--ink-soft) !important;
+  border-radius: 50%; color: var(--ink-soft); margin-left: 2px; font-size: 12px;
 }
 .ft-hex {
   display: none;
@@ -914,6 +926,34 @@ body {
 .ftc-sw { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); cursor: pointer; padding: 0; }
 #ftc-hex { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font-size: 11px; outline: none; }
 #ftc-hex:focus { border-color: var(--pink); }
+
+/* 구분선 스타일 팝오버 */
+.ft-divpop {
+  display: none;
+  position: fixed;
+  z-index: 320;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 8px;
+  width: 150px;
+}
+.ft-divpop.open { display: block; }
+.ftd {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 26px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0 8px;
+  color: var(--ink-soft);
+}
+.ftd:hover { background: var(--pink-soft); }
+.ftd span { display: block; width: 100%; height: 0; }
 
 /* 색상 변경 버튼(스와치 점) — 투두/메모 공용 */
 .color-btn { padding: 0; }

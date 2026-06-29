@@ -7,9 +7,9 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-// 블록 배경(반투명 색) + 강조색(해시태그 등) — 저채도
-const SOFTS = ['#f5ecf0', '#efeaf4', '#eaf0ea', '#e9eff5', '#f4efe6', '#f4ecec'];
-const ACCENTS = ['#cf9aac', '#a99ac6', '#94b694', '#93aecb', '#cbb189', '#cf9b9b'];
+// 블록 배경(반투명 색) + 강조색(해시태그 등) — 저채도·고명도
+const SOFTS = ['#f8f1f4', '#f4f0f7', '#eff5ef', '#eff4f9', '#f8f3ec', '#f8f1f1'];
+const ACCENTS = ['#d3a9b6', '#b3a6cd', '#a1c2a1', '#a0bace', '#cfba93', '#d3a9a9'];
 const BLOCK_ALPHA = 0.4; // 투두/메모 공통 불투명도
 function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
@@ -310,7 +310,7 @@ function buildBlock(todo) {
 
   const title = document.createElement('input');
   title.className = 'block-title';
-  title.placeholder = '제목';
+  title.placeholder = 'To-do';
   title.value = todo.title || '';
   title.addEventListener('input', () => { todo.title = title.value; save(); });
   title.addEventListener('keydown', (e) => {
@@ -359,9 +359,10 @@ function buildBlock(todo) {
   tools.appendChild(colorBtn);
   tools.appendChild(del);
 
-  head.appendChild(title);
+  // 헤더는 드래그 전용 띠(우측 도구만), 제목은 그 아래
   head.appendChild(tools);
   block.appendChild(head);
+  block.appendChild(title);
 
   const list = document.createElement('div');
   list.className = 'checklist';
@@ -1718,7 +1719,43 @@ function setupFormatToolbar() {
   }
 
   bar.querySelectorAll('button[data-cmd]').forEach((btn) => {
-    btn.addEventListener('mousedown', (e) => { e.preventDefault(); run(btn.dataset.cmd); });
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (btn.dataset.cmd === 'hr') { toggleDivPop(btn); return; }
+      run(btn.dataset.cmd);
+    });
+  });
+
+  // 구분선 스타일 팝오버
+  const divPop = document.getElementById('ft-divpop');
+  const DIV_HTML = {
+    solid: '<hr style="border:none;border-top:1px solid #d9c9d0;margin:8px 0">',
+    dashed: '<hr style="border:none;border-top:1px dashed #cdbcc4;margin:8px 0">',
+    dotted: '<hr style="border:none;border-top:2px dotted #cdbcc4;margin:8px 0">',
+    thick: '<hr style="border:none;border-top:3px solid #d9c9d0;margin:8px 0">',
+    double: '<hr style="border:none;border-top:3px double #cdbcc4;margin:8px 0">',
+    short: '<hr style="border:none;border-top:2px solid #d9c9d0;width:40%;margin:8px auto">'
+  };
+  function toggleDivPop(btn) {
+    if (divPop.classList.contains('open')) { divPop.classList.remove('open'); return; }
+    divPop.classList.add('open');
+    const r = btn.getBoundingClientRect();
+    const cr = divPop.getBoundingClientRect();
+    let x = r.left, y = r.bottom + 4;
+    if (x + cr.width > window.innerWidth - 8) x = window.innerWidth - 8 - cr.width;
+    if (y + cr.height > window.innerHeight - 8) y = r.top - cr.height - 4;
+    divPop.style.left = Math.max(8, x) + 'px';
+    divPop.style.top = Math.max(8, y) + 'px';
+  }
+  divPop.querySelectorAll('.ftd').forEach((b) => {
+    b.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (!restoreSelection() || !savedBody) return;
+      document.execCommand('insertHTML', false, DIV_HTML[b.dataset.divstyle]);
+      persist();
+      divPop.classList.remove('open');
+      setTimeout(showForSelection, 0);
+    });
   });
   bar.querySelectorAll('button[data-size]').forEach((btn) => {
     btn.addEventListener('mousedown', (e) => {
@@ -1786,9 +1823,13 @@ function setupFormatToolbar() {
       }
     }
   });
-  // 서식 툴바가 닫힐 때 색 팝오버도 닫기
+  // 서식 툴바가 닫힐 때 색/구분선 팝오버도 닫기
   const _hide0 = hide;
-  hide = function () { colorPop.classList.remove('open'); _hide0(); };
+  hide = function () {
+    colorPop.classList.remove('open');
+    document.getElementById('ft-divpop').classList.remove('open');
+    _hide0();
+  };
   hideFormatToolbar = hide;
   // 글꼴 변경 (select 포커스로 선택이 풀려도 savedRange로 복원)
   fontSel.addEventListener('mousedown', (e) => e.stopPropagation());
