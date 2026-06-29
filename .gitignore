@@ -3,3 +3,7 @@ dist/
 out/
 *.log
 .DS_Store
+
+# 개인 설정/세션 (Supabase 키 등) — 커밋하지 않음
+config.json
+session.json

@@ -1,0 +1,4 @@
+{
+  "supabaseUrl": "여기에 Supabase 프로젝트 URL 붙여넣기",
+  "supabaseAnonKey": "여기에 Supabase anon public key 붙여넣기"
+}

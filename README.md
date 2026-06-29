@@ -28,12 +28,27 @@ Electron 기반이라 Windows / macOS / Linux 어디서나 동작합니다.
 - 데이터는 사용자 폴더(`userData/memo-todo-data.json`)에 자동 저장됩니다.
 - 여러 창을 띄워도 변경 사항이 서로 동기화됩니다.
 
-## 🚀 실행
+## 🚀 실행 (비전공자용, 윈도우 기준)
+
+처음 한 번만 설정하면 됩니다.
+
+1. **Node.js 설치** — https://nodejs.org 에서 **LTS** 버튼으로 받아 다음다음 설치.
+2. **코드 받기** — GitHub 저장소에서 초록색 **Code → Download ZIP** → 압축 풀기.
+3. **그 폴더에서 명령창 열기** — 폴더 주소창에 `cmd` 입력 후 Enter.
+4. **명령 입력** (한 줄씩 Enter):
 
 ```bash
-npm install     # 의존성 설치 (electron)
+npm install     # 부품 다운로드 (처음 한 번, 몇 분 걸림)
 npm start       # 앱 실행
 ```
+
+> 맥/리눅스도 동일합니다. 2번부터 따라하면 돼요.
+> 나중에 더블클릭 실행되는 설치 파일이 필요하면 `npm run dist` 로 만들 수 있어요.
+
+## ☁ 여러 기기 동기화 (선택)
+
+다른 컴퓨터에서도 같은 할 일/메모를 보고 싶다면 **[SYNC-SETUP.md](SYNC-SETUP.md)** 를
+따라 Supabase(무료)를 한 번 연결하세요. 설정 안 하면 그냥 내 컴퓨터에만 저장됩니다.
 
 ## 📦 빌드(설치 파일)
 

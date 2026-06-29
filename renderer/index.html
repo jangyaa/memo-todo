@@ -18,6 +18,7 @@
         <button class="tab" data-view="memo">메모</button>
       </div>
       <div class="titlebar-right">
+        <button class="icon-btn" id="btn-sync" title="클라우드 동기화">☁</button>
         <button class="icon-btn" id="btn-open-memo" title="메모 별도 창으로 열기">🗔</button>
         <button class="icon-btn" id="btn-pin" title="항상 위에 고정">📌</button>
         <button class="icon-btn" id="btn-min" title="최소화">─</button>
@@ -64,6 +65,46 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <!-- ===================== 동기화 패널 ===================== -->
+  <div class="modal-overlay" id="sync-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <span>☁ 클라우드 동기화</span>
+        <button class="icon-btn" id="sync-close">✕</button>
+      </div>
+
+      <!-- 미설정 안내 -->
+      <div class="sync-pane" id="sync-not-configured">
+        <p class="sync-msg">
+          아직 동기화가 설정되지 않았어요.<br>
+          앱 폴더의 <b>config.json</b> 에 Supabase 정보를 넣어주세요.
+        </p>
+        <p class="sync-hint">자세한 방법은 <b>SYNC-SETUP.md</b> 문서를 참고하세요.</p>
+      </div>
+
+      <!-- 로그인 -->
+      <div class="sync-pane" id="sync-signin">
+        <input type="email" id="sync-email" placeholder="이메일" />
+        <input type="password" id="sync-password" placeholder="비밀번호" />
+        <div class="sync-btns">
+          <button class="btn-primary" id="btn-signin">로그인</button>
+          <button class="btn-ghost" id="btn-signup">회원가입</button>
+        </div>
+        <p class="sync-error" id="sync-error"></p>
+      </div>
+
+      <!-- 로그인됨 -->
+      <div class="sync-pane" id="sync-signedin">
+        <p class="sync-msg">✅ <b id="sync-who"></b> 로 동기화 중</p>
+        <p class="sync-hint" id="sync-last"></p>
+        <div class="sync-btns">
+          <button class="btn-primary" id="btn-sync-now">지금 동기화</button>
+          <button class="btn-ghost" id="btn-signout">로그아웃</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

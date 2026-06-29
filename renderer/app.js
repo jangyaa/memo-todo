@@ -550,11 +550,108 @@ function setupFind() {
 }
 
 /* =========================================================================
+ * 클라우드 동기화 패널
+ * ========================================================================= */
+const syncOverlay = document.getElementById('sync-overlay');
+
+function showSyncPane(status) {
+  const panes = {
+    'sync-not-configured': !status.configured,
+    'sync-signin': status.configured && !status.signedIn,
+    'sync-signedin': status.configured && status.signedIn
+  };
+  Object.entries(panes).forEach(([id, on]) =>
+    document.getElementById(id).classList.toggle('active', on));
+
+  // 동기화 버튼 상태 표시
+  document.getElementById('btn-sync').classList.toggle('active', status.signedIn);
+
+  if (status.signedIn) {
+    document.getElementById('sync-who').textContent = status.email || '';
+    const last = status.lastSyncAt
+      ? new Date(status.lastSyncAt).toLocaleString('ko-KR')
+      : '아직 없음';
+    document.getElementById('sync-last').textContent = '마지막 동기화: ' + last;
+  }
+}
+
+async function refreshSyncStatus() {
+  const status = await window.api.sync.status();
+  showSyncPane(status);
+}
+
+function setupSync() {
+  const overlay = syncOverlay;
+  const errEl = document.getElementById('sync-error');
+
+  document.getElementById('btn-sync').addEventListener('click', async () => {
+    await refreshSyncStatus();
+    overlay.classList.add('open');
+  });
+  document.getElementById('sync-close').addEventListener('click',
+    () => overlay.classList.remove('open'));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+
+  const email = () => document.getElementById('sync-email').value.trim();
+  const pw = () => document.getElementById('sync-password').value;
+
+  document.getElementById('btn-signin').addEventListener('click', async () => {
+    errEl.textContent = '';
+    try {
+      await window.api.sync.signIn(email(), pw());
+      await reloadFromLocal();
+      await refreshSyncStatus();
+    } catch (e) { errEl.textContent = '로그인 실패: ' + (e.message || e); }
+  });
+
+  document.getElementById('btn-signup').addEventListener('click', async () => {
+    errEl.textContent = '';
+    try {
+      const r = await window.api.sync.signUp(email(), pw());
+      if (r.needsConfirm) {
+        errEl.textContent = '가입됨! 이메일 확인 후 로그인하세요. ' +
+          '(또는 Supabase에서 이메일 확인 끄기)';
+      } else {
+        await reloadFromLocal();
+        await refreshSyncStatus();
+      }
+    } catch (e) { errEl.textContent = '회원가입 실패: ' + (e.message || e); }
+  });
+
+  document.getElementById('btn-signout').addEventListener('click', async () => {
+    await window.api.sync.signOut();
+    await refreshSyncStatus();
+  });
+
+  document.getElementById('btn-sync-now').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-sync-now');
+    btn.textContent = '동기화 중…';
+    await window.api.sync.now();
+    await reloadFromLocal();
+    await refreshSyncStatus();
+    btn.textContent = '지금 동기화';
+  });
+
+  // 메인 프로세스가 보내는 상태 변경 반영
+  window.api.sync.onStatus((status) => showSyncPane(status));
+}
+
+// 로컬 데이터를 다시 읽어 화면 갱신 (동기화 직후)
+async function reloadFromLocal() {
+  await load();
+  renderTodos();
+  renderMemos();
+}
+
+/* =========================================================================
  * 초기화
  * ========================================================================= */
 async function init() {
   setupChrome();
   setupFind();
+  setupSync();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   todoSearch.addEventListener('input', renderTodos);
