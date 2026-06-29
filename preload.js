@@ -11,9 +11,12 @@ contextBridge.exposeInMainWorld('api', {
 
   // 윈도우 제어
   windowControl: (action) => ipcRenderer.invoke('window:control', action),
+  requestClose: () => ipcRenderer.invoke('window:requestClose'),
 
-  // 메모 별도 창 열기
-  openMemoWindow: () => ipcRenderer.invoke('memo:openWindow'),
+  // 탭(뷰) 분리 / 뷰 집합 변경 수신
+  tearOut: (view) => ipcRenderer.invoke('view:tearOut', view),
+  onViewsSet: (callback) =>
+    ipcRenderer.on('views:set', (_e, views) => callback(views)),
 
   // 클라우드 동기화
   sync: {

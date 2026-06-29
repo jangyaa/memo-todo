@@ -8,31 +8,20 @@
 </head>
 <body>
   <div class="app">
-    <!-- 커스텀 타이틀바 -->
+    <!-- 커스텀 타이틀바: 좌측 크롬형 탭 + 우측 컨트롤 -->
     <header class="titlebar">
-      <div class="titlebar-left">
-        <button class="logo" id="btn-heart" title="태그로 보기">🤍✦</button>
-      </div>
-      <div class="titlebar-tabs">
-        <button class="tab active" data-view="todo">할 일</button>
-        <button class="tab" data-view="memo">메모</button>
-      </div>
+      <div class="titlebar-tabs" id="tabs"></div>
+      <div class="titlebar-drag"></div>
       <div class="titlebar-right">
         <button class="icon-btn" id="btn-sync" title="클라우드 동기화">☁</button>
-        <button class="icon-btn" id="btn-merge" title="본 창으로 합치기" style="display:none">⤺</button>
-        <button class="icon-btn" id="btn-open-memo" title="메모 별도 창으로 열기">🗔</button>
-        <button class="icon-btn" id="btn-pin" title="항상 위에 고정">📌</button>
         <button class="icon-btn" id="btn-min" title="최소화">─</button>
         <button class="icon-btn" id="btn-close" title="닫기">✕</button>
       </div>
     </header>
 
     <!-- ===================== 할 일(투두) 뷰 ===================== -->
-    <section class="view view-todo active" id="view-todo">
+    <section class="view view-todo" id="view-todo">
       <div class="todo-toolbar">
-        <div class="search-wrap">
-          <input type="text" id="todo-search" class="search-input" placeholder="검색…" />
-        </div>
         <button class="add-btn" id="btn-add-todo" title="할 일 추가">＋</button>
       </div>
       <div class="todo-board" id="todo-board"></div>
@@ -44,14 +33,15 @@
         <!-- 사이드 인덱스 -->
         <aside class="memo-index" id="memo-index">
           <div class="index-toolbar">
-            <span class="index-title">목차</span>
+            <span class="index-title">List</span>
             <button class="icon-btn small" id="btn-add-memo" title="메모 추가">＋</button>
           </div>
           <div class="index-list" id="index-list"></div>
         </aside>
 
-        <!-- 메모 본문(한 페이지) -->
+        <!-- 메모 본문 -->
         <div class="memo-main">
+          <div class="memo-tagbar" id="memo-tagbar"></div>
           <div class="findbar" id="findbar">
             <input type="text" id="find-input" placeholder="메모 내에서 검색 (Ctrl+F)" />
             <span class="find-count" id="find-count"></span>
@@ -65,21 +55,8 @@
     </section>
   </div>
 
-  <!-- ===================== 태그로 보기 패널 ===================== -->
-  <div class="modal-overlay" id="tag-overlay">
-    <div class="modal">
-      <div class="modal-head">
-        <span>🏷 태그로 보기</span>
-        <button class="icon-btn" id="tag-close">✕</button>
-      </div>
-      <input type="text" id="tag-search" placeholder="태그 검색…" />
-      <div class="tag-cloud" id="tag-cloud"></div>
-      <div class="sync-btns">
-        <button class="btn-ghost" id="tag-clear">전체 보기 (초기화)</button>
-      </div>
-      <p class="sync-hint">태그를 여러 개 선택하면 그중 하나라도 가진 메모가 모두 보여요.</p>
-    </div>
-  </div>
+  <!-- 우클릭 컨텍스트 메뉴 -->
+  <div class="ctx-menu" id="ctx-menu"></div>
 
   <!-- ===================== 동기화 패널 ===================== -->
   <div class="modal-overlay" id="sync-overlay">
@@ -89,7 +66,6 @@
         <button class="icon-btn" id="sync-close">✕</button>
       </div>
 
-      <!-- 미설정 안내 -->
       <div class="sync-pane" id="sync-not-configured">
         <p class="sync-msg">
           아직 동기화가 설정되지 않았어요.<br>
@@ -98,7 +74,6 @@
         <p class="sync-hint">자세한 방법은 <b>SYNC-SETUP.md</b> 문서를 참고하세요.</p>
       </div>
 
-      <!-- 로그인 -->
       <div class="sync-pane" id="sync-signin">
         <input type="email" id="sync-email" placeholder="이메일" />
         <input type="password" id="sync-password" placeholder="비밀번호" />
@@ -109,7 +84,6 @@
         <p class="sync-error" id="sync-error"></p>
       </div>
 
-      <!-- 로그인됨 -->
       <div class="sync-pane" id="sync-signedin">
         <p class="sync-msg">✅ <b id="sync-who"></b> 로 동기화 중</p>
         <p class="sync-hint" id="sync-last"></p>

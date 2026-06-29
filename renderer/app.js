@@ -14,16 +14,14 @@ let state = {
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
-
-function nextMemoColor() {
-  return BLOCK_COLORS[state.memos.length % BLOCK_COLORS.length];
-}
+const nextMemoColor = () => BLOCK_COLORS[state.memos.length % BLOCK_COLORS.length];
+const sortTags = (tags) => [...tags].sort((a, b) => a.localeCompare(b, 'ko'));
 
 function normalizeMemo(m, i) {
   return {
     id: m.id || uid(),
     content: m.content || '',
-    tags: Array.isArray(m.tags) ? m.tags : [],
+    tags: sortTags(Array.isArray(m.tags) ? m.tags : []),
     color: m.color || BLOCK_COLORS[i % BLOCK_COLORS.length]
   };
 }
@@ -44,7 +42,6 @@ async function load() {
   }
 }
 
-/* 다른 창에서 변경 시 동기화 (편집 중이면 방해하지 않도록 건너뜀) */
 window.api.onDataChanged((data) => {
   const active = document.activeElement;
   const editing = active && (active.isContentEditable ||
@@ -58,98 +55,95 @@ window.api.onDataChanged((data) => {
 });
 
 /* =========================================================================
- * 뷰 전환 / 윈도우 컨트롤
+ * 탭(뷰) 관리 — 창마다 가진 뷰가 다름
  * ========================================================================= */
 const params = new URLSearchParams(location.search);
-const STANDALONE_MEMO = params.get('standalone') === '1';
+let myViews = (params.get('views') || 'todo,memo').split(',').filter(Boolean);
+let currentView = myViews[0] || 'todo';
 
-function switchView(view) {
-  document.querySelectorAll('.tab').forEach((t) =>
-    t.classList.toggle('active', t.dataset.view === view));
-  document.getElementById('view-todo').classList.toggle('active', view === 'todo');
-  document.getElementById('view-memo').classList.toggle('active', view === 'memo');
+const VIEW_LABEL = { todo: '할 일', memo: '메모' };
+
+function applyView() {
+  document.getElementById('view-todo').classList.toggle('active', currentView === 'todo');
+  document.getElementById('view-memo').classList.toggle('active', currentView === 'memo');
 }
 
-let suppressMemoTabClick = false;
+function setView(v) {
+  currentView = v;
+  renderTabs();
+  applyView();
+}
 
-function setupChrome() {
-  document.querySelectorAll('.tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      if (tab.dataset.view === 'memo' && suppressMemoTabClick) {
-        suppressMemoTabClick = false;
-        return; // 방금 탭을 떼어낸 동작이므로 전환하지 않음
-      }
-      switchView(tab.dataset.view);
+let tabDrag = null;
+
+function renderTabs() {
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = '';
+  myViews.forEach((v) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (v === currentView ? ' active' : '');
+    btn.dataset.view = v;
+    btn.textContent = VIEW_LABEL[v];
+    btn.addEventListener('pointerdown', (e) => {
+      tabDrag = { btn, view: v, x: e.clientX, y: e.clientY, torn: false };
     });
+    btn.addEventListener('click', () => {
+      if (btn._torn) { btn._torn = false; return; }
+      setView(v);
+    });
+    tabsEl.appendChild(btn);
+  });
+}
+
+function setupTabs() {
+  document.addEventListener('pointermove', (e) => {
+    if (!tabDrag) return;
+    if (myViews.length > 1 &&
+        Math.hypot(e.clientX - tabDrag.x, e.clientY - tabDrag.y) > 70) {
+      tabDrag.torn = true;
+      tabDrag.btn.classList.add('tearing');
+    }
+  });
+  document.addEventListener('pointerup', () => {
+    if (tabDrag) {
+      tabDrag.btn.classList.remove('tearing');
+      if (tabDrag.torn) {
+        tabDrag.btn._torn = true;
+        window.api.tearOut(tabDrag.view);
+      }
+    }
+    tabDrag = null;
   });
 
+  window.api.onViewsSet((views) => {
+    myViews = views;
+    if (!myViews.includes(currentView)) currentView = myViews[0];
+    renderTabs();
+    applyView();
+  });
+}
+
+function setupChrome() {
   document.getElementById('btn-min').addEventListener('click',
     () => window.api.windowControl('minimize'));
   document.getElementById('btn-close').addEventListener('click',
-    () => window.api.windowControl('close'));
-
-  const pinBtn = document.getElementById('btn-pin');
-  let pinned = false;
-  pinBtn.addEventListener('click', () => {
-    pinned = !pinned;
-    pinBtn.classList.toggle('active', pinned);
-    window.api.windowControl(pinned ? 'pin-on' : 'pin-off');
-  });
-
-  document.getElementById('btn-open-memo').addEventListener('click',
-    () => { window.api.openMemoWindow(); switchView('todo'); });
-
-  // 메모 전용(별도) 창이면 탭/메모열기 버튼 숨김, 합치기 버튼 표시
-  if (STANDALONE_MEMO) {
-    document.querySelector('.titlebar-tabs').style.display = 'none';
-    document.getElementById('btn-open-memo').style.display = 'none';
-    const merge = document.getElementById('btn-merge');
-    if (merge) merge.style.display = 'inline-flex';
-    switchView('memo');
-  }
-}
-
-/* 메모 탭을 창 밖으로 끌면 별도 창으로 분리 (크롬 근사) */
-function setupTabDrag() {
-  const memoTab = document.querySelector('.tab[data-view="memo"]');
-  if (!memoTab) return;
-  let down = null;
-  let torn = false;
-
-  memoTab.addEventListener('pointerdown', (e) => {
-    down = { x: e.clientX, y: e.clientY };
-    torn = false;
-  });
-  document.addEventListener('pointermove', (e) => {
-    if (!down) return;
-    const dist = Math.hypot(e.clientX - down.x, e.clientY - down.y);
-    if (dist > 70) { torn = true; memoTab.classList.add('tearing'); }
-  });
-  document.addEventListener('pointerup', () => {
-    if (down && torn) {
-      suppressMemoTabClick = true;
-      window.api.openMemoWindow();
-      switchView('todo');
-    }
-    down = null;
-    memoTab.classList.remove('tearing');
-  });
+    () => window.api.requestClose());
 }
 
 /* =========================================================================
  * 투두(할 일) 뷰
  * ========================================================================= */
 const todoBoard = document.getElementById('todo-board');
-const todoSearch = document.getElementById('todo-search');
 
 function addTodo() {
   const color = BLOCK_COLORS[state.todos.length % BLOCK_COLORS.length];
   const todo = { id: uid(), title: '', color, items: [] };
-  state.todos.unshift(todo);
+  state.todos.push(todo); // 새 블럭은 맨 아래
   save();
   renderTodos();
-  const first = todoBoard.querySelector('.todo-block .block-title');
-  if (first) first.focus();
+  const blocks = todoBoard.querySelectorAll('.todo-block .block-title');
+  const last = blocks[blocks.length - 1];
+  if (last) { last.focus(); last.scrollIntoView({ block: 'center' }); }
 }
 
 function autoGrow(el) {
@@ -158,42 +152,55 @@ function autoGrow(el) {
 }
 
 function renderTodos() {
-  const q = todoSearch.value.trim().toLowerCase();
   todoBoard.innerHTML = '';
-
-  const visible = state.todos.filter((t) => {
-    if (!q) return true;
-    if ((t.title || '').toLowerCase().includes(q)) return true;
-    return t.items.some((it) => (it.text || '').toLowerCase().includes(q));
-  });
-
-  if (visible.length === 0) {
+  if (state.todos.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
-    hint.innerHTML = q
-      ? '검색 결과가 없어요.'
-      : '＋ 버튼을 눌러<br>할 일을 추가해보세요';
+    hint.innerHTML = '＋ 버튼을 눌러<br>할 일을 추가해보세요';
     todoBoard.appendChild(hint);
     return;
   }
-
-  visible.forEach((todo) => todoBoard.appendChild(buildBlock(todo)));
+  state.todos.forEach((todo) => todoBoard.appendChild(buildBlock(todo)));
 }
 
 function buildBlock(todo) {
   const block = document.createElement('div');
   block.className = 'todo-block';
   block.style.background = todo.color;
+  block.dataset.id = todo.id;
+
+  // 드래그로 순서 변경 (블럭 전체를 드롭 타겟으로)
+  block.addEventListener('dragover', (e) => e.preventDefault());
+  block.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/todo');
+    if (!draggedId || draggedId === todo.id) return;
+    const from = state.todos.findIndex((t) => t.id === draggedId);
+    const to = state.todos.findIndex((t) => t.id === todo.id);
+    if (from < 0 || to < 0) return;
+    const [moved] = state.todos.splice(from, 1);
+    state.todos.splice(to, 0, moved);
+    save();
+    renderTodos();
+  });
 
   const head = document.createElement('div');
   head.className = 'block-head';
+
+  // 드래그 핸들
+  const handle = document.createElement('span');
+  handle.className = 'drag-handle';
+  handle.textContent = '⠿';
+  handle.title = '드래그해서 순서 변경';
+  handle.draggable = true;
+  handle.addEventListener('dragstart', (e) =>
+    e.dataTransfer.setData('text/todo', todo.id));
 
   const title = document.createElement('input');
   title.className = 'block-title';
   title.placeholder = '할 일';
   title.value = todo.title || '';
   title.addEventListener('input', () => { todo.title = title.value; save(); });
-  // 제목에서 Enter/Tab → 세부항목 입력으로 이동 (없으면 만들어서)
   title.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
@@ -210,10 +217,8 @@ function buildBlock(todo) {
     }
   });
 
-  const menu = document.createElement('div');
-  menu.className = 'block-menu';
   const del = document.createElement('button');
-  del.className = 'icon-btn small';
+  del.className = 'icon-btn small block-del';
   del.textContent = '✕';
   del.title = '블럭 삭제';
   del.addEventListener('click', () => {
@@ -221,10 +226,10 @@ function buildBlock(todo) {
     save();
     renderTodos();
   });
-  menu.appendChild(del);
 
+  head.appendChild(handle);
   head.appendChild(title);
-  head.appendChild(menu);
+  head.appendChild(del);
   block.appendChild(head);
 
   const list = document.createElement('div');
@@ -236,7 +241,6 @@ function buildBlock(todo) {
   ordered.forEach((item) => list.appendChild(buildItem(todo, item)));
   block.appendChild(list);
 
-  // 세부항목 추가 (평소엔 숨김, 블럭에 마우스 올리면 나타남)
   const addItem = document.createElement('button');
   addItem.className = 'add-item-btn';
   addItem.textContent = '＋ 세부항목';
@@ -263,6 +267,10 @@ function buildItem(todo, item) {
   box.textContent = item.done ? '✓' : '';
   box.addEventListener('click', () => {
     item.done = !item.done;
+    // 세부항목이 있고 전부 완료되면 블럭 자체를 제거
+    if (todo.items.length > 0 && todo.items.every((x) => x.done)) {
+      state.todos = state.todos.filter((t) => t.id !== todo.id);
+    }
     save();
     renderTodos();
   });
@@ -320,12 +328,13 @@ function focusItem(todoId, itemId) {
 }
 
 /* =========================================================================
- * 메모 뷰 (태그 분류 + 인덱스 칩)
+ * 메모 뷰 (컬러 블록 + 태그)
  * ========================================================================= */
 const memoPage = document.getElementById('memo-page');
 const indexList = document.getElementById('index-list');
+const memoTagbar = document.getElementById('memo-tagbar');
 
-let activeTags = new Set(); // 선택된 태그 필터 (다중)
+let activeTags = new Set(); // AND 필터
 
 function noteTitle(content) {
   const lines = (content || '').split('\n');
@@ -336,13 +345,13 @@ function noteTitle(content) {
 function allTags() {
   const s = new Set();
   state.memos.forEach((m) => (m.tags || []).forEach((t) => s.add(t)));
-  return [...s];
+  return sortTags([...s]);
 }
 
 function visibleMemos() {
   if (activeTags.size === 0) return state.memos;
   return state.memos.filter((m) =>
-    (m.tags || []).some((t) => activeTags.has(t)));
+    [...activeTags].every((t) => (m.tags || []).includes(t)));
 }
 
 function addMemo() {
@@ -354,11 +363,38 @@ function addMemo() {
 }
 
 function renderMemos() {
+  renderTagbar();
   renderMemoPage();
   renderMemoIndex();
 }
 
-/* --- 본문(한 페이지, 구분선으로 메모 구분) --- */
+/* --- 상단 태그 필터 바 (AND) --- */
+function renderTagbar() {
+  memoTagbar.innerHTML = '';
+  const tags = allTags();
+  if (tags.length === 0) { memoTagbar.style.display = 'none'; return; }
+  memoTagbar.style.display = 'flex';
+  tags.forEach((t) => {
+    const b = document.createElement('button');
+    b.className = 'tag-toggle' + (activeTags.has(t) ? ' on' : '');
+    b.textContent = '#' + t;
+    b.addEventListener('click', () => {
+      if (activeTags.has(t)) activeTags.delete(t);
+      else activeTags.add(t);
+      renderMemos();
+    });
+    memoTagbar.appendChild(b);
+  });
+  if (activeTags.size > 0) {
+    const clear = document.createElement('button');
+    clear.className = 'tag-clear-inline';
+    clear.textContent = '✕ 전체';
+    clear.addEventListener('click', () => { activeTags.clear(); renderMemos(); });
+    memoTagbar.appendChild(clear);
+  }
+}
+
+/* --- 메모 블록들 --- */
 function renderMemoPage() {
   memoPage.innerHTML = '';
   if (state.memos.length === 0) {
@@ -368,29 +404,23 @@ function renderMemoPage() {
   if (list.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
-    hint.innerHTML = '선택한 태그에 해당하는<br>메모가 없어요.';
+    hint.innerHTML = '선택한 태그를 모두 가진<br>메모가 없어요.';
     memoPage.appendChild(hint);
     return;
   }
-  list.forEach((memo, i) => {
-    if (i > 0) {
-      const div = document.createElement('div');
-      div.className = 'memo-divider';
-      memoPage.appendChild(div);
-    }
-    memoPage.appendChild(buildNote(memo));
-  });
+  list.forEach((memo) => memoPage.appendChild(buildMemoBlock(memo)));
 }
 
-function buildNote(memo) {
-  const wrap = document.createElement('div');
-  wrap.className = 'memo-note';
-  wrap.dataset.id = memo.id;
+function buildMemoBlock(memo) {
+  const block = document.createElement('div');
+  block.className = 'memo-block';
+  block.style.background = memo.color;
+  block.dataset.id = memo.id;
 
   // 태그 바
   const tagBar = document.createElement('div');
   tagBar.className = 'note-tags';
-  (memo.tags || []).forEach((t) => {
+  sortTags(memo.tags || []).forEach((t) => {
     const chip = document.createElement('span');
     chip.className = 'tag-chip';
     chip.innerHTML = '#' + t + ' <b>×</b>';
@@ -410,14 +440,17 @@ function buildNote(memo) {
       e.preventDefault();
       const t = tagAdd.value.trim().replace(/^#/, '');
       if (t && !memo.tags.includes(t)) {
-        memo.tags.push(t);
+        memo.tags = sortTags([...memo.tags, t]);
         save();
         renderMemos();
+        focusTagAdd(memo.id); // 연속 입력
+      } else {
+        tagAdd.value = '';
       }
     }
   });
   tagBar.appendChild(tagAdd);
-  wrap.appendChild(tagBar);
+  block.appendChild(tagBar);
 
   // 본문
   const body = document.createElement('div');
@@ -426,16 +459,14 @@ function buildNote(memo) {
   body.contentEditable = 'true';
   body.spellcheck = false;
   body.innerText = memo.content || '';
-
   body.addEventListener('input', () => {
     memo.content = body.innerText;
     save();
     updateIndexTitle(memo);
   });
-
   body.addEventListener('keydown', (e) => {
-    // Ctrl+Enter: 구분선 추가(새 메모 시작)
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    // Shift+Enter: 새 메모 블록
+    if (e.shiftKey && e.key === 'Enter') {
       e.preventDefault();
       memo.content = body.innerText;
       const idx = state.memos.findIndex((m) => m.id === memo.id);
@@ -445,7 +476,6 @@ function buildNote(memo) {
       renderMemos();
       focusNoteEnd(nm.id);
     } else if (e.key === 'Backspace' && caretAtStart(body)) {
-      // 맨 앞에서 Backspace → 앞 메모와 합치기(구분선 삭제)
       const idx = state.memos.findIndex((m) => m.id === memo.id);
       if (idx > 0) {
         e.preventDefault();
@@ -459,12 +489,11 @@ function buildNote(memo) {
       }
     }
   });
+  block.appendChild(body);
 
-  wrap.appendChild(body);
-  return wrap;
+  return block;
 }
 
-/* 커서가 편집영역 맨 앞에 있는지 */
 function caretAtStart(el) {
   const sel = window.getSelection();
   if (!sel.rangeCount) return false;
@@ -489,13 +518,18 @@ function focusNoteEnd(id) {
   body.scrollIntoView({ block: 'center' });
 }
 
+function focusTagAdd(id) {
+  const inp = memoPage.querySelector(`.memo-block[data-id="${id}"] .tag-add`);
+  if (inp) inp.focus();
+}
+
 function updateIndexTitle(memo) {
   const label = indexList.querySelector(
     `.index-chip[data-id="${memo.id}"] .label`);
   if (label) label.textContent = noteTitle(memo.content);
 }
 
-/* --- 사이드 인덱스 (색 칩 → hover 시 제목 확장) --- */
+/* --- 사이드 인덱스 (색 칩 → hover 확장, 우클릭 메뉴) --- */
 function renderMemoIndex() {
   indexList.innerHTML = '';
   visibleMemos().forEach((memo) => {
@@ -524,75 +558,89 @@ function renderMemoIndex() {
         body.focus();
       }
     });
+    chip.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      openCtxMenu(e.clientX, e.clientY, memo);
+    });
 
     indexList.appendChild(chip);
   });
 }
 
 /* =========================================================================
- * 태그로 보기 패널 (좌측 상단 하트)
+ * 우클릭 컨텍스트 메뉴 (색상 변경 / 메모 삭제)
  * ========================================================================= */
-const tagOverlay = document.getElementById('tag-overlay');
+const ctxMenu = document.getElementById('ctx-menu');
 
-function updateHeart() {
-  document.getElementById('btn-heart')
-    .classList.toggle('active', activeTags.size > 0);
-}
+function openCtxMenu(x, y, memo) {
+  ctxMenu.innerHTML = '';
 
-function renderTagCloud(filter) {
-  const cloud = document.getElementById('tag-cloud');
-  cloud.innerHTML = '';
-  const tags = allTags().filter((t) => !filter || t.includes(filter));
-  if (tags.length === 0) {
-    cloud.innerHTML =
-      '<p class="sync-hint">아직 태그가 없어요.<br>메모마다 ＋태그로 달 수 있어요.</p>';
-    return;
-  }
-  tags.forEach((t) => {
-    const b = document.createElement('button');
-    b.className = 'tag-toggle' + (activeTags.has(t) ? ' on' : '');
-    b.textContent = '#' + t;
-    b.addEventListener('click', () => {
-      if (activeTags.has(t)) activeTags.delete(t);
-      else activeTags.add(t);
+  const title = document.createElement('div');
+  title.className = 'ctx-title';
+  title.textContent = '색상 변경';
+  ctxMenu.appendChild(title);
+
+  const swatches = document.createElement('div');
+  swatches.className = 'ctx-swatches';
+  BLOCK_COLORS.forEach((c) => {
+    const sw = document.createElement('button');
+    sw.className = 'ctx-swatch' + (memo.color === c ? ' on' : '');
+    sw.style.background = c;
+    sw.addEventListener('click', () => {
+      memo.color = c;
+      save();
       renderMemos();
-      renderTagCloud(document.getElementById('tag-search').value.trim());
-      updateHeart();
+      hideCtxMenu();
     });
-    cloud.appendChild(b);
+    swatches.appendChild(sw);
   });
+  ctxMenu.appendChild(swatches);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'ctx-item ctx-del';
+  delBtn.textContent = '🗑 메모 삭제';
+  delBtn.addEventListener('click', () => {
+    state.memos = state.memos.filter((m) => m.id !== memo.id);
+    save();
+    renderMemos();
+    hideCtxMenu();
+  });
+  ctxMenu.appendChild(delBtn);
+
+  ctxMenu.style.left = x + 'px';
+  ctxMenu.style.top = y + 'px';
+  ctxMenu.classList.add('open');
 }
 
-function setupTags() {
-  document.getElementById('btn-heart').addEventListener('click', () => {
-    renderTagCloud('');
-    document.getElementById('tag-search').value = '';
-    tagOverlay.classList.add('open');
-    switchView('memo');
+function hideCtxMenu() { ctxMenu.classList.remove('open'); }
+
+function setupCtxMenu() {
+  document.addEventListener('click', (e) => {
+    if (!ctxMenu.contains(e.target)) hideCtxMenu();
   });
-  document.getElementById('tag-close').addEventListener('click',
-    () => tagOverlay.classList.remove('open'));
-  tagOverlay.addEventListener('click', (e) => {
-    if (e.target === tagOverlay) tagOverlay.classList.remove('open');
+  document.addEventListener('contextmenu', (e) => {
+    if (!e.target.closest('.index-chip')) hideCtxMenu();
   });
-  document.getElementById('tag-search').addEventListener('input', (e) =>
-    renderTagCloud(e.target.value.trim()));
-  document.getElementById('tag-clear').addEventListener('click', () => {
-    activeTags.clear();
-    renderMemos();
-    renderTagCloud(document.getElementById('tag-search').value.trim());
-    updateHeart();
-  });
+  window.addEventListener('blur', hideCtxMenu);
 }
 
 /* =========================================================================
- * 메모 내 검색 (Ctrl+F)
+ * 메모 내 검색 (Ctrl+F) — CSS Custom Highlight (포커스 빼앗지 않음)
  * ========================================================================= */
 const findbar = document.getElementById('findbar');
 const findInput = document.getElementById('find-input');
 const findCount = document.getElementById('find-count');
-let findMatches = [];
+let findRanges = [];
 let findIdx = -1;
+
+const hasHighlight = () => (window.CSS && CSS.highlights && window.Highlight);
+
+function clearFindHighlights() {
+  if (hasHighlight()) {
+    CSS.highlights.delete('find');
+    CSS.highlights.delete('find-current');
+  }
+}
 
 function openFind() {
   findbar.classList.add('open');
@@ -602,15 +650,17 @@ function openFind() {
 }
 function closeFind() {
   findbar.classList.remove('open');
-  findMatches = [];
+  clearFindHighlights();
+  findRanges = [];
   findIdx = -1;
   findCount.textContent = '';
 }
 
 function runFind() {
-  const q = findInput.value;
-  findMatches = [];
+  clearFindHighlights();
+  findRanges = [];
   findIdx = -1;
+  const q = findInput.value;
   if (!q) { findCount.textContent = ''; return; }
 
   const walker = document.createTreeWalker(memoPage, NodeFilter.SHOW_TEXT, null);
@@ -620,27 +670,28 @@ function runFind() {
     const text = node.nodeValue.toLowerCase();
     let from = 0, at;
     while ((at = text.indexOf(lower, from)) !== -1) {
-      findMatches.push({ node, start: at, end: at + q.length });
+      const r = document.createRange();
+      r.setStart(node, at);
+      r.setEnd(node, at + q.length);
+      findRanges.push(r);
       from = at + q.length;
     }
   }
-  if (findMatches.length === 0) { findCount.textContent = '0/0'; return; }
+
+  if (findRanges.length === 0) { findCount.textContent = '0/0'; return; }
+  if (hasHighlight()) CSS.highlights.set('find', new Highlight(...findRanges));
   gotoMatch(0);
 }
 
 function gotoMatch(i) {
-  if (findMatches.length === 0) return;
-  findIdx = (i + findMatches.length) % findMatches.length;
-  const m = findMatches[findIdx];
-  const range = document.createRange();
-  range.setStart(m.node, m.start);
-  range.setEnd(m.node, m.end);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-  const parent = m.node.parentElement;
-  if (parent) parent.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  findCount.textContent = `${findIdx + 1}/${findMatches.length}`;
+  if (findRanges.length === 0) return;
+  findIdx = (i + findRanges.length) % findRanges.length;
+  const r = findRanges[findIdx];
+  if (hasHighlight()) CSS.highlights.set('find-current', new Highlight(r));
+  const el = r.startContainer.parentElement;
+  if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  findCount.textContent = `${findIdx + 1}/${findRanges.length}`;
+  // 포커스는 검색창에 유지(본문에 입력되는 버그 방지)
 }
 
 function setupFind() {
@@ -690,8 +741,7 @@ function showSyncPane(status) {
 }
 
 async function refreshSyncStatus() {
-  const status = await window.api.sync.status();
-  showSyncPane(status);
+  showSyncPane(await window.api.sync.status());
 }
 
 function setupSync() {
@@ -762,18 +812,16 @@ async function reloadFromLocal() {
  * ========================================================================= */
 async function init() {
   setupChrome();
-  setupTabDrag();
+  setupTabs();
   setupFind();
   setupSync();
-  setupTags();
+  setupCtxMenu();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
-  todoSearch.addEventListener('input', renderTodos);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
 
-  const mergeBtn = document.getElementById('btn-merge');
-  if (mergeBtn) mergeBtn.addEventListener('click',
-    () => window.api.windowControl('close'));
+  renderTabs();
+  applyView();
 
   await load();
   renderTodos();

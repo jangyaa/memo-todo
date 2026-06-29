@@ -54,56 +54,49 @@ body {
 /* ======================= 타이틀바 ======================= */
 .titlebar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-end;
   height: 42px;
-  padding: 0 10px;
+  padding: 0 8px;
   background: linear-gradient(180deg, #fff, #fff9fb);
   border-bottom: 1px solid var(--line);
-  -webkit-app-region: drag;
 }
 
-.titlebar-left .logo {
-  font-size: 16px;
-  color: var(--pink-deep);
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 8px;
-  -webkit-app-region: no-drag;
-  transition: all 0.12s;
-}
-.titlebar-left .logo:hover { background: var(--pink-soft); }
-.titlebar-left .logo.active { background: var(--pink); }
-
+/* 좌측 크롬형 탭 */
 .titlebar-tabs {
   display: flex;
-  gap: 4px;
+  gap: 3px;
+  align-items: flex-end;
   -webkit-app-region: no-drag;
 }
+.titlebar-drag { flex: 1; align-self: stretch; -webkit-app-region: drag; }
 
 .tab {
-  border: none;
-  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: #f7e6ed;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 5px 12px;
-  border-radius: 999px;
+  padding: 7px 16px 6px;
+  border-radius: 10px 10px 0 0;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.12s, color 0.12s, transform 0.12s;
 }
-.tab:hover { background: var(--pink-soft); }
+.tab:hover { background: #fce3ec; }
 .tab.active {
-  background: var(--pink);
-  color: #fff;
+  background: var(--bg);
+  color: var(--pink-deep);
+  border-color: var(--line);
+  border-bottom: none;
 }
-.tab.tearing { opacity: 0.4; transform: translateY(6px) scale(0.94); }
+.tab.tearing { opacity: 0.4; transform: translateY(8px) scale(0.92); }
 
 .titlebar-right {
   display: flex;
   gap: 2px;
+  align-items: center;
+  align-self: center;
+  margin-bottom: 0;
   -webkit-app-region: no-drag;
 }
 
@@ -133,23 +126,9 @@ body {
 .todo-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  justify-content: flex-end;
+  padding: 10px 12px 4px;
 }
-
-.search-wrap { flex: 1; }
-.search-input {
-  width: 100%;
-  border: 1px solid var(--line);
-  background: #fff;
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 13px;
-  color: var(--ink);
-  outline: none;
-  -webkit-app-region: no-drag;
-}
-.search-input:focus { border-color: var(--pink); }
 
 .add-btn {
   border: none;
@@ -190,9 +169,19 @@ body {
 .block-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 8px;
 }
+.drag-handle {
+  cursor: grab;
+  color: var(--ink-soft);
+  opacity: 0;
+  font-size: 13px;
+  user-select: none;
+  transition: opacity 0.15s;
+}
+.todo-block:hover .drag-handle { opacity: 0.5; }
+.drag-handle:active { cursor: grabbing; }
 .block-title {
   flex: 1;
   border: none;
@@ -205,8 +194,8 @@ body {
 }
 .block-title::placeholder { color: rgba(74, 65, 72, 0.35); }
 
-.block-menu { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
-.todo-block:hover .block-menu { opacity: 1; }
+.block-del { opacity: 0; transition: opacity 0.15s; }
+.todo-block:hover .block-del { opacity: 1; }
 
 .checklist { display: flex; flex-direction: column; gap: 2px; }
 
@@ -384,17 +373,43 @@ body {
 }
 .tag-chip b { cursor: pointer; opacity: 0.6; margin-left: 2px; }
 .tag-chip b:hover { opacity: 1; }
+/* 평소엔 숨김, 블록에 마우스를 올리거나 포커스되면 보임 */
 .tag-add {
   border: none;
   background: transparent;
   font-size: 11px;
   color: var(--ink-soft);
   outline: none;
-  width: 54px;
+  width: 0;
+  opacity: 0;
+  padding: 0;
+  transition: width 0.15s, opacity 0.15s;
   -webkit-app-region: no-drag;
 }
+.memo-block:hover .tag-add,
+.tag-add:focus { width: 54px; opacity: 1; }
 
 .memo-main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+
+/* 상단 태그 필터 바 */
+.memo-tagbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: #fffafc;
+  max-height: 92px;
+  overflow-y: auto;
+}
+.tag-clear-inline {
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 11px;
+  cursor: pointer;
+}
+.tag-clear-inline:hover { color: var(--pink-deep); }
 
 .findbar {
   display: none;
@@ -420,16 +435,22 @@ body {
 .memo-page {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 18px 40px;
+  padding: 12px 14px 40px;
   user-select: text;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.memo-note { padding-bottom: 6px; }
-.memo-divider {
-  height: 0;
-  border-top: 1.5px dashed var(--line);
-  margin: 14px 0;
+/* 메모 한 개 = 컬러 블록 */
+.memo-block {
+  background: var(--c1);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
+  transition: box-shadow 0.15s;
 }
+.memo-block:hover { box-shadow: 0 4px 12px rgba(180, 150, 165, 0.2); }
 
 .note-body {
   border: none;
@@ -539,6 +560,48 @@ body {
 .sync-msg { font-size: 13px; line-height: 1.6; color: var(--ink); }
 .sync-hint { font-size: 11.5px; color: var(--ink-soft); line-height: 1.5; }
 .sync-error { font-size: 12px; color: #e06b7e; min-height: 16px; }
+
+/* ======================= 우클릭 메뉴 ======================= */
+.ctx-menu {
+  display: none;
+  position: fixed;
+  z-index: 200;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 8px;
+  min-width: 150px;
+}
+.ctx-menu.open { display: block; }
+.ctx-title { font-size: 11px; color: var(--ink-soft); padding: 2px 4px 6px; }
+.ctx-swatches { display: flex; gap: 6px; padding: 0 2px 8px; border-bottom: 1px solid var(--line); }
+.ctx-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.ctx-swatch.on { border-color: var(--pink-deep); }
+.ctx-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 6px 4px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 8px;
+}
+.ctx-item:hover { background: var(--pink-soft); }
+.ctx-del { color: #e06b7e; }
+
+/* ======================= 메모 검색 하이라이트 ======================= */
+::highlight(find) { background: #ffe9a8; }
+::highlight(find-current) { background: var(--pink); color: #fff; }
 
 /* 스크롤바 */
 ::-webkit-scrollbar { width: 7px; }

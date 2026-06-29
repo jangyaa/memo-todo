@@ -60,10 +60,10 @@ function loadConfig() {
 }
 
 // ---------------------------------------------------------------------------
-// 윈도우
+// 윈도우 (각 창이 가진 뷰 집합을 추적: ['todo','memo'] 부분집합)
 // ---------------------------------------------------------------------------
-let mainWindow = null;
-let memoWindow = null;
+let firstWindow = null;
+const winViews = new Map(); // win.id -> ['todo','memo']
 
 function broadcast(channel, payload, exceptId = null) {
   BrowserWindow.getAllWindows().forEach((win) => {
@@ -72,9 +72,13 @@ function broadcast(channel, payload, exceptId = null) {
   });
 }
 
-function createMainWindow() {
-  mainWindow = new BrowserWindow({
-    width: 400, height: 640, minWidth: 320, minHeight: 360,
+function orderViews(views) {
+  return ['todo', 'memo'].filter((v) => views.includes(v));
+}
+
+function createWindow(views) {
+  const win = new BrowserWindow({
+    width: 420, height: 640, minWidth: 300, minHeight: 340,
     frame: false, transparent: true, backgroundColor: '#00000000',
     title: 'Memo Todo',
     webPreferences: {
@@ -82,24 +86,11 @@ function createMainWindow() {
       contextIsolation: true, nodeIntegration: false
     }
   });
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  mainWindow.on('closed', () => { mainWindow = null; });
-}
-
-function createMemoWindow() {
-  if (memoWindow && !memoWindow.isDestroyed()) { memoWindow.focus(); return; }
-  memoWindow = new BrowserWindow({
-    width: 460, height: 660, minWidth: 320, minHeight: 360,
-    frame: false, transparent: true, backgroundColor: '#00000000',
-    title: 'Memo',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true, nodeIntegration: false
-    }
-  });
-  memoWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'),
-    { query: { view: 'memo', standalone: '1' } });
-  memoWindow.on('closed', () => { memoWindow = null; });
+  winViews.set(win.id, orderViews(views));
+  win.loadFile(path.join(__dirname, 'renderer', 'index.html'),
+    { query: { views: orderViews(views).join(',') } });
+  win.on('closed', () => { winViews.delete(win.id); });
+  return win;
 }
 
 // ---------------------------------------------------------------------------
@@ -191,12 +182,38 @@ ipcMain.handle('window:control', (event, action) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return;
   if (action === 'minimize') win.minimize();
-  else if (action === 'close') win.close();
-  else if (action === 'pin-on') win.setAlwaysOnTop(true);
-  else if (action === 'pin-off') win.setAlwaysOnTop(false);
 });
 
-ipcMain.handle('memo:openWindow', () => createMemoWindow());
+// 탭을 창 밖으로 끌어 분리: 해당 뷰를 새 창으로, 원래 창은 나머지 뷰만
+ipcMain.handle('view:tearOut', (event, view) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  const cur = winViews.get(win.id) || ['todo', 'memo'];
+  if (cur.length < 2) return; // 탭이 하나뿐이면 분리 불가
+  const remaining = orderViews(cur.filter((v) => v !== view));
+  winViews.set(win.id, remaining);
+  win.webContents.send('views:set', remaining);
+  createWindow([view]);
+});
+
+// X 버튼: 분리된(단일 뷰) 창이면 다른 창으로 합치고, 아니면 일반 닫기
+ipcMain.handle('window:requestClose', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  const cur = winViews.get(win.id) || ['todo', 'memo'];
+  const others = BrowserWindow.getAllWindows().filter((w) => w.id !== win.id);
+  if (cur.length === 1 && others.length > 0) {
+    const target = others[0];
+    const merged = orderViews(
+      Array.from(new Set([...(winViews.get(target.id) || []), ...cur])));
+    winViews.set(target.id, merged);
+    target.webContents.send('views:set', merged);
+    target.focus();
+    win.destroy();
+  } else {
+    win.close();
+  }
+});
 
 // --- 동기화 IPC ---
 ipcMain.handle('sync:status', () => {
@@ -247,10 +264,12 @@ ipcMain.handle('sync:now', async () => {
 
 // ---------------------------------------------------------------------------
 app.whenReady().then(() => {
-  createMainWindow();
-  mainWindow.webContents.once('did-finish-load', () => { startSync(); });
+  firstWindow = createWindow(['todo', 'memo']);
+  firstWindow.webContents.once('did-finish-load', () => { startSync(); });
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      firstWindow = createWindow(['todo', 'memo']);
+    }
   });
 });
 
