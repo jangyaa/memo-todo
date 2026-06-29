@@ -1,0 +1,34 @@
+{
+  "name": "memo-todo",
+  "version": "0.1.0",
+  "description": "스티커 메모 스타일의 투두리스트 + 메모 결합 데스크톱 앱",
+  "main": "main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.nagi.memotodo",
+    "productName": "Memo Todo",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}
