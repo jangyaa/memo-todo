@@ -9,12 +9,24 @@ const BLOCK_COLORS = [
 ];
 
 let state = {
-  todos: [],   // { id, title, color, items: [{ id, text, done }] }
-  folders: [], // { id, name, collapsed }
-  memos: []    // { id, folderId|null, content }
+  todos: [], // { id, title, color, items: [{ id, text, done }] }
+  memos: []  // { id, content, tags: [], color }
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+function nextMemoColor() {
+  return BLOCK_COLORS[state.memos.length % BLOCK_COLORS.length];
+}
+
+function normalizeMemo(m, i) {
+  return {
+    id: m.id || uid(),
+    content: m.content || '',
+    tags: Array.isArray(m.tags) ? m.tags : [],
+    color: m.color || BLOCK_COLORS[i % BLOCK_COLORS.length]
+  };
+}
 
 let saveTimer = null;
 function save() {
@@ -28,8 +40,7 @@ async function load() {
   const data = await window.api.loadData();
   if (data && typeof data === 'object') {
     state.todos = Array.isArray(data.todos) ? data.todos : [];
-    state.folders = Array.isArray(data.folders) ? data.folders : [];
-    state.memos = Array.isArray(data.memos) ? data.memos : [];
+    state.memos = Array.isArray(data.memos) ? data.memos.map(normalizeMemo) : [];
   }
 }
 
@@ -41,8 +52,7 @@ window.api.onDataChanged((data) => {
   if (editing) return;
   if (!data) return;
   state.todos = data.todos || [];
-  state.folders = data.folders || [];
-  state.memos = data.memos || [];
+  state.memos = (data.memos || []).map(normalizeMemo);
   renderTodos();
   renderMemos();
 });
@@ -60,9 +70,17 @@ function switchView(view) {
   document.getElementById('view-memo').classList.toggle('active', view === 'memo');
 }
 
+let suppressMemoTabClick = false;
+
 function setupChrome() {
   document.querySelectorAll('.tab').forEach((tab) => {
-    tab.addEventListener('click', () => switchView(tab.dataset.view));
+    tab.addEventListener('click', () => {
+      if (tab.dataset.view === 'memo' && suppressMemoTabClick) {
+        suppressMemoTabClick = false;
+        return; // 방금 탭을 떼어낸 동작이므로 전환하지 않음
+      }
+      switchView(tab.dataset.view);
+    });
   });
 
   document.getElementById('btn-min').addEventListener('click',
@@ -79,14 +97,43 @@ function setupChrome() {
   });
 
   document.getElementById('btn-open-memo').addEventListener('click',
-    () => window.api.openMemoWindow());
+    () => { window.api.openMemoWindow(); switchView('todo'); });
 
-  // 메모 전용(별도) 창이면 탭/메모열기 버튼 숨김
+  // 메모 전용(별도) 창이면 탭/메모열기 버튼 숨김, 합치기 버튼 표시
   if (STANDALONE_MEMO) {
     document.querySelector('.titlebar-tabs').style.display = 'none';
     document.getElementById('btn-open-memo').style.display = 'none';
+    const merge = document.getElementById('btn-merge');
+    if (merge) merge.style.display = 'inline-flex';
     switchView('memo');
   }
+}
+
+/* 메모 탭을 창 밖으로 끌면 별도 창으로 분리 (크롬 근사) */
+function setupTabDrag() {
+  const memoTab = document.querySelector('.tab[data-view="memo"]');
+  if (!memoTab) return;
+  let down = null;
+  let torn = false;
+
+  memoTab.addEventListener('pointerdown', (e) => {
+    down = { x: e.clientX, y: e.clientY };
+    torn = false;
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!down) return;
+    const dist = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+    if (dist > 70) { torn = true; memoTab.classList.add('tearing'); }
+  });
+  document.addEventListener('pointerup', () => {
+    if (down && torn) {
+      suppressMemoTabClick = true;
+      window.api.openMemoWindow();
+      switchView('todo');
+    }
+    down = null;
+    memoTab.classList.remove('tearing');
+  });
 }
 
 /* =========================================================================
@@ -101,7 +148,6 @@ function addTodo() {
   state.todos.unshift(todo);
   save();
   renderTodos();
-  // 새 블럭 제목에 포커스
   const first = todoBoard.querySelector('.todo-block .block-title');
   if (first) first.focus();
 }
@@ -126,7 +172,7 @@ function renderTodos() {
     hint.className = 'empty-hint';
     hint.innerHTML = q
       ? '검색 결과가 없어요.'
-      : '＋ 버튼을 눌러<br>할 일 블럭을 추가해보세요 🤍';
+      : '＋ 버튼을 눌러<br>할 일을 추가해보세요';
     todoBoard.appendChild(hint);
     return;
   }
@@ -139,7 +185,6 @@ function buildBlock(todo) {
   block.className = 'todo-block';
   block.style.background = todo.color;
 
-  // 헤더: 제목 + 삭제
   const head = document.createElement('div');
   head.className = 'block-head';
 
@@ -148,12 +193,28 @@ function buildBlock(todo) {
   title.placeholder = '할 일';
   title.value = todo.title || '';
   title.addEventListener('input', () => { todo.title = title.value; save(); });
+  // 제목에서 Enter/Tab → 세부항목 입력으로 이동 (없으면 만들어서)
+  title.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      if (todo.items.length === 0) {
+        const it = { id: uid(), text: '', done: false };
+        todo.items.push(it);
+        save();
+        renderTodos();
+        focusItem(todo.id, it.id);
+      } else {
+        const firstUndone = todo.items.find((x) => !x.done) || todo.items[0];
+        focusItem(todo.id, firstUndone.id);
+      }
+    }
+  });
 
   const menu = document.createElement('div');
   menu.className = 'block-menu';
   const del = document.createElement('button');
   del.className = 'icon-btn small';
-  del.textContent = '🗑';
+  del.textContent = '✕';
   del.title = '블럭 삭제';
   del.addEventListener('click', () => {
     state.todos = state.todos.filter((t) => t.id !== todo.id);
@@ -166,10 +227,8 @@ function buildBlock(todo) {
   head.appendChild(menu);
   block.appendChild(head);
 
-  // 체크리스트 (미완료 먼저, 완료 항목은 하단으로)
   const list = document.createElement('div');
   list.className = 'checklist';
-
   const ordered = [
     ...todo.items.filter((it) => !it.done),
     ...todo.items.filter((it) => it.done)
@@ -177,7 +236,7 @@ function buildBlock(todo) {
   ordered.forEach((item) => list.appendChild(buildItem(todo, item)));
   block.appendChild(list);
 
-  // 세부항목 추가
+  // 세부항목 추가 (평소엔 숨김, 블럭에 마우스 올리면 나타남)
   const addItem = document.createElement('button');
   addItem.className = 'add-item-btn';
   addItem.textContent = '＋ 세부항목';
@@ -186,7 +245,6 @@ function buildBlock(todo) {
     todo.items.push(it);
     save();
     renderTodos();
-    // 방금 추가한 항목에 포커스
     focusItem(todo.id, it.id);
   });
   block.appendChild(addItem);
@@ -206,7 +264,7 @@ function buildItem(todo, item) {
   box.addEventListener('click', () => {
     item.done = !item.done;
     save();
-    renderTodos(); // 완료 시 하단으로 재배치
+    renderTodos();
   });
 
   const text = document.createElement('textarea');
@@ -220,7 +278,6 @@ function buildItem(todo, item) {
     save();
   });
   text.addEventListener('keydown', (e) => {
-    // Enter: 새 항목 추가 / Backspace(빈 항목): 삭제
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const it = { id: uid(), text: '', done: false };
@@ -249,8 +306,6 @@ function buildItem(todo, item) {
   row.appendChild(box);
   row.appendChild(text);
   row.appendChild(del);
-
-  // 렌더 직후 높이 맞춤
   requestAnimationFrame(() => autoGrow(text));
   return row;
 }
@@ -265,32 +320,37 @@ function focusItem(todoId, itemId) {
 }
 
 /* =========================================================================
- * 메모 뷰
+ * 메모 뷰 (태그 분류 + 인덱스 칩)
  * ========================================================================= */
 const memoPage = document.getElementById('memo-page');
 const indexList = document.getElementById('index-list');
 
+let activeTags = new Set(); // 선택된 태그 필터 (다중)
+
 function noteTitle(content) {
   const lines = (content || '').split('\n');
-  for (const line of lines) {
-    if (line.trim()) return line.trim();
-  }
+  for (const line of lines) if (line.trim()) return line.trim();
   return '제목 없음';
 }
 
-function addMemo(folderId = null) {
-  const memo = { id: uid(), folderId, content: '' };
+function allTags() {
+  const s = new Set();
+  state.memos.forEach((m) => (m.tags || []).forEach((t) => s.add(t)));
+  return [...s];
+}
+
+function visibleMemos() {
+  if (activeTags.size === 0) return state.memos;
+  return state.memos.filter((m) =>
+    (m.tags || []).some((t) => activeTags.has(t)));
+}
+
+function addMemo() {
+  const memo = { id: uid(), content: '', tags: [], color: nextMemoColor() };
   state.memos.push(memo);
   save();
   renderMemos();
-  const el = memoPage.querySelector(`.note-body[data-id="${memo.id}"]`);
-  if (el) { el.focus(); el.scrollIntoView({ block: 'center' }); }
-}
-
-function addFolder() {
-  state.folders.push({ id: uid(), name: '새 폴더', collapsed: false });
-  save();
-  renderMemos();
+  focusNoteEnd(memo.id);
 }
 
 function renderMemos() {
@@ -302,9 +362,17 @@ function renderMemos() {
 function renderMemoPage() {
   memoPage.innerHTML = '';
   if (state.memos.length === 0) {
-    addPlaceholderNote();
+    state.memos.push({ id: uid(), content: '', tags: [], color: nextMemoColor() });
   }
-  state.memos.forEach((memo, i) => {
+  const list = visibleMemos();
+  if (list.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.innerHTML = '선택한 태그에 해당하는<br>메모가 없어요.';
+    memoPage.appendChild(hint);
+    return;
+  }
+  list.forEach((memo, i) => {
     if (i > 0) {
       const div = document.createElement('div');
       div.className = 'memo-divider';
@@ -314,16 +382,44 @@ function renderMemoPage() {
   });
 }
 
-function addPlaceholderNote() {
-  // 메모가 하나도 없을 때 자동으로 빈 메모 1개 생성
-  state.memos.push({ id: uid(), folderId: null, content: '' });
-}
-
 function buildNote(memo) {
   const wrap = document.createElement('div');
   wrap.className = 'memo-note';
   wrap.dataset.id = memo.id;
 
+  // 태그 바
+  const tagBar = document.createElement('div');
+  tagBar.className = 'note-tags';
+  (memo.tags || []).forEach((t) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.innerHTML = '#' + t + ' <b>×</b>';
+    chip.querySelector('b').addEventListener('click', () => {
+      memo.tags = memo.tags.filter((x) => x !== t);
+      activeTags.delete(t);
+      save();
+      renderMemos();
+    });
+    tagBar.appendChild(chip);
+  });
+  const tagAdd = document.createElement('input');
+  tagAdd.className = 'tag-add';
+  tagAdd.placeholder = '＋태그';
+  tagAdd.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const t = tagAdd.value.trim().replace(/^#/, '');
+      if (t && !memo.tags.includes(t)) {
+        memo.tags.push(t);
+        save();
+        renderMemos();
+      }
+    }
+  });
+  tagBar.appendChild(tagAdd);
+  wrap.appendChild(tagBar);
+
+  // 본문
   const body = document.createElement('div');
   body.className = 'note-body';
   body.dataset.id = memo.id;
@@ -337,132 +433,156 @@ function buildNote(memo) {
     updateIndexTitle(memo);
   });
 
+  body.addEventListener('keydown', (e) => {
+    // Ctrl+Enter: 구분선 추가(새 메모 시작)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      memo.content = body.innerText;
+      const idx = state.memos.findIndex((m) => m.id === memo.id);
+      const nm = { id: uid(), content: '', tags: [], color: nextMemoColor() };
+      state.memos.splice(idx + 1, 0, nm);
+      save();
+      renderMemos();
+      focusNoteEnd(nm.id);
+    } else if (e.key === 'Backspace' && caretAtStart(body)) {
+      // 맨 앞에서 Backspace → 앞 메모와 합치기(구분선 삭제)
+      const idx = state.memos.findIndex((m) => m.id === memo.id);
+      if (idx > 0) {
+        e.preventDefault();
+        memo.content = body.innerText;
+        const prev = state.memos[idx - 1];
+        prev.content = (prev.content || '') + (memo.content || '');
+        state.memos.splice(idx, 1);
+        save();
+        renderMemos();
+        focusNoteEnd(prev.id);
+      }
+    }
+  });
+
   wrap.appendChild(body);
   return wrap;
 }
 
-/* 인덱스의 해당 항목 제목만 갱신 (전체 리렌더 없이) */
+/* 커서가 편집영역 맨 앞에 있는지 */
+function caretAtStart(el) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return false;
+  const r = sel.getRangeAt(0);
+  if (!r.collapsed) return false;
+  const pre = r.cloneRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(r.startContainer, r.startOffset);
+  return pre.toString().length === 0;
+}
+
+function focusNoteEnd(id) {
+  const body = memoPage.querySelector(`.note-body[data-id="${id}"]`);
+  if (!body) return;
+  body.focus();
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.selectNodeContents(body);
+  r.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  body.scrollIntoView({ block: 'center' });
+}
+
 function updateIndexTitle(memo) {
   const label = indexList.querySelector(
-    `.index-item[data-id="${memo.id}"] .label`);
+    `.index-chip[data-id="${memo.id}"] .label`);
   if (label) label.textContent = noteTitle(memo.content);
 }
 
-/* --- 사이드 인덱스 (폴더 + 제목) --- */
+/* --- 사이드 인덱스 (색 칩 → hover 시 제목 확장) --- */
 function renderMemoIndex() {
   indexList.innerHTML = '';
+  visibleMemos().forEach((memo) => {
+    const chip = document.createElement('div');
+    chip.className = 'index-chip';
+    chip.dataset.id = memo.id;
 
-  // 분류 없는 메모
-  const ungrouped = state.memos.filter((m) => !m.folderId ||
-    !state.folders.some((f) => f.id === m.folderId));
-  const dropRoot = makeDropZone(null);
-  ungrouped.forEach((m) => dropRoot.appendChild(buildIndexItem(m)));
-  indexList.appendChild(dropRoot);
+    const sq = document.createElement('span');
+    sq.className = 'chip-square';
+    sq.style.background = memo.color;
 
-  // 폴더별
-  state.folders.forEach((folder) => {
-    indexList.appendChild(buildFolder(folder));
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = noteTitle(memo.content);
+
+    chip.appendChild(sq);
+    chip.appendChild(label);
+
+    chip.addEventListener('click', () => {
+      indexList.querySelectorAll('.index-chip').forEach((x) =>
+        x.classList.remove('active'));
+      chip.classList.add('active');
+      const body = memoPage.querySelector(`.note-body[data-id="${memo.id}"]`);
+      if (body) {
+        body.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        body.focus();
+      }
+    });
+
+    indexList.appendChild(chip);
   });
 }
 
-function makeDropZone(folderId) {
-  const zone = document.createElement('div');
-  zone.className = 'drop-zone';
-  zone.addEventListener('dragover', (e) => e.preventDefault());
-  zone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    const id = e.dataTransfer.getData('text/memo');
-    const memo = state.memos.find((m) => m.id === id);
-    if (memo) { memo.folderId = folderId; save(); renderMemoIndex(); }
-  });
-  return zone;
+/* =========================================================================
+ * 태그로 보기 패널 (좌측 상단 하트)
+ * ========================================================================= */
+const tagOverlay = document.getElementById('tag-overlay');
+
+function updateHeart() {
+  document.getElementById('btn-heart')
+    .classList.toggle('active', activeTags.size > 0);
 }
 
-function buildFolder(folder) {
-  const el = document.createElement('div');
-  el.className = 'folder' + (folder.collapsed ? ' collapsed' : '');
-
-  const head = document.createElement('div');
-  head.className = 'folder-head';
-
-  const caret = document.createElement('span');
-  caret.className = 'folder-caret';
-  caret.textContent = folder.collapsed ? '▶' : '▼';
-  caret.addEventListener('click', () => {
-    folder.collapsed = !folder.collapsed;
-    save();
-    renderMemoIndex();
+function renderTagCloud(filter) {
+  const cloud = document.getElementById('tag-cloud');
+  cloud.innerHTML = '';
+  const tags = allTags().filter((t) => !filter || t.includes(filter));
+  if (tags.length === 0) {
+    cloud.innerHTML =
+      '<p class="sync-hint">아직 태그가 없어요.<br>메모마다 ＋태그로 달 수 있어요.</p>';
+    return;
+  }
+  tags.forEach((t) => {
+    const b = document.createElement('button');
+    b.className = 'tag-toggle' + (activeTags.has(t) ? ' on' : '');
+    b.textContent = '#' + t;
+    b.addEventListener('click', () => {
+      if (activeTags.has(t)) activeTags.delete(t);
+      else activeTags.add(t);
+      renderMemos();
+      renderTagCloud(document.getElementById('tag-search').value.trim());
+      updateHeart();
+    });
+    cloud.appendChild(b);
   });
-
-  const name = document.createElement('input');
-  name.className = 'folder-name';
-  name.value = folder.name;
-  name.addEventListener('input', () => { folder.name = name.value; save(); });
-
-  const del = document.createElement('button');
-  del.className = 'icon-btn small folder-del';
-  del.textContent = '✕';
-  del.title = '폴더 삭제(메모는 분류 없음으로)';
-  del.addEventListener('click', () => {
-    state.memos.forEach((m) => { if (m.folderId === folder.id) m.folderId = null; });
-    state.folders = state.folders.filter((f) => f.id !== folder.id);
-    save();
-    renderMemoIndex();
-  });
-
-  head.appendChild(caret);
-  head.appendChild(name);
-  head.appendChild(del);
-
-  // 폴더 헤더에 드롭하면 해당 폴더로 이동
-  head.addEventListener('dragover', (e) => e.preventDefault());
-  head.addEventListener('drop', (e) => {
-    e.preventDefault();
-    const id = e.dataTransfer.getData('text/memo');
-    const memo = state.memos.find((m) => m.id === id);
-    if (memo) { memo.folderId = folder.id; save(); renderMemoIndex(); }
-  });
-
-  el.appendChild(head);
-
-  const children = makeDropZone(folder.id);
-  children.classList.add('folder-children');
-  state.memos.filter((m) => m.folderId === folder.id)
-    .forEach((m) => children.appendChild(buildIndexItem(m)));
-  el.appendChild(children);
-
-  return el;
 }
 
-function buildIndexItem(memo) {
-  const item = document.createElement('div');
-  item.className = 'index-item';
-  item.dataset.id = memo.id;
-  item.draggable = true;
-
-  const dot = document.createElement('span');
-  dot.className = 'dot';
-  dot.textContent = '●';
-
-  const label = document.createElement('span');
-  label.className = 'label';
-  label.textContent = noteTitle(memo.content);
-
-  item.appendChild(dot);
-  item.appendChild(label);
-
-  item.addEventListener('click', () => {
-    indexList.querySelectorAll('.index-item').forEach((x) =>
-      x.classList.remove('active'));
-    item.classList.add('active');
-    const body = memoPage.querySelector(`.note-body[data-id="${memo.id}"]`);
-    if (body) { body.scrollIntoView({ block: 'center', behavior: 'smooth' }); body.focus(); }
+function setupTags() {
+  document.getElementById('btn-heart').addEventListener('click', () => {
+    renderTagCloud('');
+    document.getElementById('tag-search').value = '';
+    tagOverlay.classList.add('open');
+    switchView('memo');
   });
-
-  item.addEventListener('dragstart', (e) =>
-    e.dataTransfer.setData('text/memo', memo.id));
-
-  return item;
+  document.getElementById('tag-close').addEventListener('click',
+    () => tagOverlay.classList.remove('open'));
+  tagOverlay.addEventListener('click', (e) => {
+    if (e.target === tagOverlay) tagOverlay.classList.remove('open');
+  });
+  document.getElementById('tag-search').addEventListener('input', (e) =>
+    renderTagCloud(e.target.value.trim()));
+  document.getElementById('tag-clear').addEventListener('click', () => {
+    activeTags.clear();
+    renderMemos();
+    renderTagCloud(document.getElementById('tag-search').value.trim());
+    updateHeart();
+  });
 }
 
 /* =========================================================================
@@ -493,7 +613,6 @@ function runFind() {
   findIdx = -1;
   if (!q) { findCount.textContent = ''; return; }
 
-  // memo-page 내 모든 텍스트 노드를 순회하며 일치 위치를 찾는다.
   const walker = document.createTreeWalker(memoPage, NodeFilter.SHOW_TEXT, null);
   const lower = q.toLowerCase();
   let node;
@@ -505,7 +624,6 @@ function runFind() {
       from = at + q.length;
     }
   }
-
   if (findMatches.length === 0) { findCount.textContent = '0/0'; return; }
   gotoMatch(0);
 }
@@ -540,7 +658,6 @@ function setupFind() {
 
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-      // 메모 뷰일 때만 동작
       if (document.getElementById('view-memo').classList.contains('active')) {
         e.preventDefault();
         openFind();
@@ -562,10 +679,7 @@ function showSyncPane(status) {
   };
   Object.entries(panes).forEach(([id, on]) =>
     document.getElementById(id).classList.toggle('active', on));
-
-  // 동기화 버튼 상태 표시
   document.getElementById('btn-sync').classList.toggle('active', status.signedIn);
-
   if (status.signedIn) {
     document.getElementById('sync-who').textContent = status.email || '';
     const last = status.lastSyncAt
@@ -634,11 +748,9 @@ function setupSync() {
     btn.textContent = '지금 동기화';
   });
 
-  // 메인 프로세스가 보내는 상태 변경 반영
   window.api.sync.onStatus((status) => showSyncPane(status));
 }
 
-// 로컬 데이터를 다시 읽어 화면 갱신 (동기화 직후)
 async function reloadFromLocal() {
   await load();
   renderTodos();
@@ -650,13 +762,18 @@ async function reloadFromLocal() {
  * ========================================================================= */
 async function init() {
   setupChrome();
+  setupTabDrag();
   setupFind();
   setupSync();
+  setupTags();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   todoSearch.addEventListener('input', renderTodos);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
-  document.getElementById('btn-add-folder').addEventListener('click', addFolder);
+
+  const mergeBtn = document.getElementById('btn-merge');
+  if (mergeBtn) mergeBtn.addEventListener('click',
+    () => window.api.windowControl('close'));
 
   await load();
   renderTodos();

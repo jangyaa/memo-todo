@@ -66,7 +66,16 @@ body {
 .titlebar-left .logo {
   font-size: 16px;
   color: var(--pink-deep);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+  -webkit-app-region: no-drag;
+  transition: all 0.12s;
 }
+.titlebar-left .logo:hover { background: var(--pink-soft); }
+.titlebar-left .logo.active { background: var(--pink); }
 
 .titlebar-tabs {
   display: flex;
@@ -90,6 +99,7 @@ body {
   background: var(--pink);
   color: #fff;
 }
+.tab.tearing { opacity: 0.4; transform: translateY(6px) scale(0.94); }
 
 .titlebar-right {
   display: flex;
@@ -259,14 +269,26 @@ body {
 .check-item:hover .item-del { opacity: 0.7; }
 .item-del:hover { color: var(--pink-deep); opacity: 1; }
 
+/* 평소엔 숨겨두고, 블럭에 마우스를 올리면 살짝 커지며 나타난다 */
 .add-item-btn {
+  display: block;
+  width: 100%;
   border: none;
   background: transparent;
   color: var(--ink-soft);
   font-size: 12.5px;
   cursor: pointer;
-  padding: 5px 2px 0;
   text-align: left;
+  overflow: hidden;
+  max-height: 0;
+  padding: 0 2px;
+  opacity: 0;
+  transition: max-height 0.18s ease, opacity 0.18s ease, padding 0.18s ease;
+}
+.todo-block:hover .add-item-btn {
+  max-height: 30px;
+  opacity: 1;
+  padding: 6px 2px 0;
 }
 .add-item-btn:hover { color: var(--pink-deep); }
 
@@ -281,74 +303,96 @@ body {
 /* ======================= 메모 뷰 ======================= */
 .memo-layout { display: flex; flex: 1; min-height: 0; }
 
+/* 평소엔 색 칩만 보이는 좁은 인덱스, 마우스를 올리면 펼쳐지며 제목이 보인다 */
 .memo-index {
-  width: 140px;
+  width: 50px;
   flex-shrink: 0;
   border-right: 1px solid var(--line);
   background: #fffafc;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  transition: width 0.18s ease;
 }
+.memo-index:hover { width: 172px; }
 
 .index-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 8px 6px 12px;
+  padding: 8px 8px 6px 10px;
   border-bottom: 1px solid var(--line);
+  min-height: 36px;
 }
-.index-title { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
-.index-actions { display: flex; gap: 1px; }
+.index-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.memo-index:hover .index-title { opacity: 1; }
 
-.index-list { flex: 1; overflow-y: auto; padding: 6px 4px; }
+.index-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 7px; }
 
-.folder { margin-bottom: 2px; }
-.folder-head {
+/* 메모 한 개 = 색 정사각형 + (펼쳐졌을 때) 제목 */
+.index-chip {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: 6px;
+  gap: 8px;
+  padding: 5px 4px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink);
+  white-space: nowrap;
 }
-.folder-head:hover { background: var(--pink-soft); }
-.folder-caret { font-size: 9px; color: var(--ink-soft); width: 10px; }
-.folder-name {
-  flex: 1;
+.index-chip:hover { background: var(--pink-soft); }
+.index-chip.active { background: var(--pink); }
+.index-chip.active .label { color: #fff; }
+.chip-square {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(180, 150, 165, 0.3);
+}
+.index-chip .label {
+  font-size: 12px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.memo-index:hover .index-chip .label { opacity: 1; }
+
+/* 메모별 태그 바 */
+.note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+.tag-chip {
+  font-size: 11px;
+  background: var(--pink-soft);
+  color: var(--pink-deep);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.tag-chip b { cursor: pointer; opacity: 0.6; margin-left: 2px; }
+.tag-chip b:hover { opacity: 1; }
+.tag-add {
   border: none;
   background: transparent;
-  font: inherit;
-  color: inherit;
+  font-size: 11px;
+  color: var(--ink-soft);
   outline: none;
+  width: 54px;
   -webkit-app-region: no-drag;
 }
-.folder-del { opacity: 0; font-size: 11px; }
-.folder-head:hover .folder-del { opacity: 0.6; }
-.folder.collapsed .folder-children { display: none; }
-.folder-children { padding-left: 6px; min-height: 8px; }
-.drop-zone { min-height: 8px; }
-.drop-zone:empty { min-height: 4px; }
-
-.index-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-}
-.index-item:hover { background: var(--pink-soft); }
-.index-item.active { background: var(--pink); color: #fff; }
-.index-item .dot { color: var(--pink-deep); font-size: 8px; }
-.index-item.active .dot { color: #fff; }
-.index-item .label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 
 .memo-main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
 
@@ -399,7 +443,8 @@ body {
   -webkit-app-region: no-drag;
 }
 .note-body:empty::before {
-  content: "여기에 메모를 작성하세요. 첫 줄이 제목이 됩니다.";
+  content: "여기에 메모를 작성하세요.\A첫 줄이 제목이 됩니다.";
+  white-space: pre-line;
   color: var(--ink-soft);
 }
 /* 제목(첫 줄) 강조 */
@@ -440,14 +485,17 @@ body {
 .sync-pane { display: none; flex-direction: column; gap: 8px; }
 .sync-pane.active { display: flex; }
 
-.sync-pane input {
+.sync-pane input,
+#tag-search {
+  width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 9px 12px;
   font-size: 13px;
   outline: none;
 }
-.sync-pane input:focus { border-color: var(--pink); }
+.sync-pane input:focus,
+#tag-search:focus { border-color: var(--pink); }
 
 .sync-btns { display: flex; gap: 8px; margin-top: 4px; }
 .btn-primary {
@@ -472,6 +520,21 @@ body {
   cursor: pointer;
 }
 .btn-ghost:hover { background: var(--pink-soft); }
+
+/* 태그 구름 */
+.tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; max-height: 220px; overflow-y: auto; }
+.tag-toggle {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.tag-toggle:hover { background: var(--pink-soft); }
+.tag-toggle.on { background: var(--pink); color: #fff; border-color: var(--pink); }
 
 .sync-msg { font-size: 13px; line-height: 1.6; color: var(--ink); }
 .sync-hint { font-size: 11.5px; color: var(--ink-soft); line-height: 1.5; }

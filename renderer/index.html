@@ -11,7 +11,7 @@
     <!-- 커스텀 타이틀바 -->
     <header class="titlebar">
       <div class="titlebar-left">
-        <span class="logo">🤍✦</span>
+        <button class="logo" id="btn-heart" title="태그로 보기">🤍✦</button>
       </div>
       <div class="titlebar-tabs">
         <button class="tab active" data-view="todo">할 일</button>
@@ -19,6 +19,7 @@
       </div>
       <div class="titlebar-right">
         <button class="icon-btn" id="btn-sync" title="클라우드 동기화">☁</button>
+        <button class="icon-btn" id="btn-merge" title="본 창으로 합치기" style="display:none">⤺</button>
         <button class="icon-btn" id="btn-open-memo" title="메모 별도 창으로 열기">🗔</button>
         <button class="icon-btn" id="btn-pin" title="항상 위에 고정">📌</button>
         <button class="icon-btn" id="btn-min" title="최소화">─</button>
@@ -44,10 +45,7 @@
         <aside class="memo-index" id="memo-index">
           <div class="index-toolbar">
             <span class="index-title">목차</span>
-            <div class="index-actions">
-              <button class="icon-btn small" id="btn-add-folder" title="폴더 추가">🗀＋</button>
-              <button class="icon-btn small" id="btn-add-memo" title="메모 추가">＋</button>
-            </div>
+            <button class="icon-btn small" id="btn-add-memo" title="메모 추가">＋</button>
           </div>
           <div class="index-list" id="index-list"></div>
         </aside>
@@ -65,6 +63,22 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <!-- ===================== 태그로 보기 패널 ===================== -->
+  <div class="modal-overlay" id="tag-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <span>🏷 태그로 보기</span>
+        <button class="icon-btn" id="tag-close">✕</button>
+      </div>
+      <input type="text" id="tag-search" placeholder="태그 검색…" />
+      <div class="tag-cloud" id="tag-cloud"></div>
+      <div class="sync-btns">
+        <button class="btn-ghost" id="tag-clear">전체 보기 (초기화)</button>
+      </div>
+      <p class="sync-hint">태그를 여러 개 선택하면 그중 하나라도 가진 메모가 모두 보여요.</p>
+    </div>
   </div>
 
   <!-- ===================== 동기화 패널 ===================== -->
