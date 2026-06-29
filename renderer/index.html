@@ -32,7 +32,8 @@
         <!-- 사이드 인덱스 -->
         <aside class="memo-index" id="memo-index">
           <div class="index-toolbar">
-            <span class="index-title">List</span>
+            <span class="index-title">Folder</span>
+            <button class="icon-btn small" id="btn-add-folder" title="폴더 추가">＋</button>
           </div>
           <div class="index-list" id="index-list"></div>
         </aside>
@@ -61,20 +62,69 @@
   <div class="profile-menu" id="profile-menu">
     <div class="pm-avatar" id="pm-avatar">♡</div>
     <button class="pm-image" id="pm-image">프로필 이미지 변경</button>
-    <div class="pm-theme-label">테마 변경</div>
-    <div class="pm-themes" id="pm-themes"></div>
+    <button class="pm-image" id="pm-theme">테마 변경</button>
   </div>
   <input type="file" id="profile-file" accept="image/*" style="display:none" />
 
+  <!-- 테마 / 글꼴 설정 모달 -->
+  <div class="modal-overlay" id="theme-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <span>테마 변경</span>
+        <button class="icon-btn" id="theme-close">✕</button>
+      </div>
+      <div class="theme-list" id="theme-list"></div>
+      <div class="font-section">
+        <div class="font-row">
+          <span class="font-label">글꼴 (전체)</span>
+          <select id="font-family"></select>
+        </div>
+        <div class="font-row">
+          <span class="font-label">글자 크기 (전체)</span>
+          <div class="font-size-ctl">
+            <button id="font-dec">A-</button>
+            <span id="font-size-val">100%</span>
+            <button id="font-inc">A+</button>
+          </div>
+        </div>
+        <p class="sync-hint">메모 본문은 서식 도구가 따로 있어 전체 글꼴 설정의 영향을 받지 않아요.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 색상 선택 팝오버 (메모 색상 변경) -->
+  <div class="color-pop" id="color-pop"></div>
+
   <!-- 메모 본문 텍스트 선택 시 뜨는 서식 툴바 -->
   <div class="format-toolbar" id="format-toolbar">
-    <button data-cmd="bold" title="굵게"><b>B</b></button>
-    <button data-cmd="italic" title="기울임"><i>I</i></button>
-    <button data-cmd="underline" title="밑줄"><u>U</u></button>
-    <button data-cmd="strikeThrough" title="취소선"><s>S</s></button>
-    <button data-cmd="hilite" class="ft-hl" title="형광펜">H</button>
-    <span class="ft-sep"></span>
-    <span class="ft-colors" id="ft-colors"></span>
+    <div class="ft-row">
+      <button data-cmd="bold" title="굵게"><b>B</b></button>
+      <button data-cmd="italic" title="기울임"><i>I</i></button>
+      <button data-cmd="underline" title="밑줄"><u>U</u></button>
+      <button data-cmd="strikeThrough" title="취소선"><s>S</s></button>
+      <button data-cmd="hilite" class="ft-hl" title="형광펜"></button>
+      <button data-cmd="removeFormat" class="ft-clear" title="서식 지우기">⌫</button>
+    </div>
+    <div class="ft-row">
+      <span class="ft-tag">색</span>
+      <span class="ft-colors" id="ft-colors"></span>
+      <input type="text" id="ft-hex" class="ft-hex" placeholder="#hex" maxlength="7" />
+    </div>
+    <div class="ft-row">
+      <span class="ft-tag">크기</span>
+      <button data-size="dec" class="ft-az">A-</button>
+      <button data-size="inc" class="ft-az">A+</button>
+      <span class="ft-tag">글꼴</span>
+      <select id="ft-font"></select>
+    </div>
+    <div class="ft-row">
+      <span class="ft-tag">정렬</span>
+      <button data-cmd="justifyLeft" title="왼쪽">≡</button>
+      <button data-cmd="justifyCenter" title="가운데">≡</button>
+      <button data-cmd="justifyRight" title="오른쪽">≡</button>
+      <button data-cmd="quote" title="인용구">❝</button>
+      <button data-cmd="link" title="링크">↗</button>
+    </div>
   </div>
 
   <!-- ===================== 동기화 패널 ===================== -->

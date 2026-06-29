@@ -7,12 +7,16 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-// 블록 배경은 반투명 흰색으로 통일하고, 색은 강조(해시태그/제목 막대)에만 사용
+// 블록 배경(반투명 색) + 강조색(해시태그/제목 막대)
+const SOFTS = ['#fde7ee', '#f3eafc', '#e9f5e8', '#e6f1fb', '#fdf3e3', '#fbe9e9'];
 const ACCENTS = ['#ef9ab9', '#b48be6', '#86c97f', '#7fb2e6', '#e0ad57', '#e58a8a'];
-function accentOf(item) {
+const BLOCK_ALPHA = 0.4; // 투두/메모 공통 불투명도
+function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
-  return ACCENTS[i < 0 ? 0 : i];
+  return i < 0 ? 0 : i;
 }
+function accentOf(item) { return ACCENTS[colorIndexOf(item)]; }
+function blockBg(item) { return hexA(SOFTS[colorIndexOf(item)], BLOCK_ALPHA); }
 function hexA(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
@@ -30,9 +34,10 @@ function htmlToText(html) {
 }
 
 let state = {
-  todos: [], // { id, title, color, items: [{ id, text, done }] }
-  memos: [], // { id, content, tags: [], color }
-  settings: { theme: 'default', profileImage: null }
+  todos: [], // { id, title, color, items, pinned, pinnedAt }
+  memos: [], // { id, content, tags, color, folderId, pinned, pinnedAt }
+  folders: [], // { id, name, collapsed }
+  settings: { theme: 'default', profileImage: null, fontFamily: '', fontSize: 100 }
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -95,7 +100,10 @@ function normalizeMemo(m, i) {
     id: m.id || uid(),
     content,
     tags: sortTags(Array.isArray(m.tags) ? m.tags : []),
-    color: m.color || BLOCK_COLORS[i % BLOCK_COLORS.length]
+    color: m.color || BLOCK_COLORS[i % BLOCK_COLORS.length],
+    folderId: m.folderId || null,
+    pinned: !!m.pinned,
+    pinnedAt: m.pinnedAt || 0
   };
 }
 
@@ -110,7 +118,9 @@ function save() {
 function normalizeSettings(s) {
   return {
     theme: (s && s.theme) || 'default',
-    profileImage: (s && s.profileImage) || null
+    profileImage: (s && s.profileImage) || null,
+    fontFamily: (s && s.fontFamily) || '',
+    fontSize: (s && s.fontSize) || 100
   };
 }
 
@@ -119,6 +129,7 @@ async function load() {
   if (data && typeof data === 'object') {
     state.todos = Array.isArray(data.todos) ? data.todos : [];
     state.memos = Array.isArray(data.memos) ? data.memos.map(normalizeMemo) : [];
+    state.folders = Array.isArray(data.folders) ? data.folders : [];
     state.settings = normalizeSettings(data.settings);
   }
   applySettings();
@@ -132,6 +143,7 @@ window.api.onDataChanged((data) => {
   if (!data) return;
   state.todos = data.todos || [];
   state.memos = (data.memos || []).map(normalizeMemo);
+  state.folders = data.folders || [];
   state.settings = normalizeSettings(data.settings);
   applySettings();
   renderTodos();
@@ -157,6 +169,7 @@ function setView(v) {
   currentView = v;
   renderTabs();
   applyView();
+  if (typeof hideFormatToolbar === 'function') hideFormatToolbar();
 }
 
 let tabDrag = null;
@@ -257,10 +270,10 @@ function renderTodos() {
 }
 
 function buildBlock(todo) {
-  const accent = accentOf(todo);
   const block = document.createElement('div');
   block.className = 'todo-block' + (todo.pinned ? ' pinned' : '');
   block.dataset.id = todo.id;
+  block.style.background = blockBg(todo);
 
   const head = document.createElement('div');
   head.className = 'block-head';
@@ -278,7 +291,6 @@ function buildBlock(todo) {
   title.className = 'block-title';
   title.placeholder = 'To-do';
   title.value = todo.title || '';
-  title.style.borderLeftColor = accent; // 제목 앞 막대
   title.addEventListener('input', () => { todo.title = title.value; save(); });
   title.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === 'Tab') {
@@ -491,7 +503,7 @@ function renderMemoPage() {
   if (state.memos.length === 0) {
     state.memos.push({ id: uid(), content: '', tags: [], color: nextMemoColor() });
   }
-  const list = visibleMemos();
+  const list = pinnedFirst(visibleMemos());
   if (list.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
@@ -505,10 +517,11 @@ function renderMemoPage() {
 function buildMemoBlock(memo) {
   const accent = accentOf(memo);
   const block = document.createElement('div');
-  block.className = 'memo-block';
+  block.className = 'memo-block' + (memo.pinned ? ' pinned' : '');
   block.dataset.id = memo.id;
+  block.style.background = blockBg(memo);
 
-  // 헤더: 드래그 핸들(좌) + 삭제(우, hover 시 노출)
+  // 헤더: 드래그 핸들(좌) + [고정/색상/삭제](우, hover 시 노출)
   const head = document.createElement('div');
   head.className = 'memo-head';
   const handle = document.createElement('span');
@@ -518,6 +531,31 @@ function buildMemoBlock(memo) {
   handle.draggable = true;
   handle.addEventListener('dragstart', (e) => startBlockDrag(e, 'memo', block, memo.id));
   handle.addEventListener('dragend', endBlockDrag);
+
+  const tools = document.createElement('div');
+  tools.className = 'memo-tools';
+
+  const pin = document.createElement('button');
+  pin.className = 'icon-btn small memo-pin' + (memo.pinned ? ' active' : '');
+  pin.textContent = '⤒';
+  pin.title = memo.pinned ? '고정 해제' : '상단 고정';
+  pin.addEventListener('click', () => {
+    memo.pinned = !memo.pinned;
+    memo.pinnedAt = memo.pinned ? Date.now() : 0;
+    save();
+    renderMemos();
+  });
+
+  const colorBtn = document.createElement('button');
+  colorBtn.className = 'icon-btn small memo-color';
+  colorBtn.textContent = '◑';
+  colorBtn.title = '색상 변경';
+  colorBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const r = colorBtn.getBoundingClientRect();
+    openColorPop(r.left, r.bottom + 4, memo);
+  });
+
   const del = document.createElement('button');
   del.className = 'icon-btn small memo-del';
   del.textContent = '✕';
@@ -527,17 +565,21 @@ function buildMemoBlock(memo) {
     save();
     renderMemos();
   });
+
+  tools.appendChild(pin);
+  tools.appendChild(colorBtn);
+  tools.appendChild(del);
   head.appendChild(handle);
-  head.appendChild(del);
+  head.appendChild(tools);
   block.appendChild(head);
 
-  // 본문 (서식 가능한 HTML). 제목(첫 줄) 앞 막대는 left border로 표현
+  // 본문 (서식 가능한 HTML). 제목(첫 줄)에만 막대 → CSS ::before + --bar
   const body = document.createElement('div');
   body.className = 'note-body';
   body.dataset.id = memo.id;
   body.contentEditable = 'true';
   body.spellcheck = false;
-  body.style.borderLeftColor = accent;
+  body.style.setProperty('--bar', accent);
   body.innerHTML = looksHtml(memo.content) ? memo.content : linkifyHtml(memo.content || '');
   body.addEventListener('input', () => {
     memo.content = body.innerHTML;
@@ -613,9 +655,11 @@ function buildMemoBlock(memo) {
     }
   });
   tagBar.appendChild(tagAdd);
-  // 태그 바의 빈 곳을 클릭하면 입력칸으로 포커스
-  tagBar.addEventListener('click', (e) => {
-    if (e.target === tagBar) tagAdd.focus();
+  // 태그 바 영역을 클릭하면 바로 입력 활성화
+  tagBar.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.tag-chip')) return;
+    e.preventDefault();
+    tagAdd.focus();
   });
   block.appendChild(tagBar);
 
@@ -657,59 +701,181 @@ function updateIndexTitle(memo) {
   if (label) label.textContent = noteTitle(memo.content);
 }
 
-/* --- 사이드 인덱스 (색 칩 → hover 확장, 우클릭 메뉴) --- */
-function renderMemoIndex() {
-  indexList.innerHTML = '';
-  visibleMemos().forEach((memo) => {
-    const chip = document.createElement('div');
-    chip.className = 'index-chip';
-    chip.dataset.id = memo.id;
-    chip.draggable = true;
-
-    const sq = document.createElement('span');
-    sq.className = 'chip-square';
-    sq.style.background = accentOf(memo);
-
-    const label = document.createElement('span');
-    label.className = 'label';
-    label.textContent = noteTitle(memo.content);
-
-    chip.appendChild(sq);
-    chip.appendChild(label);
-
-    chip.addEventListener('click', () => {
-      indexList.querySelectorAll('.index-chip').forEach((x) =>
-        x.classList.remove('active'));
-      chip.classList.add('active');
-      const body = memoPage.querySelector(`.note-body[data-id="${memo.id}"]`);
-      if (body) {
-        body.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        body.focus();
-      }
-    });
-    chip.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      openCtxMenu(e.clientX, e.clientY, memo);
-    });
-    // 인덱스에서도 드래그로 순서 변경
-    chip.addEventListener('dragstart', (e) => startBlockDrag(e, 'memo', chip, memo.id));
-    chip.addEventListener('dragend', endBlockDrag);
-    // 더블클릭 → 인덱스에서 제목 수정
-    chip.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      startIndexRename(chip, label, memo);
-    });
-
-    indexList.appendChild(chip);
-  });
+/* 고정 메모를 앞으로 */
+function pinnedFirst(arr) {
+  return [
+    ...arr.filter((m) => m.pinned).sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0)),
+    ...arr.filter((m) => !m.pinned)
+  ];
 }
 
-/* 인덱스에서 제목(첫 줄) 수정 */
+/* --- 사이드 인덱스 (폴더 + 색 칩) --- */
+function renderMemoIndex() {
+  indexList.innerHTML = '';
+  const vis = visibleMemos();
+  // 폴더에 속하지 않은 메모
+  const ungrouped = pinnedFirst(vis.filter((m) =>
+    !m.folderId || !state.folders.some((f) => f.id === m.folderId)));
+  ungrouped.forEach((m) => indexList.appendChild(buildIndexChip(m)));
+  // 폴더 (폴더 순서대로)
+  state.folders.forEach((folder) => indexList.appendChild(buildFolderEl(folder, vis)));
+}
+
+function buildIndexChip(memo) {
+  const chip = document.createElement('div');
+  chip.className = 'index-chip' + (memo.pinned ? ' pinned' : '');
+  chip.dataset.id = memo.id;
+  chip.draggable = true;
+
+  const sq = document.createElement('span');
+  sq.className = 'chip-square';
+  sq.style.background = accentOf(memo);
+
+  const label = document.createElement('span');
+  label.className = 'label';
+  label.textContent = noteTitle(memo.content);
+
+  chip.appendChild(sq);
+  chip.appendChild(label);
+
+  chip.addEventListener('click', () => {
+    indexList.querySelectorAll('.index-chip').forEach((x) => x.classList.remove('active'));
+    chip.classList.add('active');
+    const body = memoPage.querySelector(`.note-body[data-id="${memo.id}"]`);
+    if (body) { body.scrollIntoView({ block: 'center', behavior: 'smooth' }); body.focus(); }
+  });
+  chip.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openCtxMenu(e.clientX, e.clientY, memo);
+  });
+  chip.addEventListener('dragstart', (e) => startBlockDrag(e, 'memo', chip, memo.id));
+  chip.addEventListener('dragend', endBlockDrag);
+  chip.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    startIndexRename(chip, label, memo);
+  });
+  return chip;
+}
+
+function buildFolderEl(folder, vis) {
+  const el = document.createElement('div');
+  el.className = 'folder' + (folder.collapsed ? ' collapsed' : '');
+  el.dataset.id = folder.id;
+
+  const head = document.createElement('div');
+  head.className = 'folder-head';
+  head.draggable = true;
+
+  const caret = document.createElement('span');
+  caret.className = 'folder-caret';
+  caret.textContent = folder.collapsed ? '▸' : '▾';
+
+  const name = document.createElement('span');
+  name.className = 'folder-name';
+  name.textContent = folder.name || '새 폴더';
+
+  head.appendChild(caret);
+  head.appendChild(name);
+
+  head.addEventListener('click', () => {
+    folder.collapsed = !folder.collapsed;
+    save();
+    renderMemoIndex();
+  });
+  head.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    startFolderRename(head, name, folder);
+  });
+  head.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openFolderCtx(e.clientX, e.clientY, folder);
+  });
+  head.addEventListener('dragstart', (e) => { e.stopPropagation(); startBlockDrag(e, 'folder', el, folder.id); });
+  head.addEventListener('dragend', endBlockDrag);
+
+  el.appendChild(head);
+
+  const children = document.createElement('div');
+  children.className = 'folder-children';
+  pinnedFirst(vis.filter((m) => m.folderId === folder.id))
+    .forEach((m) => children.appendChild(buildIndexChip(m)));
+  el.appendChild(children);
+
+  // 메모를 이 폴더로 드롭
+  el.addEventListener('dragover', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'memo') return; // 폴더 순서변경은 indexList가 처리
+    e.preventDefault();
+    e.stopPropagation();
+    el.classList.add('folder-drop');
+    positionIndicator(children, ':scope > .index-chip', e.clientY);
+    pendingFolderId = folder.id;
+  });
+  el.addEventListener('drop', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'memo') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const memo = state.memos.find((m) => m.id === blockDrag.id);
+    if (memo) {
+      memo.folderId = folder.id;
+      reorderList(state.memos, blockDrag.id, dropBeforeId);
+      save();
+      renderMemos();
+    }
+  });
+
+  return el;
+}
+
+function addFolder() {
+  state.folders.push({ id: uid(), name: '새 폴더', collapsed: false });
+  save();
+  renderMemoIndex();
+}
+
+function startFolderRename(head, nameEl, folder) {
+  document.getElementById('memo-index').classList.add('pinned');
+  const input = document.createElement('input');
+  input.className = 'index-rename';
+  input.value = folder.name || '';
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (commit) => {
+    if (done) return; done = true;
+    if (commit && input.value.trim()) folder.name = input.value.trim();
+    document.getElementById('memo-index').classList.remove('pinned');
+    save();
+    renderMemoIndex();
+  };
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+/* 인덱스에서 제목(첫 줄) 수정 — HTML 서식 유지 */
 function setMemoTitle(memo, newTitle) {
-  const lines = (memo.content || '').split('\n');
-  const idx = lines.findIndex((l) => l.trim() !== '');
-  if (idx < 0) memo.content = newTitle;
-  else { lines[idx] = newTitle; memo.content = lines.join('\n'); }
+  if (!looksHtml(memo.content)) {
+    const lines = (memo.content || '').split('\n');
+    const idx = lines.findIndex((l) => l.trim() !== '');
+    if (idx < 0) memo.content = newTitle;
+    else { lines[idx] = newTitle; memo.content = lines.join('\n'); }
+    return;
+  }
+  const tmp = document.createElement('div');
+  tmp.innerHTML = memo.content;
+  const walker = document.createTreeWalker(tmp, NodeFilter.SHOW_TEXT, null);
+  let n, target = null;
+  while ((n = walker.nextNode())) { if (n.nodeValue.trim() !== '') { target = n; break; } }
+  if (target) target.nodeValue = newTitle;
+  else tmp.insertBefore(document.createTextNode(newTitle), tmp.firstChild);
+  memo.content = tmp.innerHTML;
 }
 
 function startIndexRename(chip, label, memo) {
@@ -745,62 +911,121 @@ function startIndexRename(chip, label, memo) {
  * 우클릭 컨텍스트 메뉴 (색상 변경 / 메모 삭제)
  * ========================================================================= */
 const ctxMenu = document.getElementById('ctx-menu');
+const colorPop = document.getElementById('color-pop');
 
-function openCtxMenu(x, y, memo) {
-  ctxMenu.innerHTML = '';
+function placeMenu(el, x, y) {
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.classList.add('open');
+  document.getElementById('memo-index').classList.add('pinned');
+}
 
-  const title = document.createElement('div');
-  title.className = 'ctx-title';
-  title.textContent = '색상 변경';
-  ctxMenu.appendChild(title);
-
+function buildSwatches(memo) {
   const swatches = document.createElement('div');
   swatches.className = 'ctx-swatches';
-  BLOCK_COLORS.forEach((c) => {
+  BLOCK_COLORS.forEach((c, i) => {
     const sw = document.createElement('button');
     sw.className = 'ctx-swatch' + (memo.color === c ? ' on' : '');
-    sw.style.background = c;
+    sw.style.background = ACCENTS[i];
     sw.addEventListener('click', () => {
       memo.color = c;
       save();
       renderMemos();
-      hideCtxMenu();
+      hideMenus();
     });
     swatches.appendChild(sw);
   });
-  ctxMenu.appendChild(swatches);
-
-  const delBtn = document.createElement('button');
-  delBtn.className = 'ctx-item ctx-del';
-  delBtn.textContent = '🗑 메모 삭제';
-  delBtn.addEventListener('click', () => {
-    state.memos = state.memos.filter((m) => m.id !== memo.id);
-    save();
-    renderMemos();
-    hideCtxMenu();
-  });
-  ctxMenu.appendChild(delBtn);
-
-  ctxMenu.style.left = x + 'px';
-  ctxMenu.style.top = y + 'px';
-  ctxMenu.classList.add('open');
-  // 메뉴가 떠 있는 동안 인덱스가 접히지 않도록 고정
-  document.getElementById('memo-index').classList.add('pinned');
+  return swatches;
 }
 
-function hideCtxMenu() {
+// 인덱스 칩 우클릭: 색상 변경 + 메모 삭제
+function openCtxMenu(x, y, memo) {
+  ctxMenu.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'ctx-title';
+  title.textContent = '색상 변경';
+  ctxMenu.appendChild(title);
+  ctxMenu.appendChild(buildSwatches(memo));
+  const delBtn = document.createElement('button');
+  delBtn.className = 'ctx-item ctx-del';
+  delBtn.textContent = '메모 삭제';
+  delBtn.addEventListener('click', () => {
+    state.memos = state.memos.filter((m) => m.id !== memo.id);
+    save(); renderMemos(); hideMenus();
+  });
+  ctxMenu.appendChild(delBtn);
+  placeMenu(ctxMenu, x, y);
+}
+
+// 메모 색상 버튼: 색상만
+function openColorPop(x, y, memo) {
+  colorPop.innerHTML = '';
+  colorPop.appendChild(buildSwatches(memo));
+  placeMenu(colorPop, x, y);
+}
+
+// 폴더 우클릭: 이름 변경 / 폴더 삭제
+function openFolderCtx(x, y, folder) {
+  ctxMenu.innerHTML = '';
+  const rename = document.createElement('button');
+  rename.className = 'ctx-item';
+  rename.textContent = '이름 변경';
+  rename.addEventListener('click', () => {
+    hideMenus();
+    const head = indexList.querySelector(`.folder[data-id="${folder.id}"] .folder-head`);
+    const nameEl = head && head.querySelector('.folder-name');
+    if (nameEl) startFolderRename(head, nameEl, folder);
+  });
+  const del = document.createElement('button');
+  del.className = 'ctx-item ctx-del';
+  del.textContent = '폴더 삭제 (메모는 유지)';
+  del.addEventListener('click', () => {
+    state.memos.forEach((m) => { if (m.folderId === folder.id) m.folderId = null; });
+    state.folders = state.folders.filter((f) => f.id !== folder.id);
+    save(); renderMemos(); hideMenus();
+  });
+  ctxMenu.appendChild(rename);
+  ctxMenu.appendChild(del);
+  placeMenu(ctxMenu, x, y);
+}
+
+// 인덱스 빈 영역 우클릭: 메모 추가 / 폴더 추가
+function openIndexCtx(x, y) {
+  ctxMenu.innerHTML = '';
+  const addMemoBtn = document.createElement('button');
+  addMemoBtn.className = 'ctx-item';
+  addMemoBtn.textContent = '메모 추가';
+  addMemoBtn.addEventListener('click', () => { hideMenus(); addMemo(); });
+  const addFolderBtn = document.createElement('button');
+  addFolderBtn.className = 'ctx-item';
+  addFolderBtn.textContent = '폴더 추가';
+  addFolderBtn.addEventListener('click', () => { hideMenus(); addFolder(); });
+  ctxMenu.appendChild(addMemoBtn);
+  ctxMenu.appendChild(addFolderBtn);
+  placeMenu(ctxMenu, x, y);
+}
+
+function hideMenus() {
   ctxMenu.classList.remove('open');
+  colorPop.classList.remove('open');
   document.getElementById('memo-index').classList.remove('pinned');
 }
 
 function setupCtxMenu() {
   document.addEventListener('click', (e) => {
-    if (!ctxMenu.contains(e.target)) hideCtxMenu();
+    if (!ctxMenu.contains(e.target) && !colorPop.contains(e.target)) hideMenus();
+  });
+  // 인덱스 빈 영역 우클릭
+  indexList.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.index-chip') || e.target.closest('.folder-head')) return;
+    e.preventDefault();
+    openIndexCtx(e.clientX, e.clientY);
   });
   document.addEventListener('contextmenu', (e) => {
-    if (!e.target.closest('.index-chip')) hideCtxMenu();
+    if (!e.target.closest('.index-chip') && !e.target.closest('.folder-head') &&
+        !e.target.closest('#index-list')) hideMenus();
   });
-  window.addEventListener('blur', hideCtxMenu);
+  window.addEventListener('blur', hideMenus);
 }
 
 /* =========================================================================
@@ -842,7 +1067,13 @@ function runFind() {
   const q = findInput.value;
   if (!q) { findCount.textContent = ''; return; }
 
-  const walker = document.createTreeWalker(memoPage, NodeFilter.SHOW_TEXT, null);
+  const walker = document.createTreeWalker(memoPage, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      // 태그 영역은 검색 대상에서 제외
+      return n.parentElement && n.parentElement.closest('.note-tags')
+        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+    }
+  });
   const lower = q.toLowerCase();
   let node;
   while ((node = walker.nextNode())) {
@@ -991,12 +1222,14 @@ async function reloadFromLocal() {
  * ========================================================================= */
 const dropIndicator = document.createElement('div');
 dropIndicator.className = 'drop-indicator';
-let blockDrag = null; // { kind:'todo'|'memo', id, block }
+let blockDrag = null; // { kind:'todo'|'memo'|'folder', id, block }
 let dropBeforeId = null;
+let pendingFolderId = null; // 메모를 드롭할 폴더 (null=폴더 밖)
 
 function startBlockDrag(e, kind, block, id) {
   blockDrag = { kind, id, block };
   dropBeforeId = null;
+  pendingFolderId = null;
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', id);
@@ -1007,8 +1240,10 @@ function startBlockDrag(e, kind, block, id) {
 function endBlockDrag() {
   if (blockDrag) blockDrag.block.classList.remove('dragging');
   if (dropIndicator.parentNode) dropIndicator.parentNode.removeChild(dropIndicator);
+  document.querySelectorAll('.folder-drop').forEach((f) => f.classList.remove('folder-drop'));
   blockDrag = null;
   dropBeforeId = null;
+  pendingFolderId = null;
 }
 
 function positionIndicator(container, selector, y) {
@@ -1062,18 +1297,35 @@ function setupDnd() {
     renderMemos();
   });
 
-  // 인덱스에서 드래그로 메모 순서 변경
+  // 인덱스 최상위: 메모(폴더 밖) 순서변경 / 폴더 순서변경
   indexList.addEventListener('dragover', (e) => {
-    if (!blockDrag || blockDrag.kind !== 'memo') return;
-    e.preventDefault();
-    positionIndicator(indexList, '.index-chip', e.clientY);
+    if (!blockDrag) return;
+    if (blockDrag.kind === 'memo') {
+      e.preventDefault();
+      indexList.querySelectorAll('.folder-drop').forEach((f) => f.classList.remove('folder-drop'));
+      positionIndicator(indexList, ':scope > .index-chip', e.clientY);
+      pendingFolderId = null;
+    } else if (blockDrag.kind === 'folder') {
+      e.preventDefault();
+      positionIndicator(indexList, ':scope > .folder', e.clientY);
+    }
   });
   indexList.addEventListener('drop', (e) => {
-    if (!blockDrag || blockDrag.kind !== 'memo') return;
+    if (!blockDrag) return;
     e.preventDefault();
-    reorderList(state.memos, blockDrag.id, dropBeforeId);
-    save();
-    renderMemos();
+    if (blockDrag.kind === 'memo') {
+      const memo = state.memos.find((m) => m.id === blockDrag.id);
+      if (memo) {
+        memo.folderId = pendingFolderId; // 폴더 밖
+        reorderList(state.memos, blockDrag.id, dropBeforeId);
+        save();
+        renderMemos();
+      }
+    } else if (blockDrag.kind === 'folder') {
+      reorderList(state.folders, blockDrag.id, dropBeforeId);
+      save();
+      renderMemoIndex();
+    }
   });
 
   // 링크 클릭 → 외부 브라우저로 (편집 모드 진입 방지 위해 mousedown에서 처리)
@@ -1112,39 +1364,58 @@ const THEMES = [
   { id: 'silver', name: '실버 홀로', swatch: '#c9cede' }
 ];
 
+const FONTS = [
+  { id: '', name: '기본' },
+  { id: "'Pretendard','Apple SD Gothic Neo',sans-serif", name: 'Pretendard' },
+  { id: "'Malgun Gothic','맑은 고딕',sans-serif", name: '맑은 고딕' },
+  { id: "'NanumGothic','나눔고딕',sans-serif", name: '나눔고딕' },
+  { id: "'NanumMyeongjo','바탕',serif", name: '명조/바탕' },
+  { id: "'Gulim','굴림',sans-serif", name: '굴림' },
+  { id: "'Courier New',monospace", name: '고정폭' }
+];
+
 function applySettings() {
-  const t = (state.settings && state.settings.theme) || 'default';
+  const s = state.settings || {};
+  const t = s.theme || 'default';
   if (t && t !== 'default') document.body.dataset.theme = t;
   else document.body.removeAttribute('data-theme');
 
-  const btn = document.getElementById('btn-profile');
-  const avatar = document.getElementById('pm-avatar');
-  const img = state.settings && state.settings.profileImage;
-  [btn, avatar].forEach((el) => {
-    if (!el) return;
-    if (img) {
-      el.style.backgroundImage = `url(${img})`;
-      el.classList.add('has-img');
-      el.textContent = '';
-    } else {
-      el.style.backgroundImage = '';
-      el.classList.remove('has-img');
-      el.textContent = '♡';
-    }
-  });
+  // 전체 글꼴 / 크기 (메모 본문은 .note-body에서 역보정으로 제외)
+  document.body.style.fontFamily = s.fontFamily || '';
+  const appEl = document.querySelector('.app');
+  const scale = (s.fontSize || 100) / 100;
+  if (appEl) {
+    appEl.style.zoom = scale;
+    appEl.style.setProperty('--app-scale', scale);
+  }
+
+  const img = s.profileImage;
+  [document.getElementById('btn-profile'), document.getElementById('pm-avatar')]
+    .forEach((el) => {
+      if (!el) return;
+      if (img) {
+        el.style.backgroundImage = `url("${img}")`;
+        el.classList.add('has-img');
+        el.textContent = '';
+      } else {
+        el.style.backgroundImage = '';
+        el.classList.remove('has-img');
+        el.textContent = '♡';
+      }
+    });
 }
 
 function setupProfileTheme() {
   const profileBtn = document.getElementById('btn-profile');
   const profileMenu = document.getElementById('profile-menu');
   const fileInput = document.getElementById('profile-file');
+  const themeOverlay = document.getElementById('theme-overlay');
 
   profileBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const r = profileBtn.getBoundingClientRect();
     profileMenu.style.left = r.left + 'px';
     profileMenu.style.top = (r.bottom + 6) + 'px';
-    if (!profileMenu.classList.contains('open')) renderThemeDots();
     profileMenu.classList.toggle('open');
   });
   document.addEventListener('click', (e) => {
@@ -1166,33 +1437,80 @@ function setupProfileTheme() {
     reader.readAsDataURL(f);
     fileInput.value = '';
   });
+
+  // 테마 변경 → 모달 (테마 목록 + 전체 글꼴/크기)
+  document.getElementById('pm-theme').addEventListener('click', () => {
+    profileMenu.classList.remove('open');
+    renderThemeList();
+    setupFontControls();
+    themeOverlay.classList.add('open');
+  });
+  document.getElementById('theme-close').addEventListener('click',
+    () => themeOverlay.classList.remove('open'));
+  themeOverlay.addEventListener('click', (e) => {
+    if (e.target === themeOverlay) themeOverlay.classList.remove('open');
+  });
 }
 
-function renderThemeDots() {
-  const wrap = document.getElementById('pm-themes');
-  wrap.innerHTML = '';
+function renderThemeList() {
+  const list = document.getElementById('theme-list');
+  list.innerHTML = '';
   THEMES.forEach((th) => {
     const b = document.createElement('button');
-    b.className = 'theme-dot' + (state.settings.theme === th.id ? ' on' : '');
-    b.style.background = th.swatch;
-    b.title = th.name; // 마우스 올리면 테마 이름
+    b.className = 'theme-item' + (state.settings.theme === th.id ? ' on' : '');
+    b.innerHTML = `<span class="theme-dot" style="background:${th.swatch}"></span>${th.name}`;
     b.addEventListener('click', () => {
       state.settings.theme = th.id;
       save();
       applySettings();
-      renderThemeDots();
+      renderThemeList();
     });
-    wrap.appendChild(b);
+    list.appendChild(b);
   });
+}
+
+let fontControlsReady = false;
+function setupFontControls() {
+  const famSel = document.getElementById('font-family');
+  const sizeVal = document.getElementById('font-size-val');
+  const updateSize = () => { sizeVal.textContent = (state.settings.fontSize || 100) + '%'; };
+
+  if (!fontControlsReady) {
+    FONTS.forEach((f) => {
+      const o = document.createElement('option');
+      o.value = f.id; o.textContent = f.name;
+      famSel.appendChild(o);
+    });
+    famSel.addEventListener('change', () => {
+      state.settings.fontFamily = famSel.value;
+      save(); applySettings();
+    });
+    document.getElementById('font-dec').addEventListener('click', () => {
+      state.settings.fontSize = Math.max(70, (state.settings.fontSize || 100) - 10);
+      save(); applySettings(); updateSize();
+    });
+    document.getElementById('font-inc').addEventListener('click', () => {
+      state.settings.fontSize = Math.min(150, (state.settings.fontSize || 100) + 10);
+      save(); applySettings(); updateSize();
+    });
+    fontControlsReady = true;
+  }
+  famSel.value = state.settings.fontFamily || '';
+  updateSize();
 }
 
 /* =========================================================================
  * 메모 서식 툴바 (텍스트 선택 시)
  * ========================================================================= */
+let hideFormatToolbar = () => {};
+
 function setupFormatToolbar() {
   const bar = document.getElementById('format-toolbar');
   const colors = document.getElementById('ft-colors');
-  const PALETTE = ['#4a4148', '#ec5f8a', '#8b6cff', '#2f9e8f', '#e0883a'];
+  const hex = document.getElementById('ft-hex');
+  const fontSel = document.getElementById('ft-font');
+  const PALETTE = ['#4a4148', '#ec5f8a', '#8b6cff', '#2f9e8f', '#e0883a', '#3a7bd5'];
+
   colors.innerHTML = '';
   PALETTE.forEach((c) => {
     const d = document.createElement('button');
@@ -1201,31 +1519,37 @@ function setupFormatToolbar() {
     d.dataset.color = c;
     colors.appendChild(d);
   });
+  FONTS.forEach((f) => {
+    const o = document.createElement('option');
+    o.value = f.id; o.textContent = f.name;
+    fontSel.appendChild(o);
+  });
 
-  // 현재 선택이 메모 본문 안에 있는지
-  function activeBody() {
+  let savedRange = null;
+  let savedBody = null;
+  let sizeLevel = 3; // execCommand fontSize 1~7
+
+  function currentBody() {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
     let node = sel.anchorNode;
     node = node && (node.nodeType === 1 ? node : node.parentElement);
-    const body = node && node.closest && node.closest('.note-body');
-    return body || null;
+    return (node && node.closest && node.closest('.note-body')) || null;
   }
 
-  function saveBody(body) {
-    const memo = state.memos.find((m) => m.id === body.dataset.id);
-    if (memo) { memo.content = body.innerHTML; save(); }
-  }
-
-  function hide() { bar.classList.remove('open'); }
+  function hide() { bar.classList.remove('open'); savedRange = null; savedBody = null; }
+  hideFormatToolbar = hide;
 
   function showForSelection() {
-    const body = activeBody();
+    const body = currentBody();
     if (!body) { hide(); return; }
-    const rect = window.getSelection().getRangeAt(0).getBoundingClientRect();
+    const range = window.getSelection().getRangeAt(0);
+    const rect = range.getBoundingClientRect();
     if (!rect || (rect.width === 0 && rect.height === 0)) { hide(); return; }
+    savedRange = range.cloneRange();
+    savedBody = body;
     bar.classList.add('open');
-    const bw = bar.offsetWidth || 220;
+    const bw = bar.offsetWidth || 240;
     let left = rect.left + rect.width / 2 - bw / 2;
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
     let top = rect.top - bar.offsetHeight - 8;
@@ -1236,30 +1560,69 @@ function setupFormatToolbar() {
 
   document.addEventListener('mouseup', () => setTimeout(showForSelection, 0));
   document.addEventListener('keyup', (e) => {
-    if (e.shiftKey || e.key === 'ArrowLeft' || e.key === 'ArrowRight') showForSelection();
+    if (e.shiftKey || e.key.startsWith('Arrow')) showForSelection();
   });
   memoPage.addEventListener('scroll', hide);
+  window.addEventListener('blur', hide);
 
-  function applyCmd(cmd, value) {
-    const body = activeBody();
-    if (!body) return;
-    if (cmd === 'hilite') document.execCommand('hiliteColor', false, '#ffe9a8');
-    else if (cmd === 'foreColor') document.execCommand('foreColor', false, value);
-    else document.execCommand(cmd, false, null);
-    saveBody(body);
-    showForSelection();
+  function restoreSelection() {
+    if (!savedRange) return false;
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+    return true;
   }
 
-  // mousedown으로 처리해 선택이 풀리지 않게 함
+  function run(cmd, value) {
+    if (!restoreSelection() || !savedBody) return;
+    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    if (cmd === 'hilite') document.execCommand('hiliteColor', false, '#ffe9a8');
+    else if (cmd === 'quote') document.execCommand('formatBlock', false, 'blockquote');
+    else if (cmd === 'link') {
+      const url = prompt('링크 주소(URL)를 입력하세요', 'https://');
+      if (url) document.execCommand('createLink', false, url);
+    } else if (cmd === 'fontSizeStep') {
+      sizeLevel = Math.max(1, Math.min(7, sizeLevel + value));
+      document.execCommand('fontSize', false, String(sizeLevel));
+    } else {
+      document.execCommand(cmd, false, value || null);
+    }
+    const memo = state.memos.find((m) => m.id === savedBody.dataset.id);
+    if (memo) { memo.content = savedBody.innerHTML; save(); updateIndexTitle(memo); }
+    setTimeout(showForSelection, 0);
+  }
+
   bar.querySelectorAll('button[data-cmd]').forEach((btn) => {
-    btn.addEventListener('mousedown', (e) => { e.preventDefault(); applyCmd(btn.dataset.cmd); });
+    btn.addEventListener('mousedown', (e) => { e.preventDefault(); run(btn.dataset.cmd); });
+  });
+  bar.querySelectorAll('button[data-size]').forEach((btn) => {
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      run('fontSizeStep', btn.dataset.size === 'inc' ? 1 : -1);
+    });
   });
   colors.addEventListener('mousedown', (e) => {
     const d = e.target.closest('.ft-color');
     if (!d) return;
     e.preventDefault();
-    applyCmd('foreColor', d.dataset.color);
+    run('foreColor', d.dataset.color);
   });
+  // 커스텀 헥사 색
+  hex.addEventListener('mousedown', (e) => e.stopPropagation());
+  hex.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      let v = hex.value.trim();
+      if (/^#?[0-9a-fA-F]{3,6}$/.test(v)) {
+        if (v[0] !== '#') v = '#' + v;
+        run('foreColor', v);
+        hex.value = '';
+      }
+    }
+  });
+  // 글꼴 변경 (select 포커스로 선택이 풀려도 savedRange로 복원)
+  fontSel.addEventListener('mousedown', (e) => e.stopPropagation());
+  fontSel.addEventListener('change', () => { run('fontName', fontSel.value); });
 }
 
 /* =========================================================================
@@ -1278,6 +1641,7 @@ async function init() {
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
+  document.getElementById('btn-add-folder').addEventListener('click', addFolder);
 
   renderTabs();
   applyView();
