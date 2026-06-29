@@ -44,7 +44,7 @@ function looksHtml(s) { return /<[a-z!/]|&[a-z]+;|&#/i.test(s || ''); }
 function htmlToText(html) {
   return (html || '')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(div|p|li|h\d)>/gi, '\n')
+    .replace(/<(div|p|li|h\d|hr)\b[^>]*>/gi, '\n') // 블록 시작도 줄바꿈으로
     .replace(/<[^>]+>/g, '')
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&amp;/g, '&');
@@ -1407,14 +1407,16 @@ function setupGlobalKeys() {
 /* =========================================================================
  * 프로필 / 테마
  * ========================================================================= */
-// Y2K 느낌 임시 팔레트 (색은 나중에 다듬을 예정)
+// 테마 (단색 + Y2K 패턴 배경)
 const THEMES = [
-  { id: 'default', name: '베이비 핑크', swatch: '#f7b8cc' },
-  { id: 'bubblegum', name: '버블검', swatch: '#ff8fc8' },
-  { id: 'cyber', name: '사이버 라일락', swatch: '#b9a3ff' },
-  { id: 'lime', name: 'Y2K 라임', swatch: '#bde85a' },
-  { id: 'aqua', name: '아쿠아 글로우', swatch: '#7fd8e8' },
-  { id: 'silver', name: '실버 홀로', swatch: '#c9cede' }
+  { id: 'default', name: '베이비 핑크', swatch: '#edd9e0' },
+  { id: 'dot', name: '도트 핑크', swatch: '#f0c2d6' },
+  { id: 'tomato', name: '토마토', swatch: '#ef8d79' },
+  { id: 'clover', name: '네잎클로버', swatch: '#a9d199' },
+  { id: 'bluestar', name: '하늘색 별', swatch: '#a9c8ec' },
+  { id: 'pinkstar', name: '분홍 별', swatch: '#f0b8d0' },
+  { id: 'lavender', name: '라벤더', swatch: '#c9bce8' },
+  { id: 'mint', name: '민트', swatch: '#a9d8c8' }
 ];
 
 const FONTS = [
@@ -1512,88 +1514,6 @@ function renderThemeList() {
   });
 }
 
-/* 더블클릭한 "선택 텍스트"의 글꼴/크기(pt)만 바꾸는 도구 */
-function setupFontPop() {
-  const pop = document.getElementById('font-pop');
-  const famSel = document.getElementById('fp-font');
-  const sizeEl = document.getElementById('fp-size');
-  FONTS.forEach((f) => {
-    const o = document.createElement('option');
-    o.value = f.id; o.textContent = f.name;
-    famSel.appendChild(o);
-  });
-
-  let savedRange = null;
-  let sizePt = 14;
-
-  function restore() {
-    if (!savedRange) return false;
-    const s = window.getSelection();
-    s.removeAllRanges();
-    s.addRange(savedRange);
-    return true;
-  }
-  function editableRoot() {
-    const s = window.getSelection();
-    if (!s.rangeCount) return null;
-    let n = s.anchorNode;
-    n = n && (n.nodeType === 1 ? n : n.parentElement);
-    return n && n.closest ? n.closest('[contenteditable="true"]') : null;
-  }
-  function persist(root) {
-    if (root && root.classList.contains('note-body')) {
-      const memo = state.memos.find((m) => m.id === root.dataset.id);
-      if (memo) { memo.content = root.innerHTML; save(); updateIndexTitle(memo); }
-    }
-  }
-  function applySize(pt) {
-    if (!restore()) return;
-    sizePt = Math.max(8, Math.min(48, pt));
-    const root = editableRoot();
-    // size 트릭은 <font size> 가 필요하므로 styleWithCSS=false
-    try { document.execCommand('styleWithCSS', false, false); } catch (_) {}
-    document.execCommand('fontSize', false, '7');
-    (root || document).querySelectorAll('font[size="7"]').forEach((f) => {
-      f.removeAttribute('size');
-      f.style.fontSize = sizePt + 'pt';
-    });
-    sizeEl.textContent = sizePt + 'pt';
-    persist(root);
-  }
-  function applyFont(fam) {
-    if (!restore()) return;
-    const root = editableRoot();
-    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
-    document.execCommand('fontName', false, fam);
-    persist(root);
-  }
-
-  famSel.addEventListener('mousedown', (e) => e.stopPropagation());
-  famSel.addEventListener('change', () => applyFont(famSel.value));
-  document.getElementById('fp-dec').addEventListener('mousedown', (e) => { e.preventDefault(); applySize(sizePt - 1); });
-  document.getElementById('fp-inc').addEventListener('mousedown', (e) => { e.preventDefault(); applySize(sizePt + 1); });
-
-  // 더블클릭(선택된 단어) → 글꼴/크기 도구 표시 (편집 가능한 텍스트 대상)
-  document.addEventListener('dblclick', (e) => {
-    if (e.target.closest('.index-chip') || e.target.closest('.folder-head') ||
-        e.target.closest('.font-pop') || e.target.closest('.modal') ||
-        e.target.closest('.format-toolbar')) return;
-    const sel = window.getSelection();
-    if (!sel.rangeCount || sel.isCollapsed) { pop.classList.remove('open'); return; }
-    savedRange = sel.getRangeAt(0).cloneRange();
-    if (typeof hideFormatToolbar === 'function') hideFormatToolbar(); // 서식 툴바와 중복 방지
-    sizeEl.textContent = sizePt + 'pt';
-    const x = Math.min(e.clientX, window.innerWidth - 200);
-    const y = Math.min(e.clientY, window.innerHeight - 120);
-    pop.style.left = Math.max(8, x) + 'px';
-    pop.style.top = Math.max(8, y) + 'px';
-    pop.classList.add('open');
-  });
-  document.addEventListener('mousedown', (e) => {
-    if (!pop.contains(e.target)) pop.classList.remove('open');
-  });
-}
-
 /* =========================================================================
  * 메모 서식 툴바 (텍스트 선택 시)
  * ========================================================================= */
@@ -1604,7 +1524,7 @@ function setupFormatToolbar() {
   const colors = document.getElementById('ft-colors');
   const fontSel = document.getElementById('ft-font');
   const sizeVal = document.getElementById('ft-size-val');
-  const PALETTE = ['#4a4148', '#9aa0b0', '#ec5f8a', '#f6c0d4', '#ffffff'];
+  const PALETTE = ['#4a4148', '#9aa0b0', '#e0667f', '#f0b8cb'];
 
   colors.innerHTML = '';
   PALETTE.forEach((c) => {
@@ -1640,8 +1560,6 @@ function setupFormatToolbar() {
   hideFormatToolbar = hide;
 
   function showForSelection() {
-    // 더블클릭 글꼴 도구가 떠 있으면 서식 툴바는 표시하지 않음
-    if (document.getElementById('font-pop').classList.contains('open')) return;
     const body = currentBody();
     if (!body) { hide(); return; }
     const range = window.getSelection().getRangeAt(0);
@@ -1848,7 +1766,6 @@ async function init() {
   setupDnd();
   setupGlobalKeys();
   setupProfileTheme();
-  setupFontPop();
   setupFormatToolbar();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
