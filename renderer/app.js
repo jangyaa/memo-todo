@@ -8,7 +8,7 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-const BLOCK_ALPHA = 51; // 투두/메모 블록 불투명도(%)
+const BLOCK_ALPHA = 54; // 투두/메모 블록 불투명도(%)
 function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
   return i < 0 ? 0 : i;
@@ -476,9 +476,14 @@ function buildDdayBlock() {
   add.textContent = '＋';
   add.title = '디데이 추가';
   add.addEventListener('click', () => {
-    state.ddays.push({ id: uid(), title: '', date: '' });
-    save();
-    renderTodos();
+    pickDate('', (date) => {
+      const d = { id: uid(), title: '', date };
+      state.ddays.push(d);
+      save();
+      renderTodos();
+      const inp = todoBoard.querySelector(`.dday-item[data-id="${d.id}"] .dday-name`);
+      if (inp) inp.focus();
+    });
   });
   head.appendChild(label);
   head.appendChild(add);
@@ -498,27 +503,22 @@ function buildDdayBlock() {
 function buildDdayItem(d) {
   const row = document.createElement('div');
   row.className = 'dday-item';
+  row.dataset.id = d.id;
 
-  const badge = document.createElement('span');
+  // D-n 배지 (날짜는 표시 안 함). 클릭하면 달력으로 날짜 재설정
+  const badge = document.createElement('button');
   badge.className = 'dday-badge' + ddayClass(d.date);
   badge.textContent = ddayLabel(d.date);
+  badge.title = '날짜 변경';
+  badge.addEventListener('click', () => {
+    pickDate(d.date, (date) => { d.date = date; save(); renderTodos(); });
+  });
 
   const name = document.createElement('input');
   name.className = 'dday-name';
   name.placeholder = '제목';
   name.value = d.title || '';
   name.addEventListener('input', () => { d.title = name.value; save(); });
-
-  const date = document.createElement('input');
-  date.type = 'date';
-  date.className = 'dday-date';
-  date.value = d.date || '';
-  date.addEventListener('input', () => {
-    d.date = date.value;
-    badge.textContent = ddayLabel(d.date);
-    badge.className = 'dday-badge' + ddayClass(d.date);
-    save();
-  });
 
   const del = document.createElement('button');
   del.className = 'item-del';
@@ -532,9 +532,25 @@ function buildDdayItem(d) {
 
   row.appendChild(badge);
   row.appendChild(name);
-  row.appendChild(date);
   row.appendChild(del);
   return row;
+}
+
+/* 달력(날짜 선택) — 숨겨진 date input의 네이티브 피커 사용 */
+let ddayDateCb = null;
+function pickDate(initial, cb) {
+  const inp = document.getElementById('dday-date');
+  inp.value = initial || '';
+  ddayDateCb = cb;
+  try { inp.showPicker(); } catch (_) { inp.focus(); inp.click(); }
+}
+function setupDdayPicker() {
+  const inp = document.getElementById('dday-date');
+  inp.addEventListener('change', () => {
+    const cb = ddayDateCb;
+    ddayDateCb = null;
+    if (cb && inp.value) cb(inp.value);
+  });
 }
 
 function buildBlock(todo) {
@@ -876,13 +892,29 @@ const memoTagbar = document.getElementById('memo-tagbar');
 
 let activeTags = new Set(); // AND 필터
 
+// 제목은 서식(HTML) 가능 → 인덱스 표시는 순수 텍스트로
+function plainText(html) {
+  if (!html) return '';
+  if (!looksHtml(html)) return html;
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return d.textContent || '';
+}
 // 인덱스에 표시할 제목: 제목칸만 사용(본문은 제목에 영향 없음)
 function memoTitle(memo) {
-  return (memo.title || '').trim() || '제목 없음';
+  return plainText(memo.title).trim() || '제목 없음';
 }
 function focusMemoTitle(id) {
-  const inp = memoPage.querySelector(`.memo-block[data-id="${id}"] .memo-title`);
-  if (inp) { inp.focus(); inp.scrollIntoView({ block: 'center' }); }
+  const el = memoPage.querySelector(`.memo-block[data-id="${id}"] .memo-title`);
+  if (!el) return;
+  el.focus();
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.selectNodeContents(el);
+  r.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  el.scrollIntoView({ block: 'center' });
 }
 
 function allTags() {
@@ -1014,24 +1046,27 @@ function buildMemoBlock(memo) {
   head.appendChild(tools);
   block.appendChild(head);
 
-  // 제목 입력칸 (본문과 분리)
-  const titleInput = document.createElement('input');
-  titleInput.className = 'memo-title';
-  titleInput.placeholder = '제목';
-  titleInput.value = memo.title || '';
-  titleInput.addEventListener('input', () => {
-    memo.title = titleInput.value;
+  // 제목 (본문과 분리, 서식 가능 contenteditable)
+  const titleEl = document.createElement('div');
+  titleEl.className = 'memo-title';
+  titleEl.contentEditable = 'true';
+  titleEl.spellcheck = false;
+  titleEl.dataset.ph = '제목';
+  titleEl.innerHTML = memo.title || '';
+  titleEl.addEventListener('input', () => {
+    memo.title = titleEl.innerHTML;
     save();
     updateIndexTitle(memo);
   });
-  titleInput.addEventListener('keydown', (e) => {
+  titleEl.addEventListener('keydown', (e) => {
     // 제목이 비어 있어도 Enter/Tab으로 본문에 진입 (커서를 본문에 놓는다)
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
+      e.stopPropagation();
       focusNoteEnd(memo.id);
     }
   });
-  block.appendChild(titleInput);
+  block.appendChild(titleEl);
 
   // 본문 (서식 가능한 HTML)
   const body = document.createElement('div');
@@ -1075,6 +1110,8 @@ function buildMemoBlock(memo) {
       renderMemos();
       focusMemoTitle(nm.id);
     } else if (e.key === 'Backspace' && caretAtStart(body)) {
+      // 제목이 있으면 본문이 비어도 메모를 지우지 않음
+      if (plainText(memo.title).trim()) return;
       const idx = state.memos.findIndex((m) => m.id === memo.id);
       if (idx > 0) {
         e.preventDefault();
@@ -1132,6 +1169,7 @@ function buildMemoBlock(memo) {
   // 블록 더블클릭 → 별도 편집 창 (본문/제목/태그/링크 위에서는 제외)
   block.addEventListener('dblclick', (e) => {
     if (e.target.closest('.note-body') || e.target.closest('input') ||
+        e.target.closest('.memo-title') ||
         e.target.closest('.tag-chip') || e.target.closest('.link') ||
         e.target.closest('.icon-btn')) return;
     e.preventDefault();
@@ -1451,6 +1489,9 @@ function startIndexRename(chip, label, memo) {
     memoIndex.classList.remove('pinned');
     renderMemos();
   };
+  // 입력칸 클릭이 칩 클릭(본문으로 포커스 이동)으로 새지 않게 → 수정 중 유지(폴더와 동일)
+  input.addEventListener('mousedown', (e) => e.stopPropagation());
+  input.addEventListener('click', (e) => e.stopPropagation());
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); finish(true); }
     else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
@@ -2250,7 +2291,8 @@ function setupFormatToolbar() {
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
     let node = sel.anchorNode;
     node = node && (node.nodeType === 1 ? node : node.parentElement);
-    return (node && node.closest && node.closest('.note-body')) || null;
+    // 본문(.note-body)뿐 아니라 제목(.memo-title) 선택 시에도 서식창 동작
+    return (node && node.closest && node.closest('.note-body, .memo-title')) || null;
   }
 
   function hide() {
@@ -2295,8 +2337,14 @@ function setupFormatToolbar() {
   }
 
   function persist() {
-    const memo = savedBody && state.memos.find((m) => m.id === savedBody.dataset.id);
-    if (memo) { memo.content = savedBody.innerHTML; save(); updateIndexTitle(memo); }
+    if (!savedBody) return;
+    const block = savedBody.closest('.memo-block');
+    const memo = block && state.memos.find((m) => m.id === block.dataset.id);
+    if (!memo) return;
+    if (savedBody.classList.contains('memo-title')) memo.title = savedBody.innerHTML;
+    else memo.content = savedBody.innerHTML;
+    save();
+    updateIndexTitle(memo);
   }
 
   function applySizePt(pt) {
@@ -2497,6 +2545,7 @@ async function init() {
   setupCropper();
   setupFormatToolbar();
   setupNumPrompt();
+  setupDdayPicker();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());

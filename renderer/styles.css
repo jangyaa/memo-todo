@@ -214,7 +214,7 @@ body {
 
 /* D-DAY 고정 블록 (최상단) */
 .dday-block {
-  background: color-mix(in srgb, var(--pink-deep) 14%, rgba(255, 255, 255, 0.55));
+  background: color-mix(in srgb, var(--pink-deep) 14%, #ffffff); /* 불투명 100% */
   border-radius: 14px;
   padding: 10px 14px 12px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
@@ -235,11 +235,8 @@ body {
   font-size: 14px; color: var(--ink); outline: none;
 }
 .dday-name::placeholder { color: var(--ink-soft); opacity: 0.7; }
-.dday-date {
-  flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px;
-  padding: 3px 6px; font-size: 12px; color: var(--ink); background: #fff; outline: none;
-}
-.dday-date:focus { border-color: var(--pink); }
+.dday-badge { cursor: pointer; border: none; }
+.dday-hidden { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .dday-item .item-del { opacity: 0; }
 .dday-item:hover .item-del { opacity: 0.7; }
 
@@ -627,9 +624,16 @@ body {
   color: var(--ink);
   outline: none;
   margin-bottom: 4px;
+  cursor: text;
+  word-break: break-word;
   -webkit-app-region: no-drag;
 }
-.memo-title::placeholder { color: var(--ink-soft); opacity: 0.62; }
+.memo-title:empty::before {
+  content: attr(data-ph);
+  color: var(--ink-soft);
+  opacity: 0.62;
+  pointer-events: none;
+}
 
 .note-body hr { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
 .note-body img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; display: block; }
@@ -678,6 +682,7 @@ body {
   font-size: 14px;
   line-height: 1.7;
   color: var(--ink);
+  min-height: 1.7em; /* 내용 모두 지워도 클릭 가능한 입력 영역 유지 */
   white-space: pre-wrap;
   word-break: break-word;
   -webkit-app-region: no-drag;
