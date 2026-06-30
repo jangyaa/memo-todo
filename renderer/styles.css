@@ -50,6 +50,7 @@ body {
 
 .app {
   position: relative;
+  isolation: isolate; /* 스택 컨텍스트 생성 → #app-bg(z-index:-1)가 .app 배경 위·콘텐츠 아래로 */
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -288,8 +289,6 @@ body {
   font-size: 14px; line-height: 1.4; color: var(--pink-deep); font-weight: 600;
   white-space: nowrap; letter-spacing: 0.02em; cursor: pointer;
 }
-/* 5칸 단위 구분 간격 */
-.pseg.mark5 { margin-right: 5px; }
 
 .check-box {
   width: 15px;
@@ -619,8 +618,9 @@ body {
 .todo-block.tools-on .memo-tools .icon-btn,
 .memo-block.tools-on .memo-tools .icon-btn { opacity: 1; }
 .memo-tools .icon-btn:hover { color: var(--pink-deep); }
-/* 고정 상태는 색으로만 표시(아이콘 자체는 hover 시에만 노출) */
-.memo-pin.active, .block-pin.active { color: var(--pink-deep); }
+/* 고정 시: 핀 아이콘을 상단 여백에 테마색으로 항상 표시(마우스 내려도 유지) */
+.memo-tools .block-pin.active,
+.memo-tools .memo-pin.active { opacity: 1; color: var(--pink-deep); }
 
 .note-body {
   position: relative;
@@ -845,11 +845,11 @@ body {
 .cp-hue-thumb { top: 50%; }
 .cp-foot { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
 .cp-foot #cp-hex {
-  flex: 1; border: 1px solid var(--line); border-radius: 10px;
+  flex: 1 1 auto; min-width: 0; border: 1px solid var(--line); border-radius: 10px;
   padding: 9px 12px; font-size: 13px; outline: none;
 }
 .cp-foot #cp-hex:focus { border-color: var(--pink); }
-.cp-foot .btn-primary { flex: 0 0 auto; padding: 9px 18px; }
+.cp-foot .btn-primary { flex: 0 0 auto; padding: 9px 16px; }
 
 /* 프로필 크롭 */
 .crop-stage { position: relative; width: 240px; height: 240px; margin: 10px auto 8px; }

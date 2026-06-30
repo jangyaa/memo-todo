@@ -216,33 +216,35 @@ function rgbToHsv(r, g, b) {
 // 너무 칙칙(저채도)하거나 원색(고채도)이지 않게 보정해 파스텔 톤으로.
 function deriveTheme(baseHex) {
   const { r, g, b } = hexToRgb(baseHex);
-  const { h, s, l } = rgbToHsl(r, g, b);
-  const A = clamp01(0.28 + s * 0.34);      // 강조색 채도 0.28~0.62
-  const C = clamp01(0.14 + s * 0.18);      // 블록 배경 채도(더 옅게)
-  const ld = l - 0.5;                       // 명도 편차
-  const deepL = clamp01(0.63 - ld * 0.16);  // 강조 명도
-  const aL = clamp01(0.71 - ld * 0.10);     // 인덱스 강조 명도
+  const { h } = rgbToHsl(r, g, b);
+  // 채도는 HSV 기준(연한 색을 원색으로 과대평가하지 않도록), 명도는 HSV value
+  const { s: sv, v } = rgbToHsv(r, g, b);
+  const A = clamp01(0.30 + sv * 0.26);     // 강조색 채도 0.30~0.56 (과한 원색 방지)
+  const C = clamp01(0.22 + sv * 0.16);     // 블록 배경 채도 0.22~0.38 (칙칙함 방지)
+  const vd = v - 0.5;                       // 명도 편차
+  const deepL = clamp01(0.62 - vd * 0.12);  // 강조 명도
+  const aL = clamp01(0.70 - vd * 0.08);     // 인덱스 강조 명도
   const aura =
-    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, clamp01(A * 0.85), 0.94)} 0%, transparent 55%), ` +
-    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 14, clamp01(A * 0.75), 0.95)} 0%, transparent 55%)`;
+    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, clamp01(A * 0.8), 0.94)} 0%, transparent 55%), ` +
+    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 14, clamp01(A * 0.7), 0.95)} 0%, transparent 55%)`;
   const map = {
-    '--bg': hslHex(h, clamp01(C * 0.9), clamp01(0.972 + ld * 0.02)),
+    '--bg': hslHex(h, clamp01(C * 0.85), 0.972),
     '--panel': '#ffffff',
-    '--ink': hslHex(h, 0.18, 0.32),
-    '--ink-soft': hslHex(h, 0.12, 0.66),
-    '--line': hslHex(h, clamp01(C * 0.8), 0.93),
-    '--pink': hslHex(h, clamp01(A * 0.7), 0.87),
+    '--ink': hslHex(h, 0.20, 0.30),
+    '--ink-soft': hslHex(h, 0.14, 0.64),
+    '--line': hslHex(h, clamp01(C * 0.7), 0.93),
+    '--pink': hslHex(h, clamp01(A * 0.65), 0.87),
     '--pink-deep': hslHex(h, A, deepL),
-    '--pink-soft': hslHex(h, clamp01(A * 0.55), 0.96),
+    '--pink-soft': hslHex(h, clamp01(A * 0.5), 0.96),
     '--titlebar': `linear-gradient(180deg, ${hslHex(h, A, deepL)}, ${hslHex(h, A, clamp01(deepL - 0.04))})`,
-    '--indicator': hslHex(h, clamp01(A + 0.12), clamp01(deepL + 0.02)),
+    '--indicator': hslHex(h, clamp01(A + 0.10), clamp01(deepL + 0.02)),
     '--bg-aura': aura,
     '--bg-pattern': 'none'
   };
-  // 블록 배경(--c) / 강조색(--a) 6종 — 색상을 조금씩만 돌려 차분한 변화
-  [0, 25, 70, -22, 45, -12].forEach((dh, i) => {
+  // 블록 배경(--c) / 강조색(--a) 6종 — 색상을 조금씩만 돌려 차분한 변화(무지개색 방지)
+  [0, 16, 38, -15, 28, -8].forEach((dh, i) => {
     map['--c' + i] = hslHex(h + dh, C, 0.95);
-    map['--a' + i] = hslHex(h + dh, clamp01(A * 0.9), aL);
+    map['--a' + i] = hslHex(h + dh, clamp01(A * 0.88), aL);
   });
   return map;
 }
@@ -613,7 +615,7 @@ function buildItem(todo, item) {
   if (item.progress && item.progress.total > 0) {
     progCount = document.createElement('span');
     progCount.className = 'prog-count';
-    progCount.title = '더블클릭하여 진행도 입력';
+    progCount.title = '진행도 수정';
     progCount.addEventListener('dblclick', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -660,11 +662,14 @@ function buildProgress(item, countEl) {
     if (countEl) countEl.textContent = `${item.progress.done}/${total}`;
   };
 
+  const groups = Math.ceil(total / 5);
   for (let i = 0; i < total; i++) {
     const pb = document.createElement('span');
     pb.className = 'pseg';
-    // 5칸 단위 구분: 5번째마다 오른쪽에 간격(다음 그룹과 분리)
-    if ((i + 1) % 5 === 0 && i + 1 < total) pb.classList.add('mark5');
+    // 5칸 단위로 명도를 단계적으로(간격은 동일) — 5씩 눈으로 가늠
+    const g = Math.floor(i / 5);
+    const bright = groups > 1 ? 1 - (g / (groups - 1)) * 0.30 : 1;
+    pb.style.filter = `brightness(${bright.toFixed(3)})`;
     pb.addEventListener('click', () => {
       item.progress.done = (i + 1 === item.progress.done) ? i : i + 1;
       if (item.progress.done >= total) {
@@ -1855,12 +1860,18 @@ function setupProfileTheme() {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result;
+      const prev = (state.settings.custom && state.settings.custom.color) || '#cdb0bb';
+      // 1) 배경을 즉시 적용 (색 추출 성공/실패와 무관하게 보이도록)
+      state.settings.custom = { color: prev, bgImage: dataUrl };
+      state.settings.theme = 'custom';
+      save();
+      applySettings();
+      themeOverlay.classList.remove('open');
+      // 2) 대표색이 추출되면 팔레트만 갱신
       extractColor(dataUrl, (color) => {
         state.settings.custom = { color, bgImage: dataUrl };
-        state.settings.theme = 'custom';
         save();
         applySettings();
-        themeOverlay.classList.remove('open');
       });
     };
     reader.readAsDataURL(f);
