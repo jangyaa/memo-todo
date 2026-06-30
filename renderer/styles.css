@@ -29,6 +29,11 @@
   padding: 0;
 }
 
+/* 앱 내 모든 텍스트 기본 글꼴은 Pretendard (폼 컨트롤도 상속) */
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 html, body {
   height: 100%;
   background: transparent;
@@ -44,6 +49,7 @@ body {
 }
 
 .app {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -55,6 +61,19 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
+}
+
+/* 커스텀 배경 이미지 레이어 — 콘텐츠 뒤(z-index:-1), 블러+밝기로 글자 가독성 확보 */
+#app-bg {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(3px) brightness(1.1);
+  transform: scale(1.08); /* 블러로 생기는 가장자리 비침 방지 */
 }
 
 /* ======================= 타이틀바 (짙은 바) ======================= */
@@ -263,10 +282,10 @@ body {
 .pseg:last-child { border-radius: 2px 6px 6px 2px; }
 .pseg:hover { background: color-mix(in srgb, var(--pink-deep) 38%, transparent); }
 .pseg.filled { background: var(--pink-deep); }
-/* 진행도 숫자(n/total) — 세부항목 텍스트 바로 뒤 */
+/* 진행도 숫자(n/total) — 세부항목 텍스트 바로 뒤, 같은 크기/줄에 정렬 */
 .prog-count {
-  align-self: flex-start; flex-shrink: 0; margin-top: 1px;
-  font-size: 12px; color: var(--pink-deep); font-weight: 700;
+  align-self: baseline; flex-shrink: 0; margin-left: 6px;
+  font-size: 14px; line-height: 1.4; color: var(--pink-deep); font-weight: 600;
   white-space: nowrap; letter-spacing: 0.02em; cursor: pointer;
 }
 /* 5칸 단위 구분 간격 */
@@ -531,13 +550,14 @@ body {
 .dragging { opacity: 0.4; }
 /* 이동 미리보기 — 단단한 바 없이 부드러운 글로우만 (투두/메모 동일) */
 .drop-indicator {
-  height: 2px;
+  height: 0;
   background: transparent;
-  margin: 4px 8px;
+  border: none;
+  margin: 5px 10px;
   position: relative;
   z-index: 10;
   pointer-events: none;
-  box-shadow: 0 0 12px 3px color-mix(in srgb, var(--indicator) 65%, transparent);
+  box-shadow: 0 0 13px 2px color-mix(in srgb, var(--indicator) 55%, transparent);
 }
 
 /* 메모 한 개 = 반투명 흰색 블록 */
@@ -802,7 +822,7 @@ body {
 .theme-action {
   border: 1px solid var(--line); background: #fff;
   border-radius: 10px; padding: 12px 10px; font-size: 13px; font-weight: 600;
-  color: var(--ink); cursor: pointer; transition: all 0.12s; text-align: left;
+  color: var(--ink); cursor: pointer; transition: all 0.12s; text-align: center;
 }
 .theme-action:hover { background: var(--pink-soft); color: var(--pink-deep); border-color: var(--pink); }
 

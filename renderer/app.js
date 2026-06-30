@@ -211,31 +211,38 @@ function rgbToHsv(r, g, b) {
   return { h, s, v };
 }
 
-// 기준 색(테마 컬러)의 색상(hue)으로 조화로운 전체 팔레트를 만든다.
+// 기준 색(테마 컬러)으로 조화로운 전체 팔레트를 만든다.
+// 색상(hue)뿐 아니라 채도/명도(s/l)도 반영 → SV 사각형 안에서 움직여도 미리보기가 바뀜.
+// 너무 칙칙(저채도)하거나 원색(고채도)이지 않게 보정해 파스텔 톤으로.
 function deriveTheme(baseHex) {
   const { r, g, b } = hexToRgb(baseHex);
-  const { h } = rgbToHsl(r, g, b);
+  const { h, s, l } = rgbToHsl(r, g, b);
+  const A = clamp01(0.28 + s * 0.34);      // 강조색 채도 0.28~0.62
+  const C = clamp01(0.14 + s * 0.18);      // 블록 배경 채도(더 옅게)
+  const ld = l - 0.5;                       // 명도 편차
+  const deepL = clamp01(0.63 - ld * 0.16);  // 강조 명도
+  const aL = clamp01(0.71 - ld * 0.10);     // 인덱스 강조 명도
   const aura =
-    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, 0.6, 0.92)} 0%, transparent 55%), ` +
-    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 12, 0.55, 0.94)} 0%, transparent 55%)`;
+    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, clamp01(A * 0.85), 0.94)} 0%, transparent 55%), ` +
+    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 14, clamp01(A * 0.75), 0.95)} 0%, transparent 55%)`;
   const map = {
-    '--bg': hslHex(h, 0.35, 0.975),
+    '--bg': hslHex(h, clamp01(C * 0.9), clamp01(0.972 + ld * 0.02)),
     '--panel': '#ffffff',
-    '--ink': hslHex(h, 0.16, 0.33),
-    '--ink-soft': hslHex(h, 0.12, 0.68),
-    '--line': hslHex(h, 0.25, 0.93),
-    '--pink': hslHex(h, 0.38, 0.86),
-    '--pink-deep': hslHex(h, 0.42, 0.62),
-    '--pink-soft': hslHex(h, 0.40, 0.96),
-    '--titlebar': `linear-gradient(180deg, ${hslHex(h, 0.38, 0.62)}, ${hslHex(h, 0.40, 0.58)})`,
-    '--indicator': hslHex(h, 0.60, 0.66),
+    '--ink': hslHex(h, 0.18, 0.32),
+    '--ink-soft': hslHex(h, 0.12, 0.66),
+    '--line': hslHex(h, clamp01(C * 0.8), 0.93),
+    '--pink': hslHex(h, clamp01(A * 0.7), 0.87),
+    '--pink-deep': hslHex(h, A, deepL),
+    '--pink-soft': hslHex(h, clamp01(A * 0.55), 0.96),
+    '--titlebar': `linear-gradient(180deg, ${hslHex(h, A, deepL)}, ${hslHex(h, A, clamp01(deepL - 0.04))})`,
+    '--indicator': hslHex(h, clamp01(A + 0.12), clamp01(deepL + 0.02)),
     '--bg-aura': aura,
     '--bg-pattern': 'none'
   };
-  // 블록 배경(--c) / 강조색(--a) 6종 — 색상을 조금씩 돌려 변화를 준다
-  [0, 30, 90, -25, 55, -12].forEach((dh, i) => {
-    map['--c' + i] = hslHex(h + dh, 0.35, 0.95);
-    map['--a' + i] = hslHex(h + dh, 0.45, 0.66);
+  // 블록 배경(--c) / 강조색(--a) 6종 — 색상을 조금씩만 돌려 차분한 변화
+  [0, 25, 70, -22, 45, -12].forEach((dh, i) => {
+    map['--c' + i] = hslHex(h + dh, C, 0.95);
+    map['--a' + i] = hslHex(h + dh, clamp01(A * 0.9), aL);
   });
   return map;
 }
@@ -245,25 +252,19 @@ const CUSTOM_VARS = ['--bg', '--panel', '--ink', '--ink-soft', '--line', '--pink
   '--c0', '--c1', '--c2', '--c3', '--c4', '--c5', '--a0', '--a1', '--a2', '--a3', '--a4', '--a5'];
 function clearCustomTheme() {
   CUSTOM_VARS.forEach((v) => document.body.style.removeProperty(v));
-  const app = document.querySelector('.app');
-  if (app) {
-    app.style.backgroundImage = '';
-    app.style.backgroundSize = '';
-    app.style.backgroundRepeat = '';
-    app.style.backgroundPosition = '';
-  }
+  const appBg = document.getElementById('app-bg');
+  if (appBg) { appBg.style.backgroundImage = ''; appBg.style.display = 'none'; }
 }
 function applyCustomTheme(color, bgImage) {
   clearCustomTheme();
   const map = deriveTheme(color);
   Object.entries(map).forEach(([k, v]) => document.body.style.setProperty(k, v));
-  // 배경 이미지는 CSS 변수가 아니라 .app에 직접 적용(거대한 data URL도 확실히 반영)
-  const app = document.querySelector('.app');
-  if (bgImage && app) {
-    app.style.backgroundImage = `url("${bgImage}")`;
-    app.style.backgroundSize = 'cover';
-    app.style.backgroundRepeat = 'no-repeat';
-    app.style.backgroundPosition = 'center';
+  // 배경 이미지는 전용 레이어(#app-bg)에 적용 → 블러+밝기 필터로 글자 가독성 확보
+  const appBg = document.getElementById('app-bg');
+  if (bgImage && appBg) {
+    appBg.style.backgroundImage =
+      `linear-gradient(rgba(255,255,255,0.30), rgba(255,255,255,0.30)), url("${bgImage}")`;
+    appBg.style.display = 'block';
   }
 }
 
@@ -277,12 +278,14 @@ function extractColor(dataUrl, cb) {
       const ctx = cv.getContext('2d');
       ctx.drawImage(img, 0, 0, 32, 32);
       const d = ctx.getImageData(0, 0, 32, 32).data;
-      let r = 0, g = 0, b = 0, n = 0;
+      let r = 0, g = 0, b = 0, w = 0;
       for (let i = 0; i < d.length; i += 4) {
         if (d[i + 3] < 128) continue;
-        r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+        const { s } = rgbToHsl(d[i], d[i + 1], d[i + 2]);
+        const wt = 0.15 + s; // 채도 높은 픽셀에 가중치 → 대표 색상이 또렷(칙칙함 방지)
+        r += d[i] * wt; g += d[i + 1] * wt; b += d[i + 2] * wt; w += wt;
       }
-      cb(n ? rgbToHex(r / n, g / n, b / n) : '#cdb0bb');
+      cb(w ? rgbToHex(r / w, g / w, b / w) : '#cdb0bb');
     } catch (_) { cb('#cdb0bb'); }
   };
   img.onerror = () => cb('#cdb0bb');
