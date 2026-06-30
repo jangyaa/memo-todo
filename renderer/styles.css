@@ -22,76 +22,6 @@
   --a3: #a0bace; --a4: #cfba93; --a5: #d3a9a9;
 }
 
-/* ===== 테마 (Y2K 오라 + 패턴) ===== */
-/* 도트 핑크 */
-body[data-theme="dot"] {
-  --bg: #fdf4f8; --pink: #f3c9dc; --pink-deep: #d98fb2; --pink-soft: #fbeef4;
-  --titlebar: linear-gradient(180deg, #e6a9c4, #dd9bb8); --indicator: #d56fa1;
-  --bg-aura: radial-gradient(90% 70% at 20% 12%, #ffd9ea 0%, transparent 55%),
-             radial-gradient(90% 70% at 85% 88%, #ffe4f1 0%, transparent 55%);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='5' cy='5' r='2.2' fill='%23ffffff'/%3E%3C/svg%3E");
-  --c0: #fbeef4; --c1: #f6eef7; --c2: #f1f5ef; --c3: #eef4fa; --c4: #faf2ea; --c5: #fbeef0;
-  --a0: #de9bb8; --a1: #c79bcd; --a2: #a9c9a4; --a3: #9fbdda; --a4: #d9b48f; --a5: #d99ba8;
-}
-/* 토마토 (코랄 오라 + 초록 별) */
-body[data-theme="tomato"] {
-  --bg: #fff3ee; --pink: #f3c3b6; --pink-deep: #e08066; --pink-soft: #fcefe9;
-  --titlebar: linear-gradient(180deg, #ec8a72, #e57c63); --indicator: #e2664a;
-  --bg-aura: radial-gradient(45% 32% at 22% 22%, #f4a18c 0%, transparent 60%),
-             radial-gradient(50% 36% at 78% 62%, #f29a83 0%, transparent 62%),
-             radial-gradient(42% 30% at 60% 92%, #f3a690 0%, transparent 60%);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M30 22 l1.8 3.6 l4 .6 l-2.9 2.8 l.7 4 l-3.6 -1.9 l-3.6 1.9 l.7 -4 l-2.9 -2.8 l4 -.6 Z' fill='%23a7cf96'/%3E%3C/svg%3E");
-  --c0: #fdeee8; --c1: #f9efe9; --c2: #eef5ec; --c3: #eef3f6; --c4: #fbf2e8; --c5: #fceeea;
-  --a0: #e0866b; --a1: #d99a86; --a2: #8fbf86; --a3: #86b0c0; --a4: #d6a463; --a5: #dd8a72;
-}
-/* 네잎클로버 */
-body[data-theme="clover"] {
-  --bg: #f4faf2; --pink: #cfe6c5; --pink-deep: #7eb56f; --pink-soft: #eef6ea;
-  --titlebar: linear-gradient(180deg, #9cc78f, #8dbd80); --indicator: #6aae57;
-  --bg-aura: radial-gradient(90% 70% at 20% 15%, #dcefd3 0%, transparent 55%),
-             radial-gradient(90% 70% at 82% 85%, #e7f4e0 0%, transparent 55%);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cg transform='translate(22,21)' fill='%23ffffff'%3E%3Ccircle cx='-3.5' cy='-3.5' r='3.4'/%3E%3Ccircle cx='3.5' cy='-3.5' r='3.4'/%3E%3Ccircle cx='-3.5' cy='3.5' r='3.4'/%3E%3Ccircle cx='3.5' cy='3.5' r='3.4'/%3E%3C/g%3E%3C/svg%3E");
-  --c0: #eef6ea; --c1: #eef4ef; --c2: #f1f6ec; --c3: #ecf4f4; --c4: #f6f3ea; --c5: #f4eef0;
-  --a0: #7eb56f; --a1: #86b596; --a2: #a9cf99; --a3: #8fc0b0; --a4: #bcc77f; --a5: #86bf86;
-}
-/* 하늘색 별 (블루 오라 + 흰 별) */
-body[data-theme="bluestar"] {
-  --bg: #eef5fd; --pink: #c2dbf3; --pink-deep: #6f9fd6; --pink-soft: #eaf2fb;
-  --titlebar: linear-gradient(180deg, #8fb6e2, #7fa9da); --indicator: #4f8fd6;
-  --bg-aura: radial-gradient(70% 55% at 30% 25%, #b9d6f4 0%, transparent 60%),
-             radial-gradient(70% 55% at 75% 80%, #cfe2f8 0%, transparent 60%);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52'%3E%3Cpath d='M26 16 l2.6 5.3 l5.8 .8 l-4.2 4 l1 5.7 l-5.2 -2.7 l-5.2 2.7 l1 -5.7 l-4.2 -4 l5.8 -.8 Z' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E");
-  --c0: #eaf2fb; --c1: #eef0f9; --c2: #edf5ef; --c3: #eaf3fb; --c4: #f4f1ec; --c5: #f6eef3;
-  --a0: #6f9fd6; --a1: #8696c0; --a2: #86bf9a; --a3: #6fb0c0; --a4: #c0a463; --a5: #c08aa8;
-}
-/* 분홍 별 */
-body[data-theme="pinkstar"] {
-  --bg: #fdf2f8; --pink: #f3c9de; --pink-deep: #d98fb6; --pink-soft: #fbeef5;
-  --titlebar: linear-gradient(180deg, #e8a6c6, #df97ba); --indicator: #d56fa6;
-  --bg-aura: radial-gradient(70% 55% at 28% 22%, #ffd7ec 0%, transparent 60%),
-             radial-gradient(70% 55% at 78% 82%, #ffe6f3 0%, transparent 60%);
-  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52'%3E%3Cpath d='M26 16 l2.6 5.3 l5.8 .8 l-4.2 4 l1 5.7 l-5.2 -2.7 l-5.2 2.7 l1 -5.7 l-4.2 -4 l5.8 -.8 Z' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E");
-  --c0: #fbeef5; --c1: #f6eef7; --c2: #f1f5ef; --c3: #eef4fa; --c4: #faf2ea; --c5: #fbeef1;
-  --a0: #d98fb6; --a1: #c79bcd; --a2: #a9c9a4; --a3: #9fbdda; --a4: #d9b48f; --a5: #d98fa8;
-}
-/* 라벤더 */
-body[data-theme="lavender"] {
-  --bg: #f6f3fc; --pink: #d8cdee; --pink-deep: #a892d6; --pink-soft: #efeaf9;
-  --titlebar: linear-gradient(180deg, #b9a6e0, #ad98d8); --indicator: #9a7fd0;
-  --bg-aura: radial-gradient(90% 70% at 20% 15%, #e7defa 0%, transparent 55%),
-             radial-gradient(90% 70% at 82% 85%, #efe8fb 0%, transparent 55%);
-  --c0: #f2edfb; --c1: #efeaf7; --c2: #eef4ef; --c3: #eceffb; --c4: #f6f1ea; --c5: #f7eef5;
-  --a0: #a892d6; --a1: #b39bcd; --a2: #9ac0a4; --a3: #9fb0da; --a4: #c7b48f; --a5: #c792b6;
-}
-/* 민트 */
-body[data-theme="mint"] {
-  --bg: #f1faf6; --pink: #bce6d6; --pink-deep: #6fc0a6; --pink-soft: #e9f6f0;
-  --titlebar: linear-gradient(180deg, #9bd3bf, #8ac9b2); --indicator: #4fb795;
-  --bg-aura: radial-gradient(90% 70% at 20% 15%, #d6f1e7 0%, transparent 55%),
-             radial-gradient(90% 70% at 82% 85%, #e4f6ef 0%, transparent 55%);
-  --c0: #eaf7f1; --c1: #eef4f4; --c2: #edf6ed; --c3: #eaf3f8; --c4: #f6f2ea; --c5: #f6eef1;
-  --a0: #6fc0a6; --a1: #86b5b5; --a2: #86bf86; --a3: #6fb0c0; --a4: #c0b47f; --a5: #c08aa8;
-}
 
 * {
   box-sizing: border-box;
@@ -599,17 +529,15 @@ body {
 
 /* 드래그 중 블록 + 드롭 위치 미리보기 선 */
 .dragging { opacity: 0.4; }
-/* 이동 미리보기 바 — 투두/메모 동일(부드럽게 번진 느낌) */
+/* 이동 미리보기 — 단단한 바 없이 부드러운 글로우만 (투두/메모 동일) */
 .drop-indicator {
-  height: 6px;
-  background: color-mix(in srgb, var(--indicator) 80%, transparent);
-  border-radius: 5px;
-  margin: 2px 6px;
+  height: 2px;
+  background: transparent;
+  margin: 4px 8px;
   position: relative;
   z-index: 10;
   pointer-events: none;
-  filter: blur(0.6px);
-  box-shadow: 0 0 11px 2px color-mix(in srgb, var(--indicator) 60%, transparent);
+  box-shadow: 0 0 12px 3px color-mix(in srgb, var(--indicator) 65%, transparent);
 }
 
 /* 메모 한 개 = 반투명 흰색 블록 */
@@ -868,33 +796,13 @@ body {
   border-radius: 8px;
 }
 .pm-image:hover { background: var(--pink-soft); color: var(--pink-deep); }
-.theme-dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-}
-.theme-dot.on { border-color: var(--ink); }
-
-/* 테마 모달 목록 + 글꼴 설정 */
-.theme-list { display: flex; flex-direction: column; gap: 5px; margin: 10px 0; }
-.theme-item {
-  display: flex; align-items: center; gap: 10px;
-  border: 1px solid var(--line); background: #fff; border-radius: 10px;
-  padding: 9px 11px; font-size: 13px; color: var(--ink); cursor: pointer;
-}
-.theme-item:hover { background: var(--pink-soft); }
-.theme-item.on { border-color: var(--pink); background: var(--pink-soft); font-weight: 700; }
-.theme-item .theme-dot { width: 18px; height: 18px; }
 
 /* 테마 모달: 커스텀 액션(배경/컬러) */
-.theme-actions { display: flex; gap: 8px; margin: 10px 0 4px; }
+.theme-actions { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 6px; }
 .theme-action {
-  flex: 1; border: 1px solid var(--line); background: #fff;
-  border-radius: 10px; padding: 10px 8px; font-size: 12.5px; font-weight: 600;
-  color: var(--ink); cursor: pointer; transition: all 0.12s;
+  border: 1px solid var(--line); background: #fff;
+  border-radius: 10px; padding: 12px 10px; font-size: 13px; font-weight: 600;
+  color: var(--ink); cursor: pointer; transition: all 0.12s; text-align: left;
 }
 .theme-action:hover { background: var(--pink-soft); color: var(--pink-deep); border-color: var(--pink); }
 
@@ -922,6 +830,20 @@ body {
 }
 .cp-foot #cp-hex:focus { border-color: var(--pink); }
 .cp-foot .btn-primary { flex: 0 0 auto; padding: 9px 18px; }
+
+/* 프로필 크롭 */
+.crop-stage { position: relative; width: 240px; height: 240px; margin: 10px auto 8px; }
+#crop-canvas {
+  width: 240px; height: 240px; display: block; border-radius: 50%;
+  background: var(--pink-soft); cursor: grab; touch-action: none;
+}
+#crop-canvas:active { cursor: grabbing; }
+.crop-ring {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px var(--line);
+}
+#crop-zoom { width: 100%; margin: 4px 0 10px; accent-color: var(--pink-deep); cursor: pointer; }
 
 /* ======================= 인덱스 폴더 ======================= */
 .folder { margin: 2px 0; }

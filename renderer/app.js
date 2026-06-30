@@ -8,7 +8,7 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-const BLOCK_ALPHA = 48; // 투두/메모 블록 불투명도(%)
+const BLOCK_ALPHA = 49; // 투두/메모 블록 불투명도(%)
 function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
   return i < 0 ? 0 : i;
@@ -243,15 +243,27 @@ function deriveTheme(baseHex) {
 const CUSTOM_VARS = ['--bg', '--panel', '--ink', '--ink-soft', '--line', '--pink',
   '--pink-deep', '--pink-soft', '--titlebar', '--indicator', '--bg-aura', '--bg-pattern',
   '--c0', '--c1', '--c2', '--c3', '--c4', '--c5', '--a0', '--a1', '--a2', '--a3', '--a4', '--a5'];
-function clearCustomTheme() { CUSTOM_VARS.forEach((v) => document.body.style.removeProperty(v)); }
+function clearCustomTheme() {
+  CUSTOM_VARS.forEach((v) => document.body.style.removeProperty(v));
+  const app = document.querySelector('.app');
+  if (app) {
+    app.style.backgroundImage = '';
+    app.style.backgroundSize = '';
+    app.style.backgroundRepeat = '';
+    app.style.backgroundPosition = '';
+  }
+}
 function applyCustomTheme(color, bgImage) {
   clearCustomTheme();
   const map = deriveTheme(color);
   Object.entries(map).forEach(([k, v]) => document.body.style.setProperty(k, v));
-  if (bgImage) {
-    // 배경은 업로드 이미지로(나머지 색만 유도), 패턴/오라는 끔
-    document.body.style.setProperty('--bg-pattern', 'none');
-    document.body.style.setProperty('--bg-aura', `url("${bgImage}")`);
+  // 배경 이미지는 CSS 변수가 아니라 .app에 직접 적용(거대한 data URL도 확실히 반영)
+  const app = document.querySelector('.app');
+  if (bgImage && app) {
+    app.style.backgroundImage = `url("${bgImage}")`;
+    app.style.backgroundSize = 'cover';
+    app.style.backgroundRepeat = 'no-repeat';
+    app.style.backgroundPosition = 'center';
   }
 }
 
@@ -1754,18 +1766,6 @@ function setupGlobalKeys() {
 /* =========================================================================
  * 프로필 / 테마
  * ========================================================================= */
-// 테마 (단색 + Y2K 패턴 배경)
-const THEMES = [
-  { id: 'default', name: '베이비 핑크', swatch: '#edd9e0' },
-  { id: 'dot', name: '도트 핑크', swatch: '#f0c2d6' },
-  { id: 'tomato', name: '토마토', swatch: '#ef8d79' },
-  { id: 'clover', name: '네잎클로버', swatch: '#a9d199' },
-  { id: 'bluestar', name: '하늘색 별', swatch: '#a9c8ec' },
-  { id: 'pinkstar', name: '분홍 별', swatch: '#f0b8d0' },
-  { id: 'lavender', name: '라벤더', swatch: '#c9bce8' },
-  { id: 'mint', name: '민트', swatch: '#a9d8c8' }
-];
-
 const FONTS = [
   { id: '', name: '기본' },
   { id: "'Pretendard','Apple SD Gothic Neo',sans-serif", name: 'Pretendard' },
@@ -1779,13 +1779,9 @@ const FONTS = [
 function applySettings() {
   const s = state.settings || {};
   if (s.custom && s.custom.color) {
-    document.body.removeAttribute('data-theme');
     applyCustomTheme(s.custom.color, s.custom.bgImage);
   } else {
-    clearCustomTheme();
-    const t = s.theme || 'default';
-    if (t && t !== 'default') document.body.dataset.theme = t;
-    else document.body.removeAttribute('data-theme');
+    clearCustomTheme(); // 커스텀 없으면 기본(:root) 테마
   }
 
   const img = s.profileImage;
@@ -1831,11 +1827,7 @@ function setupProfileTheme() {
     const f = fileInput.files[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      state.settings.profileImage = reader.result;
-      save();
-      applySettings();
-    };
+    reader.onload = () => cropOpen(reader.result); // 위치/확대 조정 후 적용
     reader.readAsDataURL(f);
     fileInput.value = '';
   });
@@ -1843,7 +1835,6 @@ function setupProfileTheme() {
   // 테마 변경 → 모달 (커스텀 액션 + 프리셋 목록)
   document.getElementById('pm-theme').addEventListener('click', () => {
     profileMenu.classList.remove('open');
-    renderThemeList();
     themeOverlay.classList.add('open');
   });
   document.getElementById('theme-close').addEventListener('click',
@@ -1866,7 +1857,6 @@ function setupProfileTheme() {
         state.settings.theme = 'custom';
         save();
         applySettings();
-        renderThemeList();
         themeOverlay.classList.remove('open');
       });
     };
@@ -1896,7 +1886,7 @@ function setupColorPicker() {
   let H = 330, S = 0.4, V = 0.8;
 
   const curHex = () => hsvToHex(H, S, V);
-  function paint(live) {
+  function paint() {
     sv.style.background =
       `linear-gradient(to top, #000, transparent), ` +
       `linear-gradient(to right, #fff, ${hslHex(H, 1, 0.5)})`;
@@ -1906,14 +1896,15 @@ function setupColorPicker() {
     const c = curHex();
     svThumb.style.background = c;
     hexInput.value = c;
-    if (live !== false) applyCustomTheme(c, null); // 라이브 미리보기
+    // 항상 실시간 미리보기(인덱스/컬러블록 포함) — 적용 전에도 창 색 확인
+    applyCustomTheme(c, null);
   }
   function openWith(hex) {
     const { r, g, b } = hexToRgb(hex || '#cdb0bb');
     const v = rgbToHsv(r, g, b);
     H = v.h; S = v.s; V = v.v;
     ov.classList.add('open');
-    paint(false);
+    paint();
   }
   themeColorOpen = openWith;
 
@@ -1956,23 +1947,86 @@ function setupColorPicker() {
   ov.addEventListener('click', (e) => { if (e.target === ov) cancel(); });
 }
 
-function renderThemeList() {
-  const list = document.getElementById('theme-list');
-  list.innerHTML = '';
-  THEMES.forEach((th) => {
-    const b = document.createElement('button');
-    b.className = 'theme-item' +
-      (!state.settings.custom && state.settings.theme === th.id ? ' on' : '');
-    b.innerHTML = `<span class="theme-dot" style="background:${th.swatch}"></span>${th.name}`;
-    b.addEventListener('click', () => {
-      state.settings.custom = null; // 프리셋 선택 시 커스텀 해제
-      state.settings.theme = th.id;
-      save();
-      applySettings();
-      renderThemeList();
-    });
-    list.appendChild(b);
+/* 프로필 이미지 크롭(위치/확대) — 인스타처럼 드래그+줌, 결과를 512px로 저장(고화질 깨짐 방지) */
+let cropOpen = () => {};
+function setupCropper() {
+  const ov = document.getElementById('crop-overlay');
+  const canvas = document.getElementById('crop-canvas');
+  const zoom = document.getElementById('crop-zoom');
+  let ctx = null;
+  try { ctx = canvas.getContext('2d'); } catch (_) {}
+  const SIZE = 240;
+  let img = null, scale = 1, minScale = 1, ox = 0, oy = 0;
+
+  function clampPan() {
+    const w = img.width * scale, h = img.height * scale;
+    ox = Math.min(0, Math.max(SIZE - w, ox));
+    oy = Math.min(0, Math.max(SIZE - h, oy));
+  }
+  function draw() {
+    if (!ctx || !img) return;
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, ox, oy, img.width * scale, img.height * scale);
+  }
+  cropOpen = (dataUrl) => {
+    const im = new Image();
+    im.onload = () => {
+      img = im;
+      minScale = Math.max(SIZE / im.width, SIZE / im.height);
+      scale = minScale;
+      zoom.value = '1';
+      ox = (SIZE - im.width * scale) / 2;
+      oy = (SIZE - im.height * scale) / 2;
+      clampPan();
+      draw();
+      ov.classList.add('open');
+    };
+    im.src = dataUrl;
+  };
+
+  let drag = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!img) return;
+    drag = { x: e.clientX, y: e.clientY, ox, oy };
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    ox = drag.ox + (e.clientX - drag.x);
+    oy = drag.oy + (e.clientY - drag.y);
+    clampPan(); draw();
+  });
+  canvas.addEventListener('pointerup', () => { drag = null; });
+
+  zoom.addEventListener('input', () => {
+    if (!img) return;
+    const ns = minScale * parseFloat(zoom.value);
+    const cx = SIZE / 2, cy = SIZE / 2;
+    ox = cx - (cx - ox) * (ns / scale); // 중심 기준 확대
+    oy = cy - (cy - oy) * (ns / scale);
+    scale = ns; clampPan(); draw();
+  });
+
+  function apply() {
+    if (!img) return;
+    const OUT = 512, f = OUT / SIZE;
+    const out = document.createElement('canvas');
+    out.width = OUT; out.height = OUT;
+    const octx = out.getContext('2d');
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+    octx.drawImage(img, ox * f, oy * f, img.width * scale * f, img.height * scale * f);
+    state.settings.profileImage = out.toDataURL('image/jpeg', 0.92);
+    save();
+    applySettings();
+    ov.classList.remove('open'); img = null;
+  }
+  const close = () => { ov.classList.remove('open'); img = null; };
+  document.getElementById('crop-apply').addEventListener('click', apply);
+  document.getElementById('crop-close').addEventListener('click', close);
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
 }
 
 /* =========================================================================
@@ -2240,6 +2294,7 @@ async function init() {
   setupGlobalKeys();
   setupProfileTheme();
   setupColorPicker();
+  setupCropper();
   setupFormatToolbar();
   setupNumPrompt();
 

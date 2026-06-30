@@ -76,7 +76,6 @@
         <button class="theme-action" id="btn-bg-image">🖼 배경화면 변경</button>
         <button class="theme-action" id="btn-theme-color">🎨 테마 컬러 변경</button>
       </div>
-      <div class="theme-list" id="theme-list"></div>
     </div>
   </div>
   <input type="file" id="bg-file" accept="image/*" style="display:none" />
@@ -93,6 +92,25 @@
       <div class="cp-foot">
         <input type="text" id="cp-hex" maxlength="7" placeholder="#hex" />
         <button class="btn-primary" id="cp-apply">적용</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 프로필 이미지 위치 조정(크롭) 모달 -->
+  <div class="modal-overlay" id="crop-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <span>프로필 위치 조정</span>
+        <button class="icon-btn" id="crop-close">✕</button>
+      </div>
+      <p class="sync-hint">드래그로 위치, 슬라이더로 확대를 조절하세요.</p>
+      <div class="crop-stage">
+        <canvas id="crop-canvas" width="240" height="240"></canvas>
+        <div class="crop-ring"></div>
+      </div>
+      <input type="range" id="crop-zoom" min="1" max="3" step="0.01" value="1" />
+      <div class="sync-btns">
+        <button class="btn-primary" id="crop-apply">적용</button>
       </div>
     </div>
   </div>
