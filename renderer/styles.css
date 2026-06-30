@@ -219,9 +219,10 @@ body {
   padding: 10px 14px 12px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
 }
+.dday-block { min-height: 92px; } /* 기본적으로 어느 정도 칸 차지 */
 .dday-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.dday-heading { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; color: var(--pink-deep); }
-.dday-empty { font-size: 12px; color: var(--ink-soft); padding: 4px 2px; }
+.dday-heading { font-size: 20px; font-weight: 800; letter-spacing: 0.02em; color: var(--pink-deep); }
+.dday-empty { font-size: 14px; color: var(--ink-soft); padding: 16px 2px; text-align: center; }
 .dday-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .dday-badge {
   flex-shrink: 0; min-width: 52px; text-align: center;
@@ -236,8 +237,33 @@ body {
 }
 .dday-name::placeholder { color: var(--ink-soft); opacity: 0.7; }
 .dday-badge { cursor: pointer; border: none; }
-.dday-hidden { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .dday-item .item-del { opacity: 0; }
+
+/* 달력 모달 */
+.cal-modal { width: 300px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px 12px; }
+.cal-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+.cal-nav {
+  width: 30px; height: 30px; border: none; background: transparent; border-radius: 8px;
+  font-size: 18px; color: var(--pink-deep); cursor: pointer;
+}
+.cal-nav:hover { background: var(--pink-soft); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-dow { text-align: center; font-size: 11px; color: var(--ink-soft); padding: 4px 0; }
+.cal-day {
+  aspect-ratio: 1 / 1; border: none; background: transparent; border-radius: 50%;
+  font-size: 13px; color: var(--ink); cursor: pointer; font-family: inherit;
+}
+.cal-day:hover { background: var(--pink-soft); }
+.cal-day.today { color: var(--pink-deep); font-weight: 800; }
+.cal-day.sel { background: var(--pink-deep); color: #fff; font-weight: 700; }
+
+/* 이미지 리사이즈 핸들 */
+.img-resize-handle {
+  position: fixed; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--pink-deep, #cdb0bb); border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); cursor: nwse-resize; z-index: 400;
+}
 .dday-item:hover .item-del { opacity: 0.7; }
 
 /* 투두 블럭(반투명 흰색) */

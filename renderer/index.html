@@ -82,8 +82,18 @@
     </div>
   </div>
   <input type="file" id="bg-file" accept="image/*" style="display:none" />
-  <!-- D-DAY 날짜 선택용 숨김 입력(네이티브 달력) -->
-  <input type="date" id="dday-date" class="dday-hidden" />
+
+  <!-- D-DAY 날짜 선택 달력 모달 -->
+  <div class="modal-overlay" id="cal-overlay">
+    <div class="modal cal-modal">
+      <div class="cal-head">
+        <button class="cal-nav" id="cal-prev">‹</button>
+        <span class="cal-title" id="cal-title"></span>
+        <button class="cal-nav" id="cal-next">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </div>
 
   <!-- 테마 컬러 피커 -->
   <div class="modal-overlay" id="color-picker-overlay">
@@ -229,6 +239,7 @@
     </div>
   </div>
 
+  <script src="shared.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
