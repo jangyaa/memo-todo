@@ -568,11 +568,12 @@ body {
 /* 드래그 중 블록 + 드롭 위치 미리보기 선 */
 .dragging { opacity: 0.4; }
 .drop-indicator {
-  height: 3px;
+  height: 4px;
   background: var(--indicator);
-  border-radius: 3px;
-  margin: -7px 6px;
+  border-radius: 4px;
+  margin: -8px 6px;
   pointer-events: none;
+  box-shadow: 0 0 7px var(--indicator); /* 어떤 배경에서도 잘 보이도록 글로우 */
 }
 
 /* 메모 한 개 = 반투명 흰색 블록 */
@@ -829,6 +830,16 @@ body {
 .theme-item.on { border-color: var(--pink); background: var(--pink-soft); font-weight: 700; }
 .theme-item .theme-dot { width: 18px; height: 18px; }
 
+/* 커스텀 배경 섹션 */
+.custom-theme { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.ct-title { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 8px; }
+.ct-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ct-row .btn-ghost { flex: 1; }
+.ct-row input[type="color"] {
+  width: 36px; height: 26px; border: 1px solid var(--line); border-radius: 8px;
+  background: none; cursor: pointer; padding: 2px;
+}
+
 .font-section { border-top: 1px solid var(--line); padding-top: 10px; }
 .font-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .font-label { font-size: 12px; color: var(--ink-soft); }
@@ -1029,6 +1040,10 @@ body.ft-open .memo-index:hover .folder-eye { opacity: 0; }
 ::highlight(find-current) { background: var(--pink); color: #fff; }
 
 /* 스크롤바 */
-::-webkit-scrollbar { width: 7px; }
-::-webkit-scrollbar-thumb { background: #eccdd9; border-radius: 999px; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--pink-deep) 70%, transparent);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--pink-deep); }
 ::-webkit-scrollbar-track { background: transparent; }

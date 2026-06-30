@@ -54,7 +54,7 @@ let state = {
   todos: [], // { id, title, color, items, pinned, pinnedAt }
   memos: [], // { id, content, tags, color, folderId, pinned, pinnedAt }
   folders: [], // { id, name, collapsed }
-  settings: { theme: 'default', profileImage: null, fontFamily: '', fontSize: 100 }
+  settings: { theme: 'default', profileImage: null, customBg: null, customAccent: '#d98fb2' }
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -143,8 +143,8 @@ function normalizeSettings(s) {
   return {
     theme: (s && s.theme) || 'default',
     profileImage: (s && s.profileImage) || null,
-    fontFamily: (s && s.fontFamily) || '',
-    fontSize: (s && s.fontSize) || 100
+    customBg: (s && s.customBg) || null,
+    customAccent: (s && s.customAccent) || '#d98fb2'
   };
 }
 
@@ -1435,6 +1435,35 @@ function applySettings() {
   if (t && t !== 'default') document.body.dataset.theme = t;
   else document.body.removeAttribute('data-theme');
 
+  // 커스텀 배경 이미지 + 강조색
+  const appEl = document.querySelector('.app');
+  const root = document.documentElement.style;
+  const customVars = ['--pink', '--pink-deep', '--pink-soft', '--titlebar', '--indicator'];
+  if (t === 'custom') {
+    const acc = s.customAccent || '#d98fb2';
+    root.setProperty('--pink-deep', acc);
+    root.setProperty('--indicator', acc);
+    root.setProperty('--pink', `color-mix(in srgb, ${acc} 45%, white)`);
+    root.setProperty('--pink-soft', `color-mix(in srgb, ${acc} 14%, white)`);
+    root.setProperty('--titlebar',
+      `linear-gradient(180deg, ${acc}, color-mix(in srgb, ${acc} 78%, black))`);
+    if (appEl) {
+      appEl.style.backgroundImage = s.customBg ? `url("${s.customBg}")` : 'none';
+      appEl.style.backgroundSize = 'cover';
+      appEl.style.backgroundPosition = 'center';
+      appEl.style.backgroundRepeat = 'no-repeat';
+    }
+  } else {
+    // 커스텀 해제 시 인라인 오버라이드 제거 → 테마 CSS 복원
+    customVars.forEach((v) => root.removeProperty(v));
+    if (appEl) {
+      appEl.style.backgroundImage = '';
+      appEl.style.backgroundSize = '';
+      appEl.style.backgroundPosition = '';
+      appEl.style.backgroundRepeat = '';
+    }
+  }
+
   const img = s.profileImage;
   [document.getElementById('btn-profile'), document.getElementById('pm-avatar')]
     .forEach((el) => {
@@ -1495,9 +1524,45 @@ function setupProfileTheme() {
   themeOverlay.addEventListener('click', (e) => {
     if (e.target === themeOverlay) themeOverlay.classList.remove('open');
   });
+
+  // 커스텀 배경 이미지 + 강조색
+  const bgFile = document.getElementById('bg-file');
+  document.getElementById('ct-image').addEventListener('click', () => bgFile.click());
+  bgFile.addEventListener('change', () => {
+    const f = bgFile.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.settings.customBg = reader.result;
+      state.settings.theme = 'custom';
+      save();
+      applySettings();
+      renderThemeList();
+    };
+    reader.readAsDataURL(f);
+    bgFile.value = '';
+  });
+  document.getElementById('ct-clear').addEventListener('click', () => {
+    state.settings.customBg = null;
+    state.settings.theme = 'default';
+    save();
+    applySettings();
+    renderThemeList();
+  });
+  document.getElementById('ct-accent').addEventListener('input', (e) => {
+    state.settings.customAccent = e.target.value;
+    if (state.settings.theme !== 'custom') {
+      state.settings.theme = 'custom';
+      renderThemeList();
+    }
+    save();
+    applySettings();
+  });
 }
 
 function renderThemeList() {
+  const accInput = document.getElementById('ct-accent');
+  if (accInput) accInput.value = state.settings.customAccent || '#d98fb2';
   const list = document.getElementById('theme-list');
   list.innerHTML = '';
   THEMES.forEach((th) => {
