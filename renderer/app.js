@@ -54,7 +54,7 @@ let state = {
   todos: [], // { id, title, color, items, pinned, pinnedAt }
   memos: [], // { id, content, tags, color, folderId, pinned, pinnedAt }
   folders: [], // { id, name, collapsed }
-  settings: { theme: 'default', profileImage: null, customBg: null, customAccent: '#d98fb2' }
+  settings: { theme: 'default', profileImage: null }
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -122,6 +122,7 @@ function normalizeMemo(m, i) {
   if (content && !looksHtml(content)) content = linkifyHtml(content);
   return {
     id: m.id || uid(),
+    title: m.title || '',
     content,
     tags: sortTags(Array.isArray(m.tags) ? m.tags : []),
     color: m.color || BLOCK_COLORS[i % BLOCK_COLORS.length],
@@ -142,9 +143,7 @@ function save() {
 function normalizeSettings(s) {
   return {
     theme: (s && s.theme) || 'default',
-    profileImage: (s && s.profileImage) || null,
-    customBg: (s && s.customBg) || null,
-    customAccent: (s && s.customAccent) || '#d98fb2'
+    profileImage: (s && s.profileImage) || null
   };
 }
 
@@ -433,6 +432,37 @@ function buildItem(todo, item) {
     }
   });
 
+  // 진행도(네모 칸) 추가 버튼
+  const progBtn = document.createElement('button');
+  progBtn.className = 'item-prog';
+  progBtn.textContent = '▦';
+  progBtn.title = '진행도 칸 추가';
+  progBtn.addEventListener('click', () => {
+    if (progBtn.dataset.editing) return;
+    progBtn.dataset.editing = '1';
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = '1'; inp.max = '99';
+    inp.className = 'prog-input';
+    inp.value = item.progress ? item.progress.total : '';
+    inp.placeholder = '칸';
+    top.insertBefore(inp, progBtn);
+    inp.focus();
+    const commit = () => {
+      const n = parseInt(inp.value, 10);
+      if (n >= 1) {
+        const done = item.progress ? Math.min(item.progress.done, n) : 0;
+        item.progress = { total: Math.min(n, 99), done };
+      }
+      save();
+      renderTodos();
+    };
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') renderTodos();
+    });
+    inp.addEventListener('blur', commit);
+  });
+
   const del = document.createElement('button');
   del.className = 'item-del';
   del.textContent = '✕';
@@ -442,9 +472,31 @@ function buildItem(todo, item) {
     renderTodos();
   });
 
-  row.appendChild(box);
-  row.appendChild(text);
-  row.appendChild(del);
+  const top = document.createElement('div');
+  top.className = 'ci-top';
+  top.appendChild(box);
+  top.appendChild(text);
+  top.appendChild(progBtn);
+  top.appendChild(del);
+  row.appendChild(top);
+
+  // 진행도 네모 칸
+  if (item.progress && item.progress.total > 0) {
+    const boxes = document.createElement('div');
+    boxes.className = 'progress-boxes';
+    for (let i = 0; i < item.progress.total; i++) {
+      const pb = document.createElement('span');
+      pb.className = 'pbox' + (i < item.progress.done ? ' filled' : '');
+      pb.addEventListener('click', () => {
+        item.progress.done = (i + 1 === item.progress.done) ? i : i + 1;
+        save();
+        renderTodos();
+      });
+      boxes.appendChild(pb);
+    }
+    row.appendChild(boxes);
+  }
+
   return row;
 }
 
@@ -470,7 +522,15 @@ function noteTitle(content) {
   const text = looksHtml(content) ? htmlToText(content) : (content || '');
   const lines = text.split('\n');
   for (const line of lines) if (line.trim()) return line.trim();
-  return '제목 없음';
+  return '';
+}
+// 인덱스에 표시할 제목: 제목칸 우선, 없으면 본문 첫 줄(레거시)
+function memoTitle(memo) {
+  return (memo.title || '').trim() || noteTitle(memo.content) || '제목 없음';
+}
+function focusMemoTitle(id) {
+  const inp = memoPage.querySelector(`.memo-block[data-id="${id}"] .memo-title`);
+  if (inp) { inp.focus(); inp.scrollIntoView({ block: 'center' }); }
 }
 
 function allTags() {
@@ -489,11 +549,11 @@ function visibleMemos() {
 }
 
 function addMemo() {
-  const memo = { id: uid(), content: '', tags: [], color: nextMemoColor() };
+  const memo = { id: uid(), title: '', content: '', tags: [], color: nextMemoColor() };
   state.memos.push(memo);
   save();
   renderMemos();
-  focusNoteEnd(memo.id);
+  focusMemoTitle(memo.id);
 }
 
 function renderMemos() {
@@ -532,7 +592,7 @@ function renderTagbar() {
 function renderMemoPage() {
   memoPage.innerHTML = '';
   if (state.memos.length === 0) {
-    state.memos.push({ id: uid(), content: '', tags: [], color: nextMemoColor() });
+    state.memos.push({ id: uid(), title: '', content: '', tags: [], color: nextMemoColor() });
   }
   const list = pinnedFirst(visibleMemos());
   if (list.length === 0) {
@@ -594,6 +654,25 @@ function buildMemoBlock(memo) {
   head.appendChild(tools);
   block.appendChild(head);
 
+  // 제목 입력칸 (본문과 분리)
+  const titleInput = document.createElement('input');
+  titleInput.className = 'memo-title';
+  titleInput.placeholder = '제목';
+  titleInput.value = memo.title || '';
+  titleInput.addEventListener('input', () => {
+    memo.title = titleInput.value;
+    save();
+    updateIndexTitle(memo);
+  });
+  titleInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const b = block.querySelector('.note-body');
+      if (b) { b.focus(); }
+    }
+  });
+  block.appendChild(titleInput);
+
   // 본문 (서식 가능한 HTML)
   const body = document.createElement('div');
   body.className = 'note-body';
@@ -604,25 +683,37 @@ function buildMemoBlock(memo) {
   body.addEventListener('input', () => {
     memo.content = body.innerHTML;
     save();
-    updateIndexTitle(memo);
   });
   body.addEventListener('blur', () => {
     linkifyElement(body);
     memo.content = body.innerHTML;
     save();
   });
+  // 체크리스트 글머리 토글(왼쪽 클릭 영역)
+  body.addEventListener('click', (e) => {
+    const li = e.target.closest('li');
+    if (li && li.parentElement && li.parentElement.classList.contains('md-check')) {
+      const rect = li.getBoundingClientRect();
+      if (e.clientX - rect.left < 22) {
+        li.classList.toggle('done');
+        memo.content = body.innerHTML;
+        save();
+      }
+    }
+  });
   body.addEventListener('keydown', (e) => {
+    if (handleMarkdownKey(e, body, memo)) return;
     // Shift+Enter: 현재 메모 다음에 새 메모 블록 (전역 핸들러와 중복 방지)
     if (e.shiftKey && e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
       memo.content = body.innerHTML;
       const idx = state.memos.findIndex((m) => m.id === memo.id);
-      const nm = { id: uid(), content: '', tags: [], color: nextMemoColor() };
+      const nm = { id: uid(), title: '', content: '', tags: [], color: nextMemoColor() };
       state.memos.splice(idx + 1, 0, nm);
       save();
       renderMemos();
-      focusNoteEnd(nm.id);
+      focusMemoTitle(nm.id);
     } else if (e.key === 'Backspace' && caretAtStart(body)) {
       const idx = state.memos.findIndex((m) => m.id === memo.id);
       if (idx > 0) {
@@ -650,7 +741,8 @@ function buildMemoBlock(memo) {
     chip.innerHTML = '#' + t + ' <b>×</b>';
     chip.querySelector('b').addEventListener('click', () => {
       memo.tags = memo.tags.filter((x) => x !== t);
-      activeTags.delete(t);
+      // 그 태그가 더 이상 어떤 메모에도 없을 때만 필터에서 제거(필터 유지)
+      if (!state.memos.some((m) => (m.tags || []).includes(t))) activeTags.delete(t);
       save();
       renderMemos();
     });
@@ -688,6 +780,55 @@ function buildMemoBlock(memo) {
   return block;
 }
 
+/* 글머리(마크다운) 단축: '- '/'* ' 불릿, '1. ' 번호, 'ㅁ '/'[] ' 체크박스, Tab 들여쓰기 */
+function handleMarkdownKey(e, body, memo) {
+  const liOf = () => {
+    let n = window.getSelection().anchorNode;
+    n = n && (n.nodeType === 1 ? n : n.parentElement);
+    return n && n.closest ? n.closest('li') : null;
+  };
+  const ulOf = () => {
+    let n = window.getSelection().anchorNode;
+    n = n && (n.nodeType === 1 ? n : n.parentElement);
+    return n && n.closest ? n.closest('ul,ol') : null;
+  };
+  const persist = () => setTimeout(() => { memo.content = body.innerHTML; save(); }, 0);
+
+  if (e.key === 'Tab') {
+    if (liOf()) {
+      e.preventDefault();
+      document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+      persist();
+      return true;
+    }
+    return false;
+  }
+  if (e.key !== ' ') return false;
+  const sel = window.getSelection();
+  if (!sel.rangeCount || !sel.isCollapsed) return false;
+  const r = sel.getRangeAt(0);
+  const node = r.startContainer;
+  if (node.nodeType !== 3) return false;
+  const before = node.textContent.slice(0, r.startOffset);
+
+  let kind = null, check = false;
+  if (before === '-' || before === '*') kind = 'ul';
+  else if (before === 'ㅁ' || before === '[]') { kind = 'ul'; check = true; }
+  else if (/^\d+\.$/.test(before)) kind = 'ol';
+  if (!kind) return false;
+
+  e.preventDefault();
+  node.deleteData(0, before.length);
+  if (liOf()) {
+    document.execCommand('indent'); // 이미 리스트면 하위로 들여쓰기
+  } else {
+    document.execCommand(kind === 'ol' ? 'insertOrderedList' : 'insertUnorderedList');
+  }
+  if (check) { const ul = ulOf(); if (ul && ul.tagName === 'UL') ul.classList.add('md-check'); }
+  persist();
+  return true;
+}
+
 function caretAtStart(el) {
   const sel = window.getSelection();
   if (!sel.rangeCount) return false;
@@ -720,7 +861,7 @@ function focusTagAdd(id) {
 function updateIndexTitle(memo) {
   const label = indexList.querySelector(
     `.index-chip[data-id="${memo.id}"] .label`);
-  if (label) label.textContent = noteTitle(memo.content);
+  if (label) label.textContent = memoTitle(memo);
 }
 
 /* 고정 메모를 앞으로 */
@@ -755,7 +896,7 @@ function buildIndexChip(memo) {
 
   const label = document.createElement('span');
   label.className = 'label';
-  label.textContent = noteTitle(memo.content);
+  label.textContent = memoTitle(memo);
 
   chip.appendChild(sq);
   chip.appendChild(label);
@@ -902,23 +1043,9 @@ function startFolderRename(head, nameEl, folder) {
   input.addEventListener('blur', () => finish(true));
 }
 
-/* 인덱스에서 제목(첫 줄) 수정 — HTML 서식 유지 */
+/* 인덱스에서 제목 수정 → 제목칸(title)에 반영 */
 function setMemoTitle(memo, newTitle) {
-  if (!looksHtml(memo.content)) {
-    const lines = (memo.content || '').split('\n');
-    const idx = lines.findIndex((l) => l.trim() !== '');
-    if (idx < 0) memo.content = newTitle;
-    else { lines[idx] = newTitle; memo.content = lines.join('\n'); }
-    return;
-  }
-  const tmp = document.createElement('div');
-  tmp.innerHTML = memo.content;
-  const walker = document.createTreeWalker(tmp, NodeFilter.SHOW_TEXT, null);
-  let n, target = null;
-  while ((n = walker.nextNode())) { if (n.nodeValue.trim() !== '') { target = n; break; } }
-  if (target) target.nodeValue = newTitle;
-  else tmp.insertBefore(document.createTextNode(newTitle), tmp.firstChild);
-  memo.content = tmp.innerHTML;
+  memo.title = newTitle;
 }
 
 function startIndexRename(chip, label, memo) {
@@ -927,7 +1054,7 @@ function startIndexRename(chip, label, memo) {
   chip.draggable = false;
   const input = document.createElement('input');
   input.className = 'index-rename';
-  input.value = noteTitle(memo.content);
+  input.value = memoTitle(memo) === '제목 없음' ? '' : memoTitle(memo);
   label.replaceWith(input);
   input.focus();
   input.select();
@@ -1435,35 +1562,6 @@ function applySettings() {
   if (t && t !== 'default') document.body.dataset.theme = t;
   else document.body.removeAttribute('data-theme');
 
-  // 커스텀 배경 이미지 + 강조색
-  const appEl = document.querySelector('.app');
-  const root = document.documentElement.style;
-  const customVars = ['--pink', '--pink-deep', '--pink-soft', '--titlebar', '--indicator'];
-  if (t === 'custom') {
-    const acc = s.customAccent || '#d98fb2';
-    root.setProperty('--pink-deep', acc);
-    root.setProperty('--indicator', acc);
-    root.setProperty('--pink', `color-mix(in srgb, ${acc} 45%, white)`);
-    root.setProperty('--pink-soft', `color-mix(in srgb, ${acc} 14%, white)`);
-    root.setProperty('--titlebar',
-      `linear-gradient(180deg, ${acc}, color-mix(in srgb, ${acc} 78%, black))`);
-    if (appEl) {
-      appEl.style.backgroundImage = s.customBg ? `url("${s.customBg}")` : 'none';
-      appEl.style.backgroundSize = 'cover';
-      appEl.style.backgroundPosition = 'center';
-      appEl.style.backgroundRepeat = 'no-repeat';
-    }
-  } else {
-    // 커스텀 해제 시 인라인 오버라이드 제거 → 테마 CSS 복원
-    customVars.forEach((v) => root.removeProperty(v));
-    if (appEl) {
-      appEl.style.backgroundImage = '';
-      appEl.style.backgroundSize = '';
-      appEl.style.backgroundPosition = '';
-      appEl.style.backgroundRepeat = '';
-    }
-  }
-
   const img = s.profileImage;
   [document.getElementById('btn-profile'), document.getElementById('pm-avatar')]
     .forEach((el) => {
@@ -1525,44 +1623,9 @@ function setupProfileTheme() {
     if (e.target === themeOverlay) themeOverlay.classList.remove('open');
   });
 
-  // 커스텀 배경 이미지 + 강조색
-  const bgFile = document.getElementById('bg-file');
-  document.getElementById('ct-image').addEventListener('click', () => bgFile.click());
-  bgFile.addEventListener('change', () => {
-    const f = bgFile.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.settings.customBg = reader.result;
-      state.settings.theme = 'custom';
-      save();
-      applySettings();
-      renderThemeList();
-    };
-    reader.readAsDataURL(f);
-    bgFile.value = '';
-  });
-  document.getElementById('ct-clear').addEventListener('click', () => {
-    state.settings.customBg = null;
-    state.settings.theme = 'default';
-    save();
-    applySettings();
-    renderThemeList();
-  });
-  document.getElementById('ct-accent').addEventListener('input', (e) => {
-    state.settings.customAccent = e.target.value;
-    if (state.settings.theme !== 'custom') {
-      state.settings.theme = 'custom';
-      renderThemeList();
-    }
-    save();
-    applySettings();
-  });
 }
 
 function renderThemeList() {
-  const accInput = document.getElementById('ct-accent');
-  if (accInput) accInput.value = state.settings.customAccent || '#d98fb2';
   const list = document.getElementById('theme-list');
   list.innerHTML = '';
   THEMES.forEach((th) => {
@@ -1589,14 +1652,18 @@ function setupFormatToolbar() {
   const colors = document.getElementById('ft-colors');
   const fontSel = document.getElementById('ft-font');
   const sizeVal = document.getElementById('ft-size-val');
-  const PALETTE = ['#4a4148', '#9aa0b0', '#e0667f', '#f0b8cb'];
+  // 검정/회색은 고정, 나머지는 테마 변수(클릭 시 실제 색으로 변환)
+  const PALETTE = [
+    { c: '#4a4148' }, { c: '#9aa0b0' },
+    { v: '--pink-deep' }, { v: '--indicator' }, { v: '--pink' }
+  ];
 
   colors.innerHTML = '';
-  PALETTE.forEach((c) => {
+  PALETTE.forEach((p) => {
     const d = document.createElement('button');
     d.className = 'ft-color';
-    d.style.background = c;
-    d.dataset.color = c;
+    if (p.v) { d.style.background = `var(${p.v})`; d.dataset.var = p.v; }
+    else { d.style.background = p.c; d.dataset.color = p.c; }
     colors.appendChild(d);
   });
   FONTS.forEach((f) => {
@@ -1750,7 +1817,11 @@ function setupFormatToolbar() {
     const d = e.target.closest('.ft-color');
     if (!d) return;
     e.preventDefault();
-    run('foreColor', d.dataset.color);
+    let col = d.dataset.color;
+    if (!col && d.dataset.var) {
+      col = getComputedStyle(document.documentElement).getPropertyValue(d.dataset.var).trim();
+    }
+    if (col) run('foreColor', col);
   });
   // 커스텀 색 추가 → 색상 팝오버(시각적 선택 + hex). 시스템 RGB창 안 씀
   const colorPop = document.getElementById('ft-colorpop');

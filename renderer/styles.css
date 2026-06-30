@@ -122,7 +122,7 @@ body {
   display: flex;
   align-items: flex-end;
   gap: 6px;
-  height: 38px;
+  height: 34px;
   padding: 0 8px;
   background: var(--titlebar);
   -webkit-app-region: drag; /* 빈 영역(탭 사이/여백)을 잡고 창 이동 */
@@ -236,8 +236,8 @@ body {
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 0 16px 2px color-mix(in srgb, var(--pink-deep) 60%, transparent),
-              0 4px 12px color-mix(in srgb, var(--pink-deep) 45%, transparent);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--pink-deep) 32%, transparent),
+              0 4px 10px color-mix(in srgb, var(--pink-deep) 24%, transparent);
   transition: transform 0.1s;
 }
 .fab:hover { transform: scale(1.08); }
@@ -303,12 +303,30 @@ body {
 
 .check-item {
   display: flex;
-  align-items: flex-start;
-  gap: 7px;
+  flex-direction: column;
   padding: 3px 2px;
   border-radius: 6px;
 }
 .check-item:hover { background: rgba(255, 255, 255, 0.5); }
+.ci-top { display: flex; align-items: flex-start; gap: 7px; }
+
+/* 진행도 칸 */
+.item-prog {
+  border: none; background: transparent; color: var(--ink-soft);
+  cursor: pointer; opacity: 0; font-size: 12px; padding: 0 2px;
+}
+.check-item:hover .item-prog { opacity: 0.6; }
+.item-prog:hover { color: var(--pink-deep); opacity: 1; }
+.prog-input {
+  width: 42px; border: 1px solid var(--line); border-radius: 6px;
+  padding: 1px 4px; font-size: 12px; outline: none;
+}
+.progress-boxes { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 2px 22px; }
+.pbox {
+  width: 13px; height: 13px; border: 1.5px solid var(--pink-deep);
+  border-radius: 3px; cursor: pointer; box-sizing: border-box;
+}
+.pbox.filled { background: var(--pink-deep); }
 
 .check-box {
   width: 15px;
@@ -568,12 +586,11 @@ body {
 /* 드래그 중 블록 + 드롭 위치 미리보기 선 */
 .dragging { opacity: 0.4; }
 .drop-indicator {
-  height: 4px;
-  background: var(--indicator);
-  border-radius: 4px;
-  margin: -8px 6px;
+  height: 3px;
+  background: color-mix(in srgb, var(--indicator) 60%, transparent);
+  border-radius: 3px;
+  margin: -7px 6px;
   pointer-events: none;
-  box-shadow: 0 0 7px var(--indicator); /* 어떤 배경에서도 잘 보이도록 글로우 */
 }
 
 /* 메모 한 개 = 반투명 흰색 블록 */
@@ -595,7 +612,35 @@ body {
   cursor: grab;
 }
 .memo-head:active { cursor: grabbing; }
+
+/* 메모 제목 입력칸 (본문과 분리) */
+.memo-title {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  outline: none;
+  margin-bottom: 4px;
+  -webkit-app-region: no-drag;
+}
+.memo-title::placeholder { color: var(--ink-soft); opacity: 0.5; }
+
 .note-body hr { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
+
+/* 글머리(리스트) */
+.note-body ul, .note-body ol { margin: 4px 0; padding-left: 22px; }
+.note-body li { margin: 1px 0; }
+.note-body ul.md-check { list-style: none; padding-left: 4px; }
+.note-body ul.md-check > li { position: relative; padding-left: 22px; }
+.note-body ul.md-check > li::before {
+  content: ''; position: absolute; left: 2px; top: 0.3em;
+  width: 13px; height: 13px; border: 1.5px solid var(--pink-deep);
+  border-radius: 3px; box-sizing: border-box; cursor: pointer;
+}
+.note-body ul.md-check > li.done::before { background: var(--pink-deep); }
+.note-body ul.md-check > li.done { color: var(--ink-soft); text-decoration: line-through; }
 .memo-head .drag-handle { opacity: 0; }
 .memo-block:hover .memo-head .drag-handle { opacity: 0.5; }
 /* 고정/색상/삭제 버튼: 블록에 마우스를 올렸을 때만 표시 (투두·메모 공용) */
@@ -781,8 +826,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 22px 3px color-mix(in srgb, var(--pink-deep) 55%, transparent),
-              0 4px 14px color-mix(in srgb, var(--pink-deep) 40%, transparent);
+  box-shadow: 0 0 20px 2px color-mix(in srgb, var(--pink-deep) 30%, transparent),
+              0 4px 12px color-mix(in srgb, var(--pink-deep) 22%, transparent);
 }
 .pm-image {
   display: block;
@@ -829,16 +874,6 @@ body {
 .theme-item:hover { background: var(--pink-soft); }
 .theme-item.on { border-color: var(--pink); background: var(--pink-soft); font-weight: 700; }
 .theme-item .theme-dot { width: 18px; height: 18px; }
-
-/* 커스텀 배경 섹션 */
-.custom-theme { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
-.ct-title { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 8px; }
-.ct-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.ct-row .btn-ghost { flex: 1; }
-.ct-row input[type="color"] {
-  width: 36px; height: 26px; border: 1px solid var(--line); border-radius: 8px;
-  background: none; cursor: pointer; padding: 2px;
-}
 
 .font-section { border-top: 1px solid var(--line); padding-top: 10px; }
 .font-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
@@ -1041,9 +1076,6 @@ body.ft-open .memo-index:hover .folder-eye { opacity: 0; }
 
 /* 스크롤바 */
 ::-webkit-scrollbar { width: 7px; height: 7px; }
-::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--pink-deep) 70%, transparent);
-  border-radius: 999px;
-}
+::-webkit-scrollbar-thumb { background: var(--pink); border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--pink-deep); }
 ::-webkit-scrollbar-track { background: transparent; }
