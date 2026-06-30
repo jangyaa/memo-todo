@@ -136,14 +136,31 @@ function handleMarkdownKey(e, body, persistCb) {
     return n && n.closest ? n.closest('ul,ol') : null;
   };
   const persist = () => setTimeout(() => persistCb(), 0);
+  // 한 단계 깊은 글머리로 중첩(이전 항목의 하위 목록으로 이동) — execCommand indent의 커서 이탈 버그 회피
+  const nestLi = (li, check) => {
+    const prev = li.previousElementSibling;
+    if (!prev) return false; // 첫 항목은 중첩할 부모가 없음
+    const listTag = (li.parentElement && li.parentElement.tagName === 'OL') ? 'ol' : 'ul';
+    let sub = prev.lastElementChild;
+    if (!sub || (sub.tagName !== 'UL' && sub.tagName !== 'OL')) {
+      sub = document.createElement(listTag);
+      prev.appendChild(sub);
+    }
+    if (check && sub.tagName === 'UL') sub.classList.add('md-check');
+    sub.appendChild(li);
+    const s = window.getSelection();
+    const rr = document.createRange();
+    rr.selectNodeContents(li); rr.collapse(false);
+    s.removeAllRanges(); s.addRange(rr);
+    return true;
+  };
 
   if (e.key === 'Tab') {
     const li = liOf();
     if (li) {
       e.preventDefault();
-      // 첫 항목은 들여쓰기 불가(브라우저가 커서를 이탈시키는 오류 방지)
       if (e.shiftKey) document.execCommand('outdent');
-      else if (li.previousElementSibling) document.execCommand('indent');
+      else nestLi(li, li.parentElement && li.parentElement.classList.contains('md-check'));
       persist();
       return true;
     }
@@ -205,12 +222,13 @@ function handleMarkdownKey(e, body, persistCb) {
   node.deleteData(0, before.length);
   const li = liOf();
   if (li) {
-    // 이미 목록 안: 첫 항목이 아니면 들여쓰기(중첩). 첫 항목이면 그대로 둠(오류 방지)
-    if (li.previousElementSibling) document.execCommand('indent');
+    // 이미 목록 안에서 글머리 단축 → 한 단계 깊게 중첩
+    const wantCheck = check || (li.parentElement && li.parentElement.classList.contains('md-check'));
+    nestLi(li, wantCheck);
   } else {
     document.execCommand(kind === 'ol' ? 'insertOrderedList' : 'insertUnorderedList');
+    if (check) { const ul = ulOf(); if (ul && ul.tagName === 'UL') ul.classList.add('md-check'); }
   }
-  if (check) { const ul = ulOf(); if (ul && ul.tagName === 'UL') ul.classList.add('md-check'); }
   persist();
   return true;
 }
@@ -270,7 +288,25 @@ function setupFormatToolbar(config) {
     document.getElementById('ft-divpop').classList.remove('open');
     savedRange = null; savedBody = null;
   }
+  function curEditable() {
+    const a = document.activeElement;
+    if (a && a.closest && a.closest(sel0)) return a.closest(sel0);
+    return currentBody();
+  }
   function showForSelection() {
+    // 도킹 모드(상세 창): 편집(입력 모드) 중이면 좌상단에 고정 표시
+    if (config.dock) {
+      const el = curEditable();
+      if (!el) return;
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) savedRange = sel.getRangeAt(0).cloneRange();
+      savedBody = el;
+      sizeVal.textContent = sizePt + 'pt';
+      bar.classList.add('open');
+      bar.style.left = (config.dockPos ? config.dockPos.x : 12) + 'px';
+      bar.style.top = (config.dockPos ? config.dockPos.y : 48) + 'px';
+      return;
+    }
     const body = currentBody();
     if (!body) { hide(); return; }
     const range = window.getSelection().getRangeAt(0);
@@ -299,9 +335,15 @@ function setupFormatToolbar(config) {
 
   document.addEventListener('mouseup', () => setTimeout(showForSelection, 0));
   document.addEventListener('keyup', (e) => {
-    if (e.shiftKey || e.key.startsWith('Arrow')) showForSelection();
+    if (config.dock || e.shiftKey || e.key.startsWith('Arrow')) showForSelection();
   });
-  if (config.scrollEl) config.scrollEl.addEventListener('scroll', hide);
+  // 도킹 모드: 편집 영역에 포커스(입력 모드 진입)하면 바로 표시
+  if (config.dock) {
+    document.addEventListener('focusin', (e) => {
+      if (e.target.closest && e.target.closest(sel0)) showForSelection();
+    });
+  }
+  if (config.scrollEl && !config.dock) config.scrollEl.addEventListener('scroll', hide);
   // 서식창 밖(에디터블 밖) 좌클릭 시 닫고 선택 해제
   document.addEventListener('mousedown', (e) => {
     if (bar.contains(e.target) ||
@@ -506,4 +548,17 @@ function setupImageResize(persistCb) {
     if (dragging) { dragging = false; if (persistCb) persistCb(); }
   });
   window.addEventListener('scroll', () => { if (target) place(); }, true);
+}
+
+/* 구분선(hr) 클릭 시 선택 → Backspace로 삭제 가능 */
+function setupHrClickSelect(root) {
+  root.addEventListener('click', (e) => {
+    const hr = e.target.closest && e.target.closest('hr');
+    if (!hr) return;
+    const sel = window.getSelection();
+    const r = document.createRange();
+    r.selectNode(hr);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
 }

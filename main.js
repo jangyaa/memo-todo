@@ -182,6 +182,8 @@ ipcMain.handle('window:control', (event, action) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return;
   if (action === 'minimize') win.minimize();
+  else if (action === 'maximize') { win.isMaximized() ? win.unmaximize() : win.maximize(); }
+  else if (action === 'close') win.close();
 });
 
 // 외부 링크는 기본 브라우저로 열기
@@ -189,17 +191,17 @@ ipcMain.handle('open:external', (_e, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
 });
 
-// 메모 별도 편집 창 (프레임 있는 일반 창 → OS 상단바로 이동/리사이즈)
+// 메모 별도 편집 창 (프레임리스 → 앱과 동일한 커스텀 테마색 상단바)
 ipcMain.handle('memo:openEditor', (_e, id) => {
   const win = new BrowserWindow({
     width: 560, height: 680, minWidth: 360, minHeight: 360,
+    frame: false, transparent: true, backgroundColor: '#00000000',
     title: '메모',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false
     }
   });
-  win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, 'renderer', 'editor.html'),
     { query: { id: String(id) } });
 });

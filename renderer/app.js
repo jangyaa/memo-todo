@@ -2148,6 +2148,7 @@ async function init() {
     });
     save();
   });
+  setupHrClickSelect(memoPage); // 구분선 클릭 선택 → Backspace 삭제
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());

@@ -25,10 +25,15 @@ async function load() {
   card.style.background = `color-mix(in srgb, ${memo.color || 'var(--c0)'} 54%, transparent)`;
   const t = plainTitle(memo.title) || '메모';
   document.title = t;
-  $('ed-topbar').textContent = t;
+  $('ed-titletext').textContent = t;
   titleEl.innerHTML = memo.title || '';
   bodyEl.innerHTML = memo.content || '';
 }
+
+// 커스텀 창 컨트롤
+$('ed-min').addEventListener('click', () => window.api.windowControl('minimize'));
+$('ed-max').addEventListener('click', () => window.api.windowControl('maximize'));
+$('ed-close').addEventListener('click', () => window.api.windowControl('close'));
 
 let saveTimer = null;
 function save() {
@@ -39,7 +44,7 @@ function save() {
     const content = bodyEl.innerHTML;
     const t = plainTitle(title) || '메모';
     document.title = t;
-    $('ed-topbar').textContent = t;
+    $('ed-titletext').textContent = t;
     const latest = await window.api.loadData();
     if (!latest || !Array.isArray(latest.memos)) return;
     const m = latest.memos.find((x) => x.id === memoId);
@@ -57,14 +62,17 @@ titleEl.addEventListener('keydown', (e) => {
 });
 bodyEl.addEventListener('keydown', (e) => { handleMarkdownKey(e, bodyEl, () => save()); });
 
-// 선택 시 뜨는 서식 툴바(메인 앱과 동일 디자인/기능)
+// 편집(입력 모드) 시 뜨는 서식 툴바 — 좌상단 도킹
 setupFormatToolbar({
   selector: '#ed-body, #ed-title',
   scrollEl: document.querySelector('.ed-scroll'),
+  dock: true,
+  dockPos: { x: 12, y: 48 },
   persist: () => save()
 });
 
 setupImageResize(() => save());
+setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭제
 
 window.api.onDataChanged((d) => {
   if (!d) return;
@@ -76,7 +84,7 @@ window.api.onDataChanged((d) => {
     titleEl.innerHTML = m.title || '';
     bodyEl.innerHTML = m.content || '';
     const t = plainTitle(m.title) || '메모';
-    $('ed-topbar').textContent = t;
+    $('ed-titletext').textContent = t;
   }
 });
 
