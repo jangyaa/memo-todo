@@ -206,7 +206,8 @@ body {
 .todo-board {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 12px 70px;
+  overflow-anchor: none; /* 항목 hover 확장 시 위쪽으로 밀려 올라가지 않게 */
+  padding: 20px 12px 70px; /* 상단 여유 간격 */
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -219,7 +220,7 @@ body {
   padding: 10px 14px 12px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
 }
-.dday-block { min-height: 92px; } /* 기본적으로 어느 정도 칸 차지 */
+.dday-block { min-height: 92px; flex-shrink: 0; } /* 칸 차지 + 항목 늘어도 안 찌그러짐 */
 .dday-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .dday-heading { font-size: 20px; font-weight: 800; letter-spacing: 0.02em; color: var(--pink-deep); }
 .dday-empty { font-size: 14px; color: var(--ink-soft); padding: 16px 2px; text-align: center; }
@@ -269,6 +270,7 @@ body {
 /* 투두 블럭(반투명 흰색) */
 .todo-block {
   position: relative;
+  flex-shrink: 0;
   background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
   padding: 16px 16px 22px;
@@ -619,6 +621,7 @@ body {
 /* 메모 한 개 = 반투명 흰색 블록 */
 .memo-block {
   position: relative;
+  flex-shrink: 0;
   background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
   padding: 8px 14px 18px;
@@ -666,7 +669,7 @@ body {
 
 /* 글머리(리스트) */
 .note-body ul, .note-body ol { margin: 4px 0; padding-left: 22px; }
-.note-body li { margin: 1px 0; }
+.note-body li { margin: 1px 0; color: var(--ink); } /* 중첩해도 글자색 옅어지지 않게 */
 .note-body ul.md-check { list-style: none; padding-left: 4px; }
 .note-body ul.md-check > li { position: relative; padding-left: 22px; }
 .note-body ul.md-check > li::before {

@@ -5,26 +5,16 @@
   <title>메모</title>
   <link rel="stylesheet" href="styles.css" />
   <style>
-    /* 상세 창 전용 레이아웃 (앱 디자인/테마 변수 재사용) */
     html, body { height: 100%; }
     body { background: var(--bg); }
     .ed-app { height: 100vh; border-radius: 0; box-shadow: none; }
-    .ed-toolbar {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 3px;
-      padding: 8px 12px; background: color-mix(in srgb, var(--pink-soft) 85%, #fff);
-      border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 6;
+    /* 앱 타이틀바 느낌의 테마색 상단바 */
+    .ed-topbar {
+      height: 38px; flex-shrink: 0; display: flex; align-items: center;
+      padding: 0 16px; background: var(--titlebar); color: #fff;
+      font-weight: 700; font-size: 13px; letter-spacing: -0.01em;
+      -webkit-app-region: drag;
     }
-    .ed-toolbar button {
-      min-width: 30px; height: 30px; border: none; background: transparent;
-      border-radius: 7px; cursor: pointer; font-size: 14px; color: var(--ink);
-      display: inline-flex; align-items: center; justify-content: center; padding: 0 6px;
-    }
-    .ed-toolbar button:hover { background: var(--pink-soft); color: var(--pink-deep); }
-    .ed-toolbar button svg { width: 16px; height: 16px; fill: currentColor; }
-    .ed-toolbar .ed-sep { width: 1px; height: 18px; background: var(--line); margin: 0 5px; }
-    .ed-toolbar select { height: 30px; border: 1px solid var(--line); border-radius: 7px; padding: 0 6px; font-size: 12px; font-family: inherit; background: #fff; cursor: pointer; }
-    .ed-toolbar input[type="color"] { width: 30px; height: 26px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; padding: 2px; }
-    .ed-hl { fill: #ffcf3f; }
     .ed-scroll { flex: 1; overflow-y: auto; padding: 18px 16px 120px; display: flex; justify-content: center; }
     .ed-card { width: 100%; max-width: 720px; border-radius: 16px; padding: 22px 26px 40px; }
     .ed-card .memo-title { font-size: 24px; margin-bottom: 14px; }
@@ -34,32 +24,7 @@
 <body>
   <div class="app ed-app">
     <div id="app-bg"></div>
-    <!-- 블로그풍 상단 메뉴 -->
-    <div class="ed-toolbar">
-      <button data-cmd="bold" title="굵게"><b>B</b></button>
-      <button data-cmd="italic" title="기울임"><i>I</i></button>
-      <button data-cmd="underline" title="밑줄"><u>U</u></button>
-      <button data-cmd="strikeThrough" title="취소선"><s>S</s></button>
-      <button data-cmd="hilite" title="형광펜"><svg viewBox="0 0 20 20"><path d="M4 13 L12 5 L15 8 L7 16 L4 16 Z"/><rect class="ed-hl" x="3" y="18" width="14" height="2"/></svg></button>
-      <span class="ed-sep"></span>
-      <select id="ed-size" title="글자 크기">
-        <option value="12pt">12</option><option value="14pt">14</option>
-        <option value="16pt" selected>16</option><option value="18pt">18</option>
-        <option value="22pt">22</option><option value="28pt">28</option>
-      </select>
-      <input type="color" id="ed-color" value="#2b2b2f" title="글자색" />
-      <span class="ed-sep"></span>
-      <button data-cmd="justifyLeft" title="왼쪽"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg></button>
-      <button data-cmd="justifyCenter" title="가운데"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="3.5" y="7" width="9" height="2"/><rect x="2" y="12" width="12" height="2"/></svg></button>
-      <button data-cmd="justifyRight" title="오른쪽"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="6" y="7" width="9" height="2"/><rect x="3" y="12" width="12" height="2"/></svg></button>
-      <span class="ed-sep"></span>
-      <button data-cmd="insertUnorderedList" title="글머리 기호">•</button>
-      <button data-cmd="insertOrderedList" title="번호 목록">1.</button>
-      <button data-cmd="quote" title="인용구">❝</button>
-      <button data-cmd="hr" title="구분선">―</button>
-      <button data-cmd="image" title="이미지"><svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5.5" cy="6" r="1.3"/><path d="M2.5 12 L6 8.5 L8.5 11 L11 7.5 L13.5 11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>
-    </div>
-
+    <div class="ed-topbar" id="ed-topbar">메모</div>
     <div class="ed-scroll">
       <div class="memo-block ed-card" id="ed-card">
         <div id="ed-title" class="memo-title" contenteditable="true" spellcheck="false" data-ph="제목"></div>
@@ -68,8 +33,23 @@
     </div>
   </div>
 
-  <!-- 선택 시 뜨는 서식 툴바 (메인 앱과 동일 디자인) -->
-  <div class="format-toolbar" id="ft2">
+  <!-- 글자 색 선택 팝오버 -->
+  <div class="ft-colorpop" id="ft-colorpop">
+    <div class="ftc-grid" id="ftc-grid"></div>
+    <input type="text" id="ftc-hex" placeholder="#hex 코드" maxlength="7" />
+  </div>
+  <!-- 구분선 스타일 팝오버 -->
+  <div class="ft-divpop" id="ft-divpop">
+    <button class="ftd" data-divstyle="solid"><span style="border-top:1px solid currentColor"></span></button>
+    <button class="ftd" data-divstyle="dashed"><span style="border-top:1px dashed currentColor"></span></button>
+    <button class="ftd" data-divstyle="dotted"><span style="border-top:2px dotted currentColor"></span></button>
+    <button class="ftd" data-divstyle="thick"><span style="border-top:3px solid currentColor"></span></button>
+    <button class="ftd" data-divstyle="double"><span style="border-top:3px double currentColor"></span></button>
+    <button class="ftd" data-divstyle="short"><span style="border-top:2px solid currentColor;width:40%;margin:0 auto"></span></button>
+  </div>
+
+  <!-- 선택 시 뜨는 서식 툴바 (메인 앱과 동일) -->
+  <div class="format-toolbar" id="format-toolbar">
     <div class="ft-line">
       <span class="ft-tag">서식</span>
       <div class="ft-row">
@@ -80,15 +60,33 @@
         <button data-cmd="hilite" title="형광펜"><svg viewBox="0 0 20 20"><path d="M4 13 L12 5 L15 8 L7 16 L4 16 Z"/><rect class="hl-line" x="3" y="18" width="14" height="2"/></svg></button>
       </div>
     </div>
+    <div class="ft-line ft-line-color">
+      <span class="ft-tag">색상</span>
+      <span class="ft-colors" id="ft-colors"></span>
+      <button class="ft-addcolor" id="ft-addcolor" title="색 추가">+</button>
+    </div>
     <div class="ft-line">
       <span class="ft-tag">크기</span>
       <button data-size="dec" class="ft-arrow" title="작게">◀</button>
-      <span id="ft2-size">16pt</span>
+      <span id="ft-size-val">14pt</span>
       <button data-size="inc" class="ft-arrow" title="크게">▶</button>
+    </div>
+    <div class="ft-line">
+      <span class="ft-tag">글꼴</span>
+      <select id="ft-font"></select>
+    </div>
+    <div class="ft-line ft-align">
+      <button data-cmd="justifyLeft" title="왼쪽"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg></button>
+      <button data-cmd="justifyCenter" title="가운데"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="3.5" y="7" width="9" height="2"/><rect x="2" y="12" width="12" height="2"/></svg></button>
+      <button data-cmd="justifyRight" title="오른쪽"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="6" y="7" width="9" height="2"/><rect x="3" y="12" width="12" height="2"/></svg></button>
+      <span class="ft-sep"></span>
+      <button data-cmd="quote" title="인용구">❝</button>
+      <button data-cmd="hr" title="구분선">―</button>
+      <button data-cmd="image" title="이미지"><svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5.5" cy="6" r="1.3"/><path d="M2.5 12 L6 8.5 L8.5 11 L11 7.5 L13.5 11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>
     </div>
   </div>
 
-  <input type="file" id="ed-image" accept="image/*" style="display:none" />
+  <input type="file" id="ft-image-file" accept="image/*" style="display:none" />
   <script src="shared.js"></script>
   <script src="editor.js"></script>
 </body>
