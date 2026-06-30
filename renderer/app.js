@@ -217,34 +217,32 @@ function rgbToHsv(r, g, b) {
 function deriveTheme(baseHex) {
   const { r, g, b } = hexToRgb(baseHex);
   const { h } = rgbToHsl(r, g, b);
-  // 채도는 HSV 기준(연한 색을 원색으로 과대평가하지 않도록), 명도는 HSV value
   const { s: sv, v } = rgbToHsv(r, g, b);
-  const A = clamp01(0.30 + sv * 0.26);     // 강조색 채도 0.30~0.56 (과한 원색 방지)
-  const C = clamp01(0.22 + sv * 0.16);     // 블록 배경 채도 0.22~0.38 (칙칙함 방지)
-  const vd = v - 0.5;                       // 명도 편차
-  const deepL = clamp01(0.62 - vd * 0.12);  // 강조 명도
-  const aL = clamp01(0.70 - vd * 0.08);     // 인덱스 강조 명도
+  // 명도는 항상 밝고 부드러운 영역으로 고정(칙칙/형광 방지), 채도만 약하게 반영
+  const k = 0.8 + clamp01(sv) * 0.55;          // 채도 배율 0.8~1.35
+  const sC = (x) => clamp01(x * k);
+  const lA = clamp01(0.74 + (v - 0.6) * 0.10); // 강조 명도(약 0.69~0.78, 밝은 파스텔)
   const aura =
-    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, clamp01(A * 0.8), 0.94)} 0%, transparent 55%), ` +
-    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 14, clamp01(A * 0.7), 0.95)} 0%, transparent 55%)`;
+    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, sC(0.42), 0.93)} 0%, transparent 55%), ` +
+    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 14, sC(0.38), 0.95)} 0%, transparent 55%)`;
   const map = {
-    '--bg': hslHex(h, clamp01(C * 0.85), 0.972),
+    '--bg': hslHex(h, sC(0.28), 0.975),
     '--panel': '#ffffff',
-    '--ink': hslHex(h, 0.20, 0.30),
-    '--ink-soft': hslHex(h, 0.14, 0.64),
-    '--line': hslHex(h, clamp01(C * 0.7), 0.93),
-    '--pink': hslHex(h, clamp01(A * 0.65), 0.87),
-    '--pink-deep': hslHex(h, A, deepL),
-    '--pink-soft': hslHex(h, clamp01(A * 0.5), 0.96),
-    '--titlebar': `linear-gradient(180deg, ${hslHex(h, A, deepL)}, ${hslHex(h, A, clamp01(deepL - 0.04))})`,
-    '--indicator': hslHex(h, clamp01(A + 0.10), clamp01(deepL + 0.02)),
+    '--ink': hslHex(h, 0.10, 0.33),
+    '--ink-soft': hslHex(h, 0.10, 0.70),
+    '--line': hslHex(h, sC(0.26), 0.93),
+    '--pink': hslHex(h, sC(0.34), 0.88),
+    '--pink-deep': hslHex(h, sC(0.27), lA),
+    '--pink-soft': hslHex(h, sC(0.32), 0.955),
+    '--titlebar': `linear-gradient(180deg, ${hslHex(h, sC(0.24), clamp01(lA + 0.02))}, ${hslHex(h, sC(0.26), lA)})`,
+    '--indicator': hslHex(h, sC(0.50), clamp01(lA - 0.03)),
     '--bg-aura': aura,
     '--bg-pattern': 'none'
   };
   // 블록 배경(--c) / 강조색(--a) 6종 — 색상을 조금씩만 돌려 차분한 변화(무지개색 방지)
   [0, 16, 38, -15, 28, -8].forEach((dh, i) => {
-    map['--c' + i] = hslHex(h + dh, C, 0.95);
-    map['--a' + i] = hslHex(h + dh, clamp01(A * 0.88), aL);
+    map['--c' + i] = hslHex(h + dh, sC(0.33), 0.955);
+    map['--a' + i] = hslHex(h + dh, sC(0.33), lA);
   });
   return map;
 }
@@ -265,7 +263,7 @@ function applyCustomTheme(color, bgImage) {
   const appBg = document.getElementById('app-bg');
   if (bgImage && appBg) {
     appBg.style.backgroundImage =
-      `linear-gradient(rgba(255,255,255,0.30), rgba(255,255,255,0.30)), url("${bgImage}")`;
+      `linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0.15)), url("${bgImage}")`;
     appBg.style.display = 'block';
   }
 }
@@ -446,6 +444,14 @@ function buildBlock(todo) {
   block.dataset.id = todo.id;
   block.style.background = blockBg(todo);
 
+  // 고정 배지 (제목 위 좌상단, 항상 표시)
+  if (todo.pinned) {
+    const badge = document.createElement('div');
+    badge.className = 'pin-badge';
+    badge.innerHTML = SVG.pin;
+    block.appendChild(badge);
+  }
+
   // 상단 영역(헤더)을 잡고 드래그하면 순서 이동
   const head = document.createElement('div');
   head.className = 'block-head';
@@ -519,6 +525,21 @@ function buildBlock(todo) {
     ...todo.items.filter((it) => it.done)
   ];
   ordered.forEach((item) => list.appendChild(buildItem(todo, item)));
+  // 세부항목 순서 변경 (같은 블록 내) + 위치 미리보기
+  list.addEventListener('dragover', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'item' || blockDrag.todoId !== todo.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    positionIndicator(list, '.check-item', e.clientY);
+  });
+  list.addEventListener('drop', (e) => {
+    if (!blockDrag || blockDrag.kind !== 'item' || blockDrag.todoId !== todo.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    reorderList(todo.items, blockDrag.id, dropBeforeId);
+    save();
+    renderTodos();
+  });
   block.appendChild(list);
 
   const addItem = document.createElement('button');
@@ -541,6 +562,17 @@ function buildItem(todo, item) {
   row.className = 'check-item' + (item.done ? ' done' : '');
   row.dataset.todo = todo.id;
   row.dataset.item = item.id;
+  row.dataset.id = item.id; // positionIndicator/reorderList용
+  // 끌어서 순서 변경 (삭제/진행도 버튼에서 시작 시 제외)
+  row.draggable = true;
+  row.addEventListener('dragstart', (e) => {
+    if (e.target.closest('.item-del') || e.target.closest('.item-prog')) {
+      e.preventDefault();
+      return;
+    }
+    startBlockDrag(e, 'item', row, item.id, { todoId: todo.id });
+  });
+  row.addEventListener('dragend', endBlockDrag);
 
   const box = document.createElement('div');
   box.className = 'check-box';
@@ -832,6 +864,14 @@ function buildMemoBlock(memo) {
   block.className = 'memo-block' + (memo.pinned ? ' pinned' : '');
   block.dataset.id = memo.id;
   block.style.background = blockBg(memo);
+
+  // 고정 배지 (제목 위 좌상단, 항상 표시)
+  if (memo.pinned) {
+    const badge = document.createElement('div');
+    badge.className = 'pin-badge';
+    badge.innerHTML = SVG.pin;
+    block.appendChild(badge);
+  }
 
   // 상단 영역(헤더)을 잡고 드래그하면 순서 이동
   const head = document.createElement('div');
@@ -1646,8 +1686,8 @@ let blockDrag = null; // { kind:'todo'|'memo'|'folder', id, block }
 let dropBeforeId = null;
 let pendingFolderId = null; // 메모를 드롭할 폴더 (null=폴더 밖)
 
-function startBlockDrag(e, kind, block, id) {
-  blockDrag = { kind, id, block };
+function startBlockDrag(e, kind, block, id, extra) {
+  blockDrag = Object.assign({ kind, id, block }, extra || {});
   dropBeforeId = null;
   pendingFolderId = null;
   if (e.dataTransfer) {

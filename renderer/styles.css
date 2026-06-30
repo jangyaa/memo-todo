@@ -73,8 +73,8 @@ body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(3px) brightness(1.1);
-  transform: scale(1.08); /* 블러로 생기는 가장자리 비침 방지 */
+  filter: blur(1.5px) brightness(1.05) saturate(0.9);
+  transform: scale(1.05); /* 블러로 생기는 가장자리 비침 방지 */
 }
 
 /* ======================= 타이틀바 (짙은 바) ======================= */
@@ -216,6 +216,7 @@ body {
 
 /* 투두 블럭(반투명 흰색) */
 .todo-block {
+  position: relative;
   background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
   padding: 16px 16px 22px;
@@ -257,8 +258,11 @@ body {
   flex-direction: column;
   padding: 3px 2px;
   border-radius: 6px;
+  cursor: grab;
 }
+.check-item:active { cursor: grabbing; }
 .check-item:hover { background: rgba(255, 255, 255, 0.5); }
+.check-text { cursor: text; }
 .ci-top { display: flex; align-items: flex-start; gap: 5px; }
 
 /* 진행도 */
@@ -561,6 +565,7 @@ body {
 
 /* 메모 한 개 = 반투명 흰색 블록 */
 .memo-block {
+  position: relative;
   background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
   padding: 8px 14px 18px;
@@ -618,9 +623,21 @@ body {
 .todo-block.tools-on .memo-tools .icon-btn,
 .memo-block.tools-on .memo-tools .icon-btn { opacity: 1; }
 .memo-tools .icon-btn:hover { color: var(--pink-deep); }
-/* 고정 시: 핀 아이콘을 상단 여백에 테마색으로 항상 표시(마우스 내려도 유지) */
-.memo-tools .block-pin.active,
-.memo-tools .memo-pin.active { opacity: 1; color: var(--pink-deep); }
+/* 고정 상태는 색으로만 표시(툴 아이콘 자체는 hover 시에만 노출) */
+.memo-pin.active, .block-pin.active { color: var(--pink-deep); }
+
+/* 고정 배지: 제목 위(블록 좌상단)에 테마색 핀, 마우스와 무관하게 항상 표시 */
+.pin-badge {
+  position: absolute;
+  top: 9px;
+  left: 13px;
+  width: 17px;
+  height: 17px;
+  color: var(--pink-deep);
+  pointer-events: none;
+  z-index: 2;
+}
+.pin-badge svg { width: 17px; height: 17px; }
 
 .note-body {
   position: relative;
