@@ -15,13 +15,11 @@
   --bg-aura: radial-gradient(120% 80% at 25% 15%, #fbeef4 0%, transparent 55%),
              radial-gradient(120% 90% at 80% 90%, #f6e9f0 0%, transparent 60%);
 
-  /* 투두 블럭 파스텔 색상 팔레트 (저채도·고명도) */
-  --c0: #f8f1f4;
-  --c1: #f4f0f7;
-  --c2: #eff5ef;
-  --c3: #eff4f9;
-  --c4: #f8f3ec;
-  --c5: #f8f1f1;
+  /* 블록 배경(--c) + 강조색(--a) 라인업 — 테마별로 아래에서 덮어씀 */
+  --c0: #f8f1f4; --c1: #f4f0f7; --c2: #eff5ef;
+  --c3: #eff4f9; --c4: #f8f3ec; --c5: #f8f1f1;
+  --a0: #d3a9b6; --a1: #b3a6cd; --a2: #a1c2a1;
+  --a3: #a0bace; --a4: #cfba93; --a5: #d3a9a9;
 }
 
 /* ===== 테마 (Y2K 오라 + 패턴) ===== */
@@ -32,6 +30,8 @@ body[data-theme="dot"] {
   --bg-aura: radial-gradient(90% 70% at 20% 12%, #ffd9ea 0%, transparent 55%),
              radial-gradient(90% 70% at 85% 88%, #ffe4f1 0%, transparent 55%);
   --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='5' cy='5' r='2.2' fill='%23ffffff'/%3E%3C/svg%3E");
+  --c0: #fbeef4; --c1: #f6eef7; --c2: #f1f5ef; --c3: #eef4fa; --c4: #faf2ea; --c5: #fbeef0;
+  --a0: #de9bb8; --a1: #c79bcd; --a2: #a9c9a4; --a3: #9fbdda; --a4: #d9b48f; --a5: #d99ba8;
 }
 /* 토마토 (코랄 오라 + 초록 별) */
 body[data-theme="tomato"] {
@@ -41,6 +41,8 @@ body[data-theme="tomato"] {
              radial-gradient(50% 36% at 78% 62%, #f29a83 0%, transparent 62%),
              radial-gradient(42% 30% at 60% 92%, #f3a690 0%, transparent 60%);
   --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M30 22 l1.8 3.6 l4 .6 l-2.9 2.8 l.7 4 l-3.6 -1.9 l-3.6 1.9 l.7 -4 l-2.9 -2.8 l4 -.6 Z' fill='%23a7cf96'/%3E%3C/svg%3E");
+  --c0: #fdeee8; --c1: #f9efe9; --c2: #eef5ec; --c3: #eef3f6; --c4: #fbf2e8; --c5: #fceeea;
+  --a0: #e0866b; --a1: #d99a86; --a2: #8fbf86; --a3: #86b0c0; --a4: #d6a463; --a5: #dd8a72;
 }
 /* 네잎클로버 */
 body[data-theme="clover"] {
@@ -49,6 +51,8 @@ body[data-theme="clover"] {
   --bg-aura: radial-gradient(90% 70% at 20% 15%, #dcefd3 0%, transparent 55%),
              radial-gradient(90% 70% at 82% 85%, #e7f4e0 0%, transparent 55%);
   --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cg transform='translate(22,21)' fill='%23ffffff'%3E%3Ccircle cx='-3.5' cy='-3.5' r='3.4'/%3E%3Ccircle cx='3.5' cy='-3.5' r='3.4'/%3E%3Ccircle cx='-3.5' cy='3.5' r='3.4'/%3E%3Ccircle cx='3.5' cy='3.5' r='3.4'/%3E%3C/g%3E%3C/svg%3E");
+  --c0: #eef6ea; --c1: #eef4ef; --c2: #f1f6ec; --c3: #ecf4f4; --c4: #f6f3ea; --c5: #f4eef0;
+  --a0: #7eb56f; --a1: #86b596; --a2: #a9cf99; --a3: #8fc0b0; --a4: #bcc77f; --a5: #86bf86;
 }
 /* 하늘색 별 (블루 오라 + 흰 별) */
 body[data-theme="bluestar"] {
@@ -57,6 +61,8 @@ body[data-theme="bluestar"] {
   --bg-aura: radial-gradient(70% 55% at 30% 25%, #b9d6f4 0%, transparent 60%),
              radial-gradient(70% 55% at 75% 80%, #cfe2f8 0%, transparent 60%);
   --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52'%3E%3Cpath d='M26 16 l2.6 5.3 l5.8 .8 l-4.2 4 l1 5.7 l-5.2 -2.7 l-5.2 2.7 l1 -5.7 l-4.2 -4 l5.8 -.8 Z' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E");
+  --c0: #eaf2fb; --c1: #eef0f9; --c2: #edf5ef; --c3: #eaf3fb; --c4: #f4f1ec; --c5: #f6eef3;
+  --a0: #6f9fd6; --a1: #8696c0; --a2: #86bf9a; --a3: #6fb0c0; --a4: #c0a463; --a5: #c08aa8;
 }
 /* 분홍 별 */
 body[data-theme="pinkstar"] {
@@ -65,6 +71,8 @@ body[data-theme="pinkstar"] {
   --bg-aura: radial-gradient(70% 55% at 28% 22%, #ffd7ec 0%, transparent 60%),
              radial-gradient(70% 55% at 78% 82%, #ffe6f3 0%, transparent 60%);
   --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52'%3E%3Cpath d='M26 16 l2.6 5.3 l5.8 .8 l-4.2 4 l1 5.7 l-5.2 -2.7 l-5.2 2.7 l1 -5.7 l-4.2 -4 l5.8 -.8 Z' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E");
+  --c0: #fbeef5; --c1: #f6eef7; --c2: #f1f5ef; --c3: #eef4fa; --c4: #faf2ea; --c5: #fbeef1;
+  --a0: #d98fb6; --a1: #c79bcd; --a2: #a9c9a4; --a3: #9fbdda; --a4: #d9b48f; --a5: #d98fa8;
 }
 /* 라벤더 */
 body[data-theme="lavender"] {
@@ -73,6 +81,7 @@ body[data-theme="lavender"] {
   --bg-aura: radial-gradient(90% 70% at 20% 15%, #e7defa 0%, transparent 55%),
              radial-gradient(90% 70% at 82% 85%, #efe8fb 0%, transparent 55%);
   --c0: #f2edfb; --c1: #efeaf7; --c2: #eef4ef; --c3: #eceffb; --c4: #f6f1ea; --c5: #f7eef5;
+  --a0: #a892d6; --a1: #b39bcd; --a2: #9ac0a4; --a3: #9fb0da; --a4: #c7b48f; --a5: #c792b6;
 }
 /* 민트 */
 body[data-theme="mint"] {
@@ -81,6 +90,7 @@ body[data-theme="mint"] {
   --bg-aura: radial-gradient(90% 70% at 20% 15%, #d6f1e7 0%, transparent 55%),
              radial-gradient(90% 70% at 82% 85%, #e4f6ef 0%, transparent 55%);
   --c0: #eaf7f1; --c1: #eef4f4; --c2: #edf6ed; --c3: #eaf3f8; --c4: #f6f2ea; --c5: #f6eef1;
+  --a0: #6fc0a6; --a1: #86b5b5; --a2: #86bf86; --a3: #6fb0c0; --a4: #c0b47f; --a5: #c08aa8;
 }
 
 * {
@@ -125,9 +135,10 @@ body {
   height: 40px;
   padding: 0 8px;
   background: var(--titlebar);
-  -webkit-app-region: drag; /* 빈 영역(탭 사이/여백)을 잡고 창 이동 */
+  -webkit-app-region: drag; /* 빈 영역(탭 사이/여백/우측 버튼 사이)을 잡고 창 이동 */
 }
-.profile-btn, .titlebar-right, .tab { -webkit-app-region: no-drag; }
+/* 실제 버튼/탭만 클릭 가능, 그 외 빈 곳은 전부 드래그 영역 */
+.profile-btn, .tab, .titlebar-right .icon-btn { -webkit-app-region: no-drag; }
 
 /* 프로필 아이콘 (가장 왼쪽, 동그랗게 / 테두리 없음 / 아바타와 동일 렌더링) */
 .profile-btn {
@@ -158,7 +169,6 @@ body {
   display: flex;
   gap: 4px;
   align-items: flex-end;
-  -webkit-app-region: no-drag;
 }
 
 .tab {
@@ -193,7 +203,6 @@ body {
   gap: 2px;
   align-items: center;
   align-self: center;
-  -webkit-app-region: no-drag;
 }
 .titlebar-right .icon-btn { color: rgba(255, 255, 255, 0.9); }
 .titlebar-right .icon-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
@@ -216,6 +225,8 @@ body {
 .icon-btn:hover { background: var(--pink-soft); color: var(--pink-deep); }
 .icon-btn.small { width: 22px; height: 22px; font-size: 11px; }
 .icon-btn.active { background: var(--pink); color: #fff; }
+/* 아이콘 버튼 안 SVG는 고정 크기 (핀 등 찌그러짐 방지) */
+.icon-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
 /* ======================= 뷰 전환 ======================= */
 .view { display: none; flex: 1; min-height: 0; }
@@ -274,16 +285,6 @@ body {
   cursor: grab;
 }
 .block-head:active { cursor: grabbing; }
-.drag-handle {
-  cursor: grab;
-  color: var(--ink-soft);
-  opacity: 0;
-  font-size: 13px;
-  user-select: none;
-  transition: opacity 0.15s;
-}
-.todo-block:hover .drag-handle { opacity: 0.5; }
-.drag-handle:active { cursor: grabbing; }
 .block-title {
   flex: 1;
   min-width: 0;
@@ -320,18 +321,21 @@ body {
 .check-item:hover .item-prog { opacity: 0.6; }
 .item-prog:hover { color: var(--pink-deep); opacity: 1; }
 
-.progress { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px 22px; }
-.progress-boxes { display: grid; gap: 4px; }
+.progress { display: flex; flex-direction: column; gap: 4px; margin: 7px 0 3px 22px; }
+.progress-boxes { display: grid; gap: 2px; width: 100%; }
 .pseg {
-  height: 8px; min-width: 14px; border-radius: 4px;
-  background: color-mix(in srgb, var(--pink-deep) 22%, transparent);
+  height: 10px; border-radius: 2px;
+  background: color-mix(in srgb, var(--pink-deep) 18%, transparent);
   cursor: pointer; transition: background 0.12s;
 }
-.pseg:hover { background: color-mix(in srgb, var(--pink-deep) 40%, transparent); }
+.pseg:first-child { border-radius: 6px 2px 2px 6px; }
+.pseg:last-child { border-radius: 2px 6px 6px 2px; }
+.pseg:hover { background: color-mix(in srgb, var(--pink-deep) 38%, transparent); }
 .pseg.filled { background: var(--pink-deep); }
 .progress-count {
-  font-size: 11px; color: var(--ink-soft); font-weight: 600;
-  white-space: nowrap; flex-shrink: 0;
+  align-self: flex-end;
+  font-size: 11.5px; color: var(--pink-deep); font-weight: 700;
+  white-space: nowrap; letter-spacing: 0.02em;
 }
 
 .check-box {
@@ -592,10 +596,12 @@ body {
 /* 드래그 중 블록 + 드롭 위치 미리보기 선 */
 .dragging { opacity: 0.4; }
 .drop-indicator {
-  height: 3px;
+  height: 4px;
   background: var(--indicator);
-  border-radius: 3px;
-  margin: -7px 6px;
+  border-radius: 4px;
+  margin: 0 6px;
+  position: relative;
+  z-index: 5;
   pointer-events: none;
 }
 
@@ -647,13 +653,13 @@ body {
 }
 .note-body ul.md-check > li.done::before { background: var(--pink-deep); }
 .note-body ul.md-check > li.done { color: var(--ink-soft); text-decoration: line-through; }
-.memo-head .drag-handle { opacity: 0; }
-.memo-block:hover .memo-head .drag-handle { opacity: 0.5; }
 /* 고정/색상/삭제 버튼: 블록에 마우스를 올렸을 때만 표시 (투두·메모 공용) */
 .memo-tools { display: flex; align-items: center; gap: 2px; }
 .memo-tools .icon-btn { color: var(--ink-soft); opacity: 0; transition: opacity 0.15s; }
 .todo-block:hover .memo-tools .icon-btn,
-.memo-block:hover .memo-tools .icon-btn { opacity: 1; }
+.memo-block:hover .memo-tools .icon-btn,
+.todo-block.tools-on .memo-tools .icon-btn,
+.memo-block.tools-on .memo-tools .icon-btn { opacity: 1; }
 .memo-tools .icon-btn:hover { color: var(--pink-deep); }
 /* 고정 상태는 색으로만 표시(아이콘 자체는 hover 시에만 노출) */
 .memo-pin.active, .block-pin.active { color: var(--pink-deep); }
@@ -675,9 +681,6 @@ body {
   white-space: pre-line;
   color: var(--ink-soft);
 }
-
-.find-highlight { background: #ffe9a8; border-radius: 2px; }
-.find-highlight.current { background: var(--pink); color: #fff; }
 
 /* ======================= 동기화 모달 ======================= */
 .modal-overlay {
@@ -717,8 +720,7 @@ body {
 }
 #num-input:focus { border-color: var(--pink); }
 
-.sync-pane input,
-#tag-search {
+.sync-pane input {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -726,8 +728,7 @@ body {
   font-size: 13px;
   outline: none;
 }
-.sync-pane input:focus,
-#tag-search:focus { border-color: var(--pink); }
+.sync-pane input:focus { border-color: var(--pink); }
 
 .sync-btns { display: flex; gap: 8px; margin-top: 4px; }
 .btn-primary {
@@ -753,8 +754,7 @@ body {
 }
 .btn-ghost:hover { background: var(--pink-soft); }
 
-/* 태그 구름 */
-.tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; max-height: 220px; overflow-y: auto; }
+/* 상단 태그 필터 토글 */
 .tag-toggle {
   border: 1px solid var(--line);
   background: #fff;
@@ -855,17 +855,6 @@ body {
   border-radius: 8px;
 }
 .pm-image:hover { background: var(--pink-soft); color: var(--pink-deep); }
-.pm-theme-label {
-  margin-top: 14px;
-  font-size: 13px;
-  color: var(--ink-soft);
-}
-.pm-themes {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 10px;
-}
 .theme-dot {
   width: 26px;
   height: 26px;
@@ -886,18 +875,6 @@ body {
 .theme-item:hover { background: var(--pink-soft); }
 .theme-item.on { border-color: var(--pink); background: var(--pink-soft); font-weight: 700; }
 .theme-item .theme-dot { width: 18px; height: 18px; }
-
-.font-section { border-top: 1px solid var(--line); padding-top: 10px; }
-.font-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.font-label { font-size: 12px; color: var(--ink-soft); }
-.font-row select { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
-.font-size-ctl { display: flex; align-items: center; gap: 8px; }
-.font-size-ctl button {
-  border: 1px solid var(--line); background: #fff; border-radius: 8px;
-  width: 30px; height: 26px; cursor: pointer; font-weight: 700;
-}
-.font-size-ctl button:hover { background: var(--pink-soft); }
-#font-size-val { font-size: 12px; min-width: 38px; text-align: center; }
 
 /* ======================= 인덱스 폴더 ======================= */
 .folder { margin: 2px 0; }
@@ -967,7 +944,6 @@ body {
 .format-toolbar button:hover { background: var(--pink-soft); }
 .format-toolbar button svg { width: 16px; height: 16px; fill: currentColor; }
 .format-toolbar .hl-line { fill: #ffcf3f; }
-.ft-code { font-size: 12px; color: var(--ink-soft); }
 .ft-arrow { color: var(--ink-soft); }
 #ft-size-val { font-size: 13px; min-width: 42px; text-align: center; }
 .ft-colors { display: inline-flex; gap: 4px; }
@@ -979,13 +955,6 @@ body {
   width: 20px; height: 20px; min-width: 20px; border: 1.5px solid var(--ink-soft) !important;
   border-radius: 50%; color: var(--ink-soft); margin-left: 2px; font-size: 12px;
 }
-.ft-hex {
-  display: none;
-  width: 70px; border: 1px solid var(--line); border-radius: 6px;
-  padding: 3px 6px; font-size: 11px; outline: none; margin-left: 4px;
-}
-.ft-hex.open { display: inline-block; }
-.ft-hex:focus { border-color: var(--pink); }
 #ft-font { border: 1px solid var(--line); border-radius: 8px; font-size: 12px; padding: 3px 6px; }
 .ft-align { gap: 2px; }
 .ft-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
@@ -1057,8 +1026,8 @@ body {
 }
 
 /* 인덱스 폴더 아이콘 / 눈 토글 */
-.folder-icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--pink-deep); display: inline-flex; }
-.folder-icon svg { width: 16px; height: 16px; }
+.folder-icon { width: 19px; height: 19px; flex-shrink: 0; color: var(--pink-deep); display: inline-flex; }
+.folder-icon svg { width: 19px; height: 19px; }
 .folder-eye {
   margin-left: auto; border: none; background: transparent; cursor: pointer;
   color: var(--ink-soft); width: 18px; height: 18px; padding: 0;

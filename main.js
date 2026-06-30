@@ -87,6 +87,16 @@ function createWindow(views) {
     }
   });
   winViews.set(win.id, orderViews(views));
+
+  // 가로 크기 제한: 너비는 높이의 최대 2/3 (세로로 긴 메모지 비율 유지)
+  win.on('will-resize', (e, bounds) => {
+    const maxW = Math.max(300, Math.round(bounds.height * 2 / 3));
+    if (bounds.width > maxW) {
+      e.preventDefault();
+      win.setBounds({ x: bounds.x, y: bounds.y, width: maxW, height: bounds.height });
+    }
+  });
+
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'),
     { query: { views: orderViews(views).join(',') } });
   win.on('closed', () => { winViews.delete(win.id); });

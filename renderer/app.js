@@ -3,20 +3,22 @@
 /* =========================================================================
  * 상태 / 영속화
  * ========================================================================= */
+// 블록 색 라인업: 배경색 --c0~--c5 / 강조색 --a0~--a5 (테마별로 CSS에서 덮어씀)
 const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-// 블록 배경(반투명 색) + 강조색(해시태그 등) — 저채도·고명도
-const SOFTS = ['#f8f1f4', '#f4f0f7', '#eff5ef', '#eff4f9', '#f8f3ec', '#f8f1f1'];
-const ACCENTS = ['#d3a9b6', '#b3a6cd', '#a1c2a1', '#a0bace', '#cfba93', '#d3a9a9'];
-const BLOCK_ALPHA = 0.4; // 투두/메모 공통 불투명도
+const BLOCK_ALPHA = 45; // 투두/메모 블록 불투명도(%)
 function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
   return i < 0 ? 0 : i;
 }
-function accentOf(item) { return ACCENTS[colorIndexOf(item)]; }
-function blockBg(item) { return hexA(SOFTS[colorIndexOf(item)], BLOCK_ALPHA); }
+// 강조색(해시태그/칩/스와치) — 테마별 CSS 변수
+function accentVar(item) { return `var(--a${colorIndexOf(item)})`; }
+// 블록 배경(반투명) — 테마별 CSS 변수 + 공통 불투명도
+function blockBg(item) {
+  return `color-mix(in srgb, var(--c${colorIndexOf(item)}) ${BLOCK_ALPHA}%, transparent)`;
+}
 
 // 색상 변경 버튼 (현재 색 스와치 점 표시) — 투두/메모 공용
 function makeColorButton(item) {
@@ -25,30 +27,23 @@ function makeColorButton(item) {
   btn.title = '색상 변경';
   const dot = document.createElement('span');
   dot.className = 'swatch-dot';
-  dot.style.background = accentOf(item);
+  dot.style.background = accentVar(item);
   btn.appendChild(dot);
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
+    // 같은 블록에서 다시 누르면 닫기 (토글)
+    if (colorPop.classList.contains('open') && colorPopOwner === item) {
+      hideMenus();
+      return;
+    }
     const r = btn.getBoundingClientRect();
-    openColorPop(r.left, r.bottom + 4, item);
+    openColorPop(r.left, r.bottom + 4, item, btn.closest('.todo-block, .memo-block'));
   });
   return btn;
 }
-function hexA(hex, a) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-}
 
-/* HTML 여부 판단 / HTML→텍스트 (제목 추출용) */
+/* HTML 여부 판단 */
 function looksHtml(s) { return /<[a-z!/]|&[a-z]+;|&#/i.test(s || ''); }
-function htmlToText(html) {
-  return (html || '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<(div|p|li|h\d|hr)\b[^>]*>/gi, '\n') // 블록 시작도 줄바꿈으로
-    .replace(/<[^>]+>/g, '')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&amp;/g, '&');
-}
 
 let state = {
   todos: [], // { id, title, color, items, pinned, pinnedAt }
@@ -64,8 +59,8 @@ const SVG = {
   folder: '<svg viewBox="0 0 16 16"><path d="M1.5 3.5h4l1.2 1.5h7.8v7.5h-13z" fill="currentColor" opacity="0.85"/></svg>',
   eye: '<svg viewBox="0 0 16 16"><path d="M8 3.5C4.5 3.5 1.8 6 1 8c.8 2 3.5 4.5 7 4.5s6.2-2.5 7-4.5c-.8-2-3.5-4.5-7-4.5z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>',
   eyeOff: '<svg viewBox="0 0 16 16"><path d="M2 4c1.5 2 3.6 3.2 6 3.2S12.5 6 14 4" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="3" y1="13" x2="13" y2="3" stroke="currentColor" stroke-width="1.3"/></svg>',
-  pin: '<svg viewBox="0 0 16 16"><path d="M9.5 1.5 14.5 6.5 l-2 .4 -3 3 -.3 3 -1.2 -1.2 -3.3 3.3 -.7 -.7 3.3 -3.3 -1.2 -1.2 3 -3 z" fill="currentColor"/></svg>',
-  chart: '<svg viewBox="0 0 16 16"><rect x="2" y="9" width="2.6" height="5" rx="0.6" fill="currentColor"/><rect x="6.7" y="6" width="2.6" height="8" rx="0.6" fill="currentColor"/><rect x="11.4" y="3" width="2.6" height="11" rx="0.6" fill="currentColor"/></svg>'
+  pin: '<svg viewBox="0 0 16 16"><path d="M6 1.8h4a.9.9 0 0 1 .16 1.79l-.16.05v2.86l1.78 2.06a.6.6 0 0 1-.45 1H8.65v3.18a.65.65 0 0 1-1.3 0v-3.18H4.67a.6.6 0 0 1-.45-1l1.78-2.06V3.64l-.16-.05A.9.9 0 0 1 6 1.8z" fill="currentColor"/></svg>',
+  chart: '<svg viewBox="0 0 16 16"><line x1="2.5" y1="2" x2="2.5" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><rect x="3.8" y="4" width="6.4" height="2.4" rx="1.2" fill="currentColor"/><rect x="3.8" y="9" width="9.7" height="2.4" rx="1.2" fill="currentColor"/></svg>'
 };
 const nextMemoColor = () => BLOCK_COLORS[state.memos.length % BLOCK_COLORS.length];
 const sortTags = (tags) => [...tags].sort((a, b) => a.localeCompare(b, 'ko'));
@@ -266,11 +261,6 @@ function addTodo() {
   const blocks = todoBoard.querySelectorAll('.todo-block .block-title');
   const last = blocks[blocks.length - 1];
   if (last) { last.focus(); last.scrollIntoView({ block: 'center' }); }
-}
-
-function autoGrow(el) {
-  el.style.height = 'auto';
-  el.style.height = el.scrollHeight + 'px';
 }
 
 // 고정(pinned)된 블럭을 위로 (먼저 고정한 순). 나머지는 기존 순서 유지
@@ -474,19 +464,18 @@ function buildItem(todo, item) {
   return row;
 }
 
-/* 진행도 표시: 세그먼트 칸 + n/total. 클릭 시 in-place 갱신 */
+/* 진행도 게이지: 우측 상단 n/total + 가로 꽉 채운 둥근 분절 게이지. 클릭 시 in-place 갱신 */
 function buildProgress(item) {
   const wrap = document.createElement('div');
   wrap.className = 'progress';
   const total = item.progress.total;
-  // 15개 이하는 한 줄, 초과 시 한 줄 최대 10칸
-  const perRow = total <= 15 ? total : 10;
-  const boxes = document.createElement('div');
-  boxes.className = 'progress-boxes';
-  boxes.style.gridTemplateColumns = `repeat(${perRow}, 1fr)`;
 
   const count = document.createElement('span');
   count.className = 'progress-count';
+
+  const boxes = document.createElement('div');
+  boxes.className = 'progress-boxes';
+  boxes.style.gridTemplateColumns = `repeat(${total}, 1fr)`;
 
   const refresh = () => {
     [...boxes.children].forEach((pb, i) =>
@@ -512,8 +501,8 @@ function buildProgress(item) {
     boxes.appendChild(pb);
   }
 
-  wrap.appendChild(boxes);
   wrap.appendChild(count);
+  wrap.appendChild(boxes);
   refresh();
   return wrap;
 }
@@ -565,15 +554,9 @@ const memoTagbar = document.getElementById('memo-tagbar');
 
 let activeTags = new Set(); // AND 필터
 
-function noteTitle(content) {
-  const text = looksHtml(content) ? htmlToText(content) : (content || '');
-  const lines = text.split('\n');
-  for (const line of lines) if (line.trim()) return line.trim();
-  return '';
-}
-// 인덱스에 표시할 제목: 제목칸 우선, 없으면 본문 첫 줄(레거시)
+// 인덱스에 표시할 제목: 제목칸만 사용(본문은 제목에 영향 없음)
 function memoTitle(memo) {
-  return (memo.title || '').trim() || noteTitle(memo.content) || '제목 없음';
+  return (memo.title || '').trim() || '제목 없음';
 }
 function focusMemoTitle(id) {
   const inp = memoPage.querySelector(`.memo-block[data-id="${id}"] .memo-title`);
@@ -653,7 +636,7 @@ function renderMemoPage() {
 }
 
 function buildMemoBlock(memo) {
-  const accent = accentOf(memo);
+  const accent = accentVar(memo);
   const block = document.createElement('div');
   block.className = 'memo-block' + (memo.pinned ? ' pinned' : '');
   block.dataset.id = memo.id;
@@ -783,7 +766,7 @@ function buildMemoBlock(memo) {
   sortTags(memo.tags || []).forEach((t) => {
     const chip = document.createElement('span');
     chip.className = 'tag-chip';
-    chip.style.background = hexA(accent, 0.18);
+    chip.style.background = `color-mix(in srgb, ${accent} 18%, transparent)`;
     chip.style.color = accent;
     chip.innerHTML = '#' + t + ' <b>×</b>';
     chip.querySelector('b').addEventListener('click', () => {
@@ -940,7 +923,7 @@ function buildIndexChip(memo) {
 
   const sq = document.createElement('span');
   sq.className = 'chip-square';
-  sq.style.background = accentOf(memo);
+  sq.style.background = accentVar(memo);
 
   const label = document.createElement('span');
   label.className = 'label';
@@ -1130,6 +1113,7 @@ function startIndexRename(chip, label, memo) {
  * ========================================================================= */
 const ctxMenu = document.getElementById('ctx-menu');
 const colorPop = document.getElementById('color-pop');
+let colorPopOwner = null; // 색상 팝오버가 열린 블록의 데이터(토글 판별용)
 
 function placeMenu(el, x, y, pinIndex = true) {
   el.style.left = x + 'px';
@@ -1153,7 +1137,7 @@ function buildSwatches(item) {
   BLOCK_COLORS.forEach((c, i) => {
     const sw = document.createElement('button');
     sw.className = 'ctx-swatch' + (item.color === c ? ' on' : '');
-    sw.style.background = ACCENTS[i];
+    sw.style.background = `var(--a${i})`;
     sw.addEventListener('click', () => {
       item.color = c;
       save();
@@ -1186,9 +1170,13 @@ function openCtxMenu(x, y, memo) {
 }
 
 // 색상 버튼: 색상만 (인덱스 확장하지 않음)
-function openColorPop(x, y, item) {
+// 팝오버가 열려있는 동안엔 해당 블록의 도구 아이콘을 계속 보이게 한다(tools-on).
+function openColorPop(x, y, item, block) {
   colorPop.innerHTML = '';
   colorPop.appendChild(buildSwatches(item));
+  colorPopOwner = item;
+  document.querySelectorAll('.tools-on').forEach((b) => b.classList.remove('tools-on'));
+  if (block) block.classList.add('tools-on');
   placeMenu(colorPop, x, y, false);
 }
 
@@ -1236,6 +1224,8 @@ function openIndexCtx(x, y) {
 function hideMenus() {
   ctxMenu.classList.remove('open');
   colorPop.classList.remove('open');
+  colorPopOwner = null;
+  document.querySelectorAll('.tools-on').forEach((b) => b.classList.remove('tools-on'));
   document.getElementById('memo-index').classList.remove('pinned');
 }
 
