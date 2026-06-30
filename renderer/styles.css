@@ -217,11 +217,11 @@ body {
 .dday-block {
   background: color-mix(in srgb, var(--pink-deep) 14%, #ffffff); /* 불투명 100% */
   border-radius: 14px;
-  padding: 18px 14px 14px; /* D-DAY 글자와 상단 사이 여유 */
+  padding: 20px 14px 16px; /* D-DAY 글자 상/하 여유(약 110%) */
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
-  min-height: 100px; flex-shrink: 0; /* 칸 차지 + 항목 늘어도 안 찌그러짐 */
+  min-height: 104px; flex-shrink: 0; /* 칸 차지 + 항목 늘어도 안 찌그러짐 */
 }
-.dday-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.dday-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .dday-heading { font-size: 20px; font-weight: 800; letter-spacing: 0.02em; color: var(--pink-deep); }
 .dday-empty { font-size: 14px; color: var(--ink-soft); padding: 16px 2px; text-align: center; }
 .dday-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; }

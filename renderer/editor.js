@@ -62,17 +62,72 @@ titleEl.addEventListener('keydown', (e) => {
 });
 bodyEl.addEventListener('keydown', (e) => { handleMarkdownKey(e, bodyEl, () => save()); });
 
-// 편집(입력 모드) 시 뜨는 서식 툴바 — 좌상단 도킹
+// 서식창: 메인 앱처럼 "텍스트 선택" 시 그 위치에 뜸
 setupFormatToolbar({
   selector: '#ed-body, #ed-title',
   scrollEl: document.querySelector('.ed-scroll'),
-  dock: true,
-  dockPos: { x: 12, y: 48 },
   persist: () => save()
 });
 
 setupImageResize(() => save());
 setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭제
+
+/* 편집창(블로그식 상단 삽입 메뉴) — 편집 시작 시 슬라이드, 바깥 클릭 시 닫힘 */
+(function setupEditMenu() {
+  const menu = $('ed-menu');
+  let lastRange = null;
+  const saveR = () => {
+    const s = window.getSelection();
+    if (s.rangeCount && bodyEl.contains(s.getRangeAt(0).startContainer)) lastRange = s.getRangeAt(0).cloneRange();
+  };
+  bodyEl.addEventListener('keyup', saveR);
+  bodyEl.addEventListener('mouseup', saveR);
+  bodyEl.addEventListener('input', saveR);
+  function restoreR() {
+    bodyEl.focus();
+    if (lastRange) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(lastRange); }
+  }
+  // 편집 영역 포커스 시 슬라이드 다운, 바깥 클릭 시 닫기
+  document.addEventListener('focusin', (e) => {
+    if (e.target.closest && e.target.closest('#ed-body, #ed-title')) menu.classList.add('open');
+  });
+  document.addEventListener('mousedown', (e) => {
+    if (menu.contains(e.target)) return;
+    if (e.target.closest && (e.target.closest('#ed-body, #ed-title') ||
+        e.target.closest('#format-toolbar') || e.target.closest('.ft-colorpop') ||
+        e.target.closest('.ft-divpop'))) return;
+    menu.classList.remove('open');
+  });
+  const imgInput = $('ed-img-file');
+  menu.querySelectorAll('[data-ins]').forEach((b) => {
+    b.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const k = b.dataset.ins;
+      if (k === 'image') { imgInput.click(); return; }
+      restoreR();
+      if (k === 'hr') document.execCommand('insertHorizontalRule');
+      else if (k === 'quote') {
+        const s = window.getSelection();
+        let n = s.anchorNode; n = n && (n.nodeType === 1 ? n : n.parentElement);
+        try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+        document.execCommand('formatBlock', false, (n && n.closest && n.closest('blockquote')) ? 'div' : 'blockquote');
+      }
+      save();
+    });
+  });
+  imgInput.addEventListener('change', () => {
+    const f = imgInput.files[0];
+    imgInput.value = '';
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      restoreR();
+      document.execCommand('insertHTML', false, `<img src="${reader.result}" style="max-width:100%"><br>`);
+      save();
+    };
+    reader.readAsDataURL(f);
+  });
+})();
 
 window.api.onDataChanged((d) => {
   if (!d) return;

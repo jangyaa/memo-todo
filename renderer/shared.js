@@ -148,11 +148,24 @@ function handleMarkdownKey(e, body, persistCb) {
     }
     if (check && sub.tagName === 'UL') sub.classList.add('md-check');
     sub.appendChild(li);
+    // 커서를 li 안 텍스트 위치에 두기(빈 li면 텍스트 노드 보장 → 체크박스 뒤에 정상 위치)
+    let tn = li.firstChild;
+    if (!tn || tn.nodeType !== 3) { tn = document.createTextNode(''); li.insertBefore(tn, li.firstChild); }
     const s = window.getSelection();
     const rr = document.createRange();
-    rr.selectNodeContents(li); rr.collapse(false);
+    rr.setStart(tn, tn.length); rr.collapse(true);
     s.removeAllRanges(); s.addRange(rr);
     return true;
+  };
+  // 글머리 li 시작점에 커서가 있는지
+  const caretAtLiStart = (li) => {
+    const s = window.getSelection();
+    if (!s.rangeCount) return false;
+    const r = s.getRangeAt(0);
+    if (!r.collapsed) return false;
+    const pre = r.cloneRange();
+    pre.selectNodeContents(li); pre.setEnd(r.startContainer, r.startOffset);
+    return pre.toString().length === 0;
   };
 
   if (e.key === 'Tab') {
@@ -191,6 +204,8 @@ function handleMarkdownKey(e, body, persistCb) {
       persist();
       return true;
     }
+    // 내용 있는 글머리의 '맨 앞'에서 Enter → 빈 글머리가 위에 생기지 않도록 막음
+    if (li && caretAtLiStart(li)) { e.preventDefault(); return true; }
     return false;
   }
   // 빈 글머리에서 Backspace → 글머리 제거
@@ -288,25 +303,7 @@ function setupFormatToolbar(config) {
     document.getElementById('ft-divpop').classList.remove('open');
     savedRange = null; savedBody = null;
   }
-  function curEditable() {
-    const a = document.activeElement;
-    if (a && a.closest && a.closest(sel0)) return a.closest(sel0);
-    return currentBody();
-  }
   function showForSelection() {
-    // 도킹 모드(상세 창): 편집(입력 모드) 중이면 좌상단에 고정 표시
-    if (config.dock) {
-      const el = curEditable();
-      if (!el) return;
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount) savedRange = sel.getRangeAt(0).cloneRange();
-      savedBody = el;
-      sizeVal.textContent = sizePt + 'pt';
-      bar.classList.add('open');
-      bar.style.left = (config.dockPos ? config.dockPos.x : 12) + 'px';
-      bar.style.top = (config.dockPos ? config.dockPos.y : 48) + 'px';
-      return;
-    }
     const body = currentBody();
     if (!body) { hide(); return; }
     const range = window.getSelection().getRangeAt(0);
@@ -335,15 +332,9 @@ function setupFormatToolbar(config) {
 
   document.addEventListener('mouseup', () => setTimeout(showForSelection, 0));
   document.addEventListener('keyup', (e) => {
-    if (config.dock || e.shiftKey || e.key.startsWith('Arrow')) showForSelection();
+    if (e.shiftKey || e.key.startsWith('Arrow')) showForSelection();
   });
-  // 도킹 모드: 편집 영역에 포커스(입력 모드 진입)하면 바로 표시
-  if (config.dock) {
-    document.addEventListener('focusin', (e) => {
-      if (e.target.closest && e.target.closest(sel0)) showForSelection();
-    });
-  }
-  if (config.scrollEl && !config.dock) config.scrollEl.addEventListener('scroll', hide);
+  if (config.scrollEl) config.scrollEl.addEventListener('scroll', hide);
   // 서식창 밖(에디터블 밖) 좌클릭 시 닫고 선택 해제
   document.addEventListener('mousedown', (e) => {
     if (bar.contains(e.target) ||
