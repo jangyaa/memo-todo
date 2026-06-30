@@ -63,7 +63,9 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 const SVG = {
   folder: '<svg viewBox="0 0 16 16"><path d="M1.5 3.5h4l1.2 1.5h7.8v7.5h-13z" fill="currentColor" opacity="0.85"/></svg>',
   eye: '<svg viewBox="0 0 16 16"><path d="M8 3.5C4.5 3.5 1.8 6 1 8c.8 2 3.5 4.5 7 4.5s6.2-2.5 7-4.5c-.8-2-3.5-4.5-7-4.5z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>',
-  eyeOff: '<svg viewBox="0 0 16 16"><path d="M2 4c1.5 2 3.6 3.2 6 3.2S12.5 6 14 4" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="3" y1="13" x2="13" y2="3" stroke="currentColor" stroke-width="1.3"/></svg>'
+  eyeOff: '<svg viewBox="0 0 16 16"><path d="M2 4c1.5 2 3.6 3.2 6 3.2S12.5 6 14 4" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="3" y1="13" x2="13" y2="3" stroke="currentColor" stroke-width="1.3"/></svg>',
+  pin: '<svg viewBox="0 0 16 16"><path d="M9.5 1.5 14.5 6.5 l-2 .4 -3 3 -.3 3 -1.2 -1.2 -3.3 3.3 -.7 -.7 3.3 -3.3 -1.2 -1.2 3 -3 z" fill="currentColor"/></svg>',
+  chart: '<svg viewBox="0 0 16 16"><rect x="2" y="9" width="2.6" height="5" rx="0.6" fill="currentColor"/><rect x="6.7" y="6" width="2.6" height="8" rx="0.6" fill="currentColor"/><rect x="11.4" y="3" width="2.6" height="11" rx="0.6" fill="currentColor"/></svg>'
 };
 const nextMemoColor = () => BLOCK_COLORS[state.memos.length % BLOCK_COLORS.length];
 const sortTags = (tags) => [...tags].sort((a, b) => a.localeCompare(b, 'ko'));
@@ -331,7 +333,7 @@ function buildBlock(todo) {
   // 상단 고정 토글
   const pin = document.createElement('button');
   pin.className = 'icon-btn small block-pin' + (todo.pinned ? ' active' : '');
-  pin.textContent = '⤒';
+  pin.innerHTML = SVG.pin;
   pin.title = todo.pinned ? '고정 해제' : '상단 고정';
   pin.addEventListener('click', () => {
     todo.pinned = !todo.pinned;
@@ -432,35 +434,19 @@ function buildItem(todo, item) {
     }
   });
 
-  // 진행도(네모 칸) 추가 버튼
+  // 진행도 추가 버튼 (막대그래프 아이콘)
   const progBtn = document.createElement('button');
   progBtn.className = 'item-prog';
-  progBtn.textContent = '▦';
-  progBtn.title = '진행도 칸 추가';
+  progBtn.innerHTML = SVG.chart;
+  progBtn.title = '진행도 추가';
   progBtn.addEventListener('click', () => {
-    if (progBtn.dataset.editing) return;
-    progBtn.dataset.editing = '1';
-    const inp = document.createElement('input');
-    inp.type = 'number'; inp.min = '1'; inp.max = '99';
-    inp.className = 'prog-input';
-    inp.value = item.progress ? item.progress.total : '';
-    inp.placeholder = '칸';
-    top.insertBefore(inp, progBtn);
-    inp.focus();
-    const commit = () => {
-      const n = parseInt(inp.value, 10);
-      if (n >= 1) {
-        const done = item.progress ? Math.min(item.progress.done, n) : 0;
-        item.progress = { total: Math.min(n, 99), done };
-      }
+    promptNumber(item.progress ? item.progress.total : '', (n) => {
+      if (!(n >= 1)) return;
+      const done = item.progress ? Math.min(item.progress.done, n) : 0;
+      item.progress = { total: Math.min(n, 99), done };
       save();
       renderTodos();
-    };
-    inp.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); commit(); }
-      else if (e.key === 'Escape') renderTodos();
     });
-    inp.addEventListener('blur', commit);
   });
 
   const del = document.createElement('button');
@@ -480,24 +466,56 @@ function buildItem(todo, item) {
   top.appendChild(del);
   row.appendChild(top);
 
-  // 진행도 네모 칸
+  // 진행도 바 (칸 + 숫자) — 클릭 시 제자리 갱신(블록 전체 리렌더 X)
   if (item.progress && item.progress.total > 0) {
-    const boxes = document.createElement('div');
-    boxes.className = 'progress-boxes';
-    for (let i = 0; i < item.progress.total; i++) {
-      const pb = document.createElement('span');
-      pb.className = 'pbox' + (i < item.progress.done ? ' filled' : '');
-      pb.addEventListener('click', () => {
-        item.progress.done = (i + 1 === item.progress.done) ? i : i + 1;
-        save();
-        renderTodos();
-      });
-      boxes.appendChild(pb);
-    }
-    row.appendChild(boxes);
+    row.appendChild(buildProgress(item));
   }
 
   return row;
+}
+
+/* 진행도 표시: 세그먼트 칸 + n/total. 클릭 시 in-place 갱신 */
+function buildProgress(item) {
+  const wrap = document.createElement('div');
+  wrap.className = 'progress';
+  const total = item.progress.total;
+  // 15개 이하는 한 줄, 초과 시 한 줄 최대 10칸
+  const perRow = total <= 15 ? total : 10;
+  const boxes = document.createElement('div');
+  boxes.className = 'progress-boxes';
+  boxes.style.gridTemplateColumns = `repeat(${perRow}, 1fr)`;
+
+  const count = document.createElement('span');
+  count.className = 'progress-count';
+
+  const refresh = () => {
+    [...boxes.children].forEach((pb, i) =>
+      pb.classList.toggle('filled', i < item.progress.done));
+    count.textContent = `${item.progress.done}/${total}`;
+  };
+
+  for (let i = 0; i < total; i++) {
+    const pb = document.createElement('span');
+    pb.className = 'pseg';
+    pb.addEventListener('click', () => {
+      item.progress.done = (i + 1 === item.progress.done) ? i : i + 1;
+      if (item.progress.done >= total) {
+        // 다 채우면 진행도 제거(세부항목은 유지)
+        item.progress = null;
+        save();
+        wrap.remove();
+        return;
+      }
+      save();
+      refresh();
+    });
+    boxes.appendChild(pb);
+  }
+
+  wrap.appendChild(boxes);
+  wrap.appendChild(count);
+  refresh();
+  return wrap;
 }
 
 function focusItem(todoId, itemId) {
@@ -507,6 +525,35 @@ function focusItem(todoId, itemId) {
     const ta = row.querySelector('.check-text');
     if (ta) ta.focus();
   }
+}
+
+/* 숫자 입력 모달 (진행도 칸 수) */
+let numCb = null;
+function promptNumber(initial, cb) {
+  numCb = cb;
+  const ov = document.getElementById('num-overlay');
+  const inp = document.getElementById('num-input');
+  inp.value = initial || '';
+  ov.classList.add('open');
+  setTimeout(() => { inp.focus(); inp.select(); }, 0);
+}
+function setupNumPrompt() {
+  const ov = document.getElementById('num-overlay');
+  const inp = document.getElementById('num-input');
+  const close = () => { ov.classList.remove('open'); numCb = null; };
+  const commit = () => {
+    const n = parseInt(inp.value, 10);
+    const cb = numCb;
+    close();
+    if (cb && n >= 1) cb(n);
+  };
+  document.getElementById('num-ok').addEventListener('click', commit);
+  document.getElementById('num-close').addEventListener('click', close);
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') close();
+  });
 }
 
 /* =========================================================================
@@ -627,7 +674,7 @@ function buildMemoBlock(memo) {
 
   const pin = document.createElement('button');
   pin.className = 'icon-btn small memo-pin' + (memo.pinned ? ' active' : '');
-  pin.textContent = '⤒';
+  pin.innerHTML = SVG.pin;
   pin.title = memo.pinned ? '고정 해제' : '상단 고정';
   pin.addEventListener('click', () => {
     memo.pinned = !memo.pinned;
@@ -769,9 +816,10 @@ function buildMemoBlock(memo) {
   tagBar.appendChild(tagAdd);
   block.appendChild(tagBar);
 
-  // 메모 블록 하단(본문/헤더/칩/링크 제외) 아무 곳이나 누르면 태그 입력 활성화
+  // 메모 블록 하단 빈 곳을 누르면 태그 입력 활성화 (본문/헤더/제목/칩/링크 제외)
   block.addEventListener('mousedown', (e) => {
     if (e.target.closest('.note-body') || e.target.closest('.memo-head') ||
+        e.target.closest('.memo-title') || e.target.closest('input') ||
         e.target.closest('.tag-chip') || e.target.closest('.link')) return;
     e.preventDefault();
     tagAdd.focus();
@@ -1903,6 +1951,7 @@ async function init() {
   setupGlobalKeys();
   setupProfileTheme();
   setupFormatToolbar();
+  setupNumPrompt();
 
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());

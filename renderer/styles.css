@@ -122,7 +122,7 @@ body {
   display: flex;
   align-items: flex-end;
   gap: 6px;
-  height: 34px;
+  height: 40px;
   padding: 0 8px;
   background: var(--titlebar);
   -webkit-app-region: drag; /* 빈 영역(탭 사이/여백)을 잡고 창 이동 */
@@ -257,7 +257,7 @@ body {
 .todo-block {
   background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
-  padding: 16px 16px 18px;
+  padding: 16px 16px 22px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
   transition: box-shadow 0.15s;
 }
@@ -310,23 +310,29 @@ body {
 .check-item:hover { background: rgba(255, 255, 255, 0.5); }
 .ci-top { display: flex; align-items: flex-start; gap: 7px; }
 
-/* 진행도 칸 */
+/* 진행도 */
 .item-prog {
   border: none; background: transparent; color: var(--ink-soft);
-  cursor: pointer; opacity: 0; font-size: 12px; padding: 0 2px;
+  cursor: pointer; opacity: 0; padding: 0 2px;
+  display: inline-flex; align-items: center;
 }
+.item-prog svg { width: 14px; height: 14px; }
 .check-item:hover .item-prog { opacity: 0.6; }
 .item-prog:hover { color: var(--pink-deep); opacity: 1; }
-.prog-input {
-  width: 42px; border: 1px solid var(--line); border-radius: 6px;
-  padding: 1px 4px; font-size: 12px; outline: none;
+
+.progress { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px 22px; }
+.progress-boxes { display: grid; gap: 4px; }
+.pseg {
+  height: 8px; min-width: 14px; border-radius: 4px;
+  background: color-mix(in srgb, var(--pink-deep) 22%, transparent);
+  cursor: pointer; transition: background 0.12s;
 }
-.progress-boxes { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 2px 22px; }
-.pbox {
-  width: 13px; height: 13px; border: 1.5px solid var(--pink-deep);
-  border-radius: 3px; cursor: pointer; box-sizing: border-box;
+.pseg:hover { background: color-mix(in srgb, var(--pink-deep) 40%, transparent); }
+.pseg.filled { background: var(--pink-deep); }
+.progress-count {
+  font-size: 11px; color: var(--ink-soft); font-weight: 600;
+  white-space: nowrap; flex-shrink: 0;
 }
-.pbox.filled { background: var(--pink-deep); }
 
 .check-box {
   width: 15px;
@@ -587,7 +593,7 @@ body {
 .dragging { opacity: 0.4; }
 .drop-indicator {
   height: 3px;
-  background: color-mix(in srgb, var(--indicator) 60%, transparent);
+  background: var(--indicator);
   border-radius: 3px;
   margin: -7px 6px;
   pointer-events: none;
@@ -597,7 +603,7 @@ body {
 .memo-block {
   background: rgba(255, 255, 255, 0.55);
   border-radius: 14px;
-  padding: 8px 14px 12px;
+  padding: 8px 14px 18px;
   box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
   transition: box-shadow 0.15s;
 }
@@ -704,6 +710,12 @@ body {
 
 .sync-pane { display: none; flex-direction: column; gap: 8px; }
 .sync-pane.active { display: flex; }
+
+#num-input {
+  width: 100%; border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 12px; font-size: 14px; outline: none; margin: 8px 0;
+}
+#num-input:focus { border-color: var(--pink); }
 
 .sync-pane input,
 #tag-search {
