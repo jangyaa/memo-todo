@@ -8,7 +8,7 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-const BLOCK_ALPHA = 50; // 투두/메모 블록 불투명도(%)
+const BLOCK_ALPHA = 48; // 투두/메모 블록 불투명도(%)
 function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
   return i < 0 ? 0 : i;
@@ -138,10 +138,143 @@ function save() {
 }
 
 function normalizeSettings(s) {
+  s = s || {};
   return {
-    theme: (s && s.theme) || 'default',
-    profileImage: (s && s.profileImage) || null
+    theme: s.theme || 'default',
+    profileImage: s.profileImage || null,
+    // 커스텀 테마: { color: '#hex', bgImage: dataURL|null }
+    custom: (s.custom && s.custom.color)
+      ? { color: s.custom.color, bgImage: s.custom.bgImage || null }
+      : null
   };
+}
+
+/* ===== 색상 변환 + 테마 팔레트 유도 ===== */
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+function hexToRgb(hex) {
+  hex = String(hex).replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+  const n = parseInt(hex, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function rgbToHex(r, g, b) {
+  const h = (x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0');
+  return '#' + h(r) + h(g) + h(b);
+}
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return { h: h * 360, s, l };
+}
+function hslToRgb(h, s, l) {
+  h = (((h % 360) + 360) % 360) / 360; s = clamp01(s); l = clamp01(l);
+  if (s === 0) return { r: l * 255, g: l * 255, b: l * 255 };
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return { r: hue2rgb(p, q, h + 1 / 3) * 255, g: hue2rgb(p, q, h) * 255, b: hue2rgb(p, q, h - 1 / 3) * 255 };
+}
+function hslHex(h, s, l) { const { r, g, b } = hslToRgb(h, s, l); return rgbToHex(r, g, b); }
+function hsvToRgb(h, s, v) {
+  h = (((h % 360) + 360) % 360) / 60; s = clamp01(s); v = clamp01(v);
+  const i = Math.floor(h), f = h - i;
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const m = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+  return { r: m[0] * 255, g: m[1] * 255, b: m[2] * 255 };
+}
+function hsvToHex(h, s, v) { const { r, g, b } = hsvToRgb(h, s, v); return rgbToHex(r, g, b); }
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0; const s = max === 0 ? 0 : d / max, v = max;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  return { h, s, v };
+}
+
+// 기준 색(테마 컬러)의 색상(hue)으로 조화로운 전체 팔레트를 만든다.
+function deriveTheme(baseHex) {
+  const { r, g, b } = hexToRgb(baseHex);
+  const { h } = rgbToHsl(r, g, b);
+  const aura =
+    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, 0.6, 0.92)} 0%, transparent 55%), ` +
+    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 12, 0.55, 0.94)} 0%, transparent 55%)`;
+  const map = {
+    '--bg': hslHex(h, 0.35, 0.975),
+    '--panel': '#ffffff',
+    '--ink': hslHex(h, 0.16, 0.33),
+    '--ink-soft': hslHex(h, 0.12, 0.68),
+    '--line': hslHex(h, 0.25, 0.93),
+    '--pink': hslHex(h, 0.38, 0.86),
+    '--pink-deep': hslHex(h, 0.42, 0.62),
+    '--pink-soft': hslHex(h, 0.40, 0.96),
+    '--titlebar': `linear-gradient(180deg, ${hslHex(h, 0.38, 0.62)}, ${hslHex(h, 0.40, 0.58)})`,
+    '--indicator': hslHex(h, 0.60, 0.66),
+    '--bg-aura': aura,
+    '--bg-pattern': 'none'
+  };
+  // 블록 배경(--c) / 강조색(--a) 6종 — 색상을 조금씩 돌려 변화를 준다
+  [0, 30, 90, -25, 55, -12].forEach((dh, i) => {
+    map['--c' + i] = hslHex(h + dh, 0.35, 0.95);
+    map['--a' + i] = hslHex(h + dh, 0.45, 0.66);
+  });
+  return map;
+}
+
+const CUSTOM_VARS = ['--bg', '--panel', '--ink', '--ink-soft', '--line', '--pink',
+  '--pink-deep', '--pink-soft', '--titlebar', '--indicator', '--bg-aura', '--bg-pattern',
+  '--c0', '--c1', '--c2', '--c3', '--c4', '--c5', '--a0', '--a1', '--a2', '--a3', '--a4', '--a5'];
+function clearCustomTheme() { CUSTOM_VARS.forEach((v) => document.body.style.removeProperty(v)); }
+function applyCustomTheme(color, bgImage) {
+  clearCustomTheme();
+  const map = deriveTheme(color);
+  Object.entries(map).forEach(([k, v]) => document.body.style.setProperty(k, v));
+  if (bgImage) {
+    // 배경은 업로드 이미지로(나머지 색만 유도), 패턴/오라는 끔
+    document.body.style.setProperty('--bg-pattern', 'none');
+    document.body.style.setProperty('--bg-aura', `url("${bgImage}")`);
+  }
+}
+
+// 업로드 이미지의 평균색(테마 컬러 유도용) 추출
+function extractColor(dataUrl, cb) {
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = 32; cv.height = 32;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, 0, 0, 32, 32);
+      const d = ctx.getImageData(0, 0, 32, 32).data;
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] < 128) continue;
+        r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+      }
+      cb(n ? rgbToHex(r / n, g / n, b / n) : '#cdb0bb');
+    } catch (_) { cb('#cdb0bb'); }
+  };
+  img.onerror = () => cb('#cdb0bb');
+  img.src = dataUrl;
 }
 
 async function load() {
@@ -515,7 +648,8 @@ function buildProgress(item, countEl) {
   for (let i = 0; i < total; i++) {
     const pb = document.createElement('span');
     pb.className = 'pseg';
-    pb.title = String(i + 1); // 몇 번째 칸인지 hover로 표시
+    // 5칸 단위 구분: 5번째마다 오른쪽에 간격(다음 그룹과 분리)
+    if ((i + 1) % 5 === 0 && i + 1 < total) pb.classList.add('mark5');
     pb.addEventListener('click', () => {
       item.progress.done = (i + 1 === item.progress.done) ? i : i + 1;
       if (item.progress.done >= total) {
@@ -1644,9 +1778,15 @@ const FONTS = [
 
 function applySettings() {
   const s = state.settings || {};
-  const t = s.theme || 'default';
-  if (t && t !== 'default') document.body.dataset.theme = t;
-  else document.body.removeAttribute('data-theme');
+  if (s.custom && s.custom.color) {
+    document.body.removeAttribute('data-theme');
+    applyCustomTheme(s.custom.color, s.custom.bgImage);
+  } else {
+    clearCustomTheme();
+    const t = s.theme || 'default';
+    if (t && t !== 'default') document.body.dataset.theme = t;
+    else document.body.removeAttribute('data-theme');
+  }
 
   const img = s.profileImage;
   [document.getElementById('btn-profile'), document.getElementById('pm-avatar')]
@@ -1700,7 +1840,7 @@ function setupProfileTheme() {
     fileInput.value = '';
   });
 
-  // 테마 변경 → 모달 (테마 목록만)
+  // 테마 변경 → 모달 (커스텀 액션 + 프리셋 목록)
   document.getElementById('pm-theme').addEventListener('click', () => {
     profileMenu.classList.remove('open');
     renderThemeList();
@@ -1712,6 +1852,108 @@ function setupProfileTheme() {
     if (e.target === themeOverlay) themeOverlay.classList.remove('open');
   });
 
+  // 배경화면 변경: 로컬 이미지 → 배경 + 평균색으로 나머지 팔레트 유도
+  const bgFile = document.getElementById('bg-file');
+  document.getElementById('btn-bg-image').addEventListener('click', () => bgFile.click());
+  bgFile.addEventListener('change', () => {
+    const f = bgFile.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      extractColor(dataUrl, (color) => {
+        state.settings.custom = { color, bgImage: dataUrl };
+        state.settings.theme = 'custom';
+        save();
+        applySettings();
+        renderThemeList();
+        themeOverlay.classList.remove('open');
+      });
+    };
+    reader.readAsDataURL(f);
+    bgFile.value = '';
+  });
+
+  // 테마 컬러 변경: 컬러 피커 모달
+  document.getElementById('btn-theme-color').addEventListener('click', () => {
+    const cur = (state.settings.custom && state.settings.custom.color) ||
+      getComputedStyle(document.documentElement).getPropertyValue('--pink-deep').trim() ||
+      '#cdb0bb';
+    themeColorOpen(cur);
+  });
+}
+
+let themeColorOpen = () => {};
+
+/* 테마 컬러 피커 (SV 사각형 + 색상 슬라이더) */
+function setupColorPicker() {
+  const ov = document.getElementById('color-picker-overlay');
+  const sv = document.getElementById('cp-sv');
+  const svThumb = document.getElementById('cp-sv-thumb');
+  const hue = document.getElementById('cp-hue');
+  const hueThumb = document.getElementById('cp-hue-thumb');
+  const hexInput = document.getElementById('cp-hex');
+  let H = 330, S = 0.4, V = 0.8;
+
+  const curHex = () => hsvToHex(H, S, V);
+  function paint(live) {
+    sv.style.background =
+      `linear-gradient(to top, #000, transparent), ` +
+      `linear-gradient(to right, #fff, ${hslHex(H, 1, 0.5)})`;
+    svThumb.style.left = (S * 100) + '%';
+    svThumb.style.top = ((1 - V) * 100) + '%';
+    hueThumb.style.left = (H / 360 * 100) + '%';
+    const c = curHex();
+    svThumb.style.background = c;
+    hexInput.value = c;
+    if (live !== false) applyCustomTheme(c, null); // 라이브 미리보기
+  }
+  function openWith(hex) {
+    const { r, g, b } = hexToRgb(hex || '#cdb0bb');
+    const v = rgbToHsv(r, g, b);
+    H = v.h; S = v.s; V = v.v;
+    ov.classList.add('open');
+    paint(false);
+  }
+  themeColorOpen = openWith;
+
+  const drag = (el, handler) => {
+    let on = false;
+    el.addEventListener('pointerdown', (e) => {
+      on = true; try { el.setPointerCapture(e.pointerId); } catch (_) {} handler(e);
+    });
+    el.addEventListener('pointermove', (e) => { if (on) handler(e); });
+    el.addEventListener('pointerup', () => { on = false; });
+  };
+  drag(sv, (e) => {
+    const r = sv.getBoundingClientRect();
+    S = clamp01((e.clientX - r.left) / r.width);
+    V = clamp01(1 - (e.clientY - r.top) / r.height);
+    paint();
+  });
+  drag(hue, (e) => {
+    const r = hue.getBoundingClientRect();
+    H = clamp01((e.clientX - r.left) / r.width) * 360;
+    paint();
+  });
+  hexInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    let v = hexInput.value.trim();
+    if (/^#?[0-9a-fA-F]{6}$/.test(v)) { if (v[0] !== '#') v = '#' + v; openWith(v); }
+  });
+
+  const commit = () => {
+    state.settings.custom = { color: curHex(), bgImage: null };
+    state.settings.theme = 'custom';
+    save();
+    applySettings();
+    ov.classList.remove('open');
+    document.getElementById('theme-overlay').classList.remove('open');
+  };
+  const cancel = () => { ov.classList.remove('open'); applySettings(); };
+  document.getElementById('cp-apply').addEventListener('click', commit);
+  document.getElementById('cp-close').addEventListener('click', cancel);
+  ov.addEventListener('click', (e) => { if (e.target === ov) cancel(); });
 }
 
 function renderThemeList() {
@@ -1719,9 +1961,11 @@ function renderThemeList() {
   list.innerHTML = '';
   THEMES.forEach((th) => {
     const b = document.createElement('button');
-    b.className = 'theme-item' + (state.settings.theme === th.id ? ' on' : '');
+    b.className = 'theme-item' +
+      (!state.settings.custom && state.settings.theme === th.id ? ' on' : '');
     b.innerHTML = `<span class="theme-dot" style="background:${th.swatch}"></span>${th.name}`;
     b.addEventListener('click', () => {
+      state.settings.custom = null; // 프리셋 선택 시 커스텀 해제
       state.settings.theme = th.id;
       save();
       applySettings();
@@ -1995,6 +2239,7 @@ async function init() {
   setupDnd();
   setupGlobalKeys();
   setupProfileTheme();
+  setupColorPicker();
   setupFormatToolbar();
   setupNumPrompt();
 

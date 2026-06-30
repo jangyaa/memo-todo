@@ -309,13 +309,14 @@ body {
   border-radius: 6px;
 }
 .check-item:hover { background: rgba(255, 255, 255, 0.5); }
-.ci-top { display: flex; align-items: flex-start; gap: 7px; }
+.ci-top { display: flex; align-items: flex-start; gap: 5px; }
 
 /* 진행도 */
 .item-prog {
   border: none; background: transparent; color: var(--ink-soft);
   cursor: pointer; opacity: 0; padding: 0 2px;
   display: inline-flex; align-items: center;
+  margin-left: auto; /* 진행도 숫자는 텍스트 옆, 도구 아이콘은 우측 끝으로 */
 }
 .item-prog svg { width: 14px; height: 14px; }
 .check-item:hover .item-prog { opacity: 0.6; }
@@ -332,12 +333,14 @@ body {
 .pseg:last-child { border-radius: 2px 6px 6px 2px; }
 .pseg:hover { background: color-mix(in srgb, var(--pink-deep) 38%, transparent); }
 .pseg.filled { background: var(--pink-deep); }
-/* 진행도 숫자(n/total) — 세부항목 텍스트 옆 */
+/* 진행도 숫자(n/total) — 세부항목 텍스트 바로 뒤 */
 .prog-count {
-  align-self: center; flex-shrink: 0;
+  align-self: flex-start; flex-shrink: 0; margin-top: 1px;
   font-size: 12px; color: var(--pink-deep); font-weight: 700;
-  white-space: nowrap; letter-spacing: 0.02em; cursor: pointer; padding: 0 2px;
+  white-space: nowrap; letter-spacing: 0.02em; cursor: pointer;
 }
+/* 5칸 단위 구분 간격 */
+.pseg.mark5 { margin-right: 5px; }
 
 .check-box {
   width: 15px;
@@ -360,7 +363,7 @@ body {
 }
 
 .check-text {
-  flex: 1;
+  flex: 0 1 auto; /* 내용 길이만큼만 차지 → 진행도 숫자가 텍스트 바로 뒤에 붙음 */
   min-width: 0;
   border: none;
   background: transparent;
@@ -596,15 +599,17 @@ body {
 
 /* 드래그 중 블록 + 드롭 위치 미리보기 선 */
 .dragging { opacity: 0.4; }
+/* 이동 미리보기 바 — 투두/메모 동일(부드럽게 번진 느낌) */
 .drop-indicator {
   height: 6px;
-  background: var(--indicator);
-  border-radius: 4px;
+  background: color-mix(in srgb, var(--indicator) 80%, transparent);
+  border-radius: 5px;
   margin: 2px 6px;
   position: relative;
   z-index: 10;
   pointer-events: none;
-  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--indicator) 70%, transparent);
+  filter: blur(0.6px);
+  box-shadow: 0 0 11px 2px color-mix(in srgb, var(--indicator) 60%, transparent);
 }
 
 /* 메모 한 개 = 반투명 흰색 블록 */
@@ -883,6 +888,40 @@ body {
 .theme-item:hover { background: var(--pink-soft); }
 .theme-item.on { border-color: var(--pink); background: var(--pink-soft); font-weight: 700; }
 .theme-item .theme-dot { width: 18px; height: 18px; }
+
+/* 테마 모달: 커스텀 액션(배경/컬러) */
+.theme-actions { display: flex; gap: 8px; margin: 10px 0 4px; }
+.theme-action {
+  flex: 1; border: 1px solid var(--line); background: #fff;
+  border-radius: 10px; padding: 10px 8px; font-size: 12.5px; font-weight: 600;
+  color: var(--ink); cursor: pointer; transition: all 0.12s;
+}
+.theme-action:hover { background: var(--pink-soft); color: var(--pink-deep); border-color: var(--pink); }
+
+/* 테마 컬러 피커 */
+.cp-sv {
+  position: relative; width: 100%; height: 150px; border-radius: 12px;
+  margin: 6px 0 10px; cursor: crosshair; touch-action: none;
+  border: 1px solid var(--line);
+}
+.cp-sv-thumb, .cp-hue-thumb {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+.cp-hue {
+  position: relative; width: 100%; height: 14px; border-radius: 999px;
+  cursor: pointer; touch-action: none;
+  background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+}
+.cp-hue-thumb { top: 50%; }
+.cp-foot { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.cp-foot #cp-hex {
+  flex: 1; border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 12px; font-size: 13px; outline: none;
+}
+.cp-foot #cp-hex:focus { border-color: var(--pink); }
+.cp-foot .btn-primary { flex: 0 0 auto; padding: 9px 18px; }
 
 /* ======================= 인덱스 폴더 ======================= */
 .folder { margin: 2px 0; }

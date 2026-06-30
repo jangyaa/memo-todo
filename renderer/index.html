@@ -72,7 +72,28 @@
         <span>테마 변경</span>
         <button class="icon-btn" id="theme-close">✕</button>
       </div>
+      <div class="theme-actions">
+        <button class="theme-action" id="btn-bg-image">🖼 배경화면 변경</button>
+        <button class="theme-action" id="btn-theme-color">🎨 테마 컬러 변경</button>
+      </div>
       <div class="theme-list" id="theme-list"></div>
+    </div>
+  </div>
+  <input type="file" id="bg-file" accept="image/*" style="display:none" />
+
+  <!-- 테마 컬러 피커 -->
+  <div class="modal-overlay" id="color-picker-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <span>테마 컬러</span>
+        <button class="icon-btn" id="cp-close">✕</button>
+      </div>
+      <div class="cp-sv" id="cp-sv"><span class="cp-sv-thumb" id="cp-sv-thumb"></span></div>
+      <div class="cp-hue" id="cp-hue"><span class="cp-hue-thumb" id="cp-hue-thumb"></span></div>
+      <div class="cp-foot">
+        <input type="text" id="cp-hex" maxlength="7" placeholder="#hex" />
+        <button class="btn-primary" id="cp-apply">적용</button>
+      </div>
     </div>
   </div>
 
