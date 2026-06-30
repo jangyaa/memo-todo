@@ -216,33 +216,30 @@ function rgbToHsv(r, g, b) {
 // 너무 칙칙(저채도)하거나 원색(고채도)이지 않게 보정해 파스텔 톤으로.
 function deriveTheme(baseHex) {
   const { r, g, b } = hexToRgb(baseHex);
-  const { h } = rgbToHsl(r, g, b);
-  const { s: sv, v } = rgbToHsv(r, g, b);
-  // 명도는 항상 밝고 부드러운 영역으로 고정(칙칙/형광 방지), 채도만 약하게 반영
-  const k = 0.8 + clamp01(sv) * 0.55;          // 채도 배율 0.8~1.35
-  const sC = (x) => clamp01(x * k);
-  const lA = clamp01(0.74 + (v - 0.6) * 0.10); // 강조 명도(약 0.69~0.78, 밝은 파스텔)
+  const { h, s, l } = rgbToHsl(r, g, b);
+  // 주 강조색(타이틀바/핀딥/인디케이터)은 사용자가 고른 색을 그대로 사용(필터·보정 없음)
+  const darker = hslHex(h, s, clamp01(l - 0.06));
   const aura =
-    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, sC(0.42), 0.93)} 0%, transparent 55%), ` +
-    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 14, sC(0.38), 0.95)} 0%, transparent 55%)`;
+    `radial-gradient(90% 70% at 20% 15%, ${hslHex(h, clamp01(s * 0.5), 0.93)} 0%, transparent 55%), ` +
+    `radial-gradient(90% 70% at 82% 85%, ${hslHex(h + 14, clamp01(s * 0.45), 0.95)} 0%, transparent 55%)`;
   const map = {
-    '--bg': hslHex(h, sC(0.28), 0.975),
+    '--bg': hslHex(h, clamp01(s * 0.35), 0.975),
     '--panel': '#ffffff',
-    '--ink': hslHex(h, 0.10, 0.33),
-    '--ink-soft': hslHex(h, 0.10, 0.70),
-    '--line': hslHex(h, sC(0.26), 0.93),
-    '--pink': hslHex(h, sC(0.34), 0.88),
-    '--pink-deep': hslHex(h, sC(0.27), lA),
-    '--pink-soft': hslHex(h, sC(0.32), 0.955),
-    '--titlebar': `linear-gradient(180deg, ${hslHex(h, sC(0.24), clamp01(lA + 0.02))}, ${hslHex(h, sC(0.26), lA)})`,
-    '--indicator': hslHex(h, sC(0.50), clamp01(lA - 0.03)),
+    '--ink': hslHex(h, 0.10, 0.30),
+    '--ink-soft': hslHex(h, 0.10, 0.68),
+    '--line': hslHex(h, clamp01(s * 0.30), 0.93),
+    '--pink': hslHex(h, clamp01(s * 0.55), 0.88),
+    '--pink-deep': baseHex,                                       // 선택색 그대로
+    '--pink-soft': hslHex(h, clamp01(s * 0.45), 0.955),
+    '--titlebar': `linear-gradient(180deg, ${baseHex}, ${darker})`, // 선택색 그대로
+    '--indicator': baseHex,
     '--bg-aura': aura,
     '--bg-pattern': 'none'
   };
-  // 블록 배경(--c) / 강조색(--a) 6종 — 색상을 조금씩만 돌려 차분한 변화(무지개색 방지)
+  // 블록 배경(--c) / 강조색(--a) 6종 — 선택색의 색상/채도 기반 옅은 파스텔
   [0, 16, 38, -15, 28, -8].forEach((dh, i) => {
-    map['--c' + i] = hslHex(h + dh, sC(0.33), 0.955);
-    map['--a' + i] = hslHex(h + dh, sC(0.33), lA);
+    map['--c' + i] = hslHex(h + dh, clamp01(s * 0.50), 0.955);
+    map['--a' + i] = hslHex(h + dh, clamp01(s * 0.60), 0.72);
   });
   return map;
 }
@@ -262,8 +259,7 @@ function applyCustomTheme(color, bgImage) {
   // 배경 이미지는 전용 레이어(#app-bg)에 적용 → 블러+밝기 필터로 글자 가독성 확보
   const appBg = document.getElementById('app-bg');
   if (bgImage && appBg) {
-    appBg.style.backgroundImage =
-      `linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0.15)), url("${bgImage}")`;
+    appBg.style.backgroundImage = `url("${bgImage}")`; // 원본 그대로
     appBg.style.display = 'block';
   }
 }
@@ -1918,6 +1914,16 @@ function setupProfileTheme() {
     bgFile.value = '';
   });
 
+  // 배경화면 삭제: 이미지를 제거하고 테마색 단색 배경으로
+  document.getElementById('btn-bg-remove').addEventListener('click', () => {
+    if (state.settings.custom) {
+      state.settings.custom = { color: state.settings.custom.color, bgImage: null };
+      save();
+      applySettings();
+    }
+    themeOverlay.classList.remove('open');
+  });
+
   // 테마 컬러 변경: 컬러 피커 모달
   document.getElementById('btn-theme-color').addEventListener('click', () => {
     const cur = (state.settings.custom && state.settings.custom.color) ||
@@ -1938,6 +1944,7 @@ function setupColorPicker() {
   const hueThumb = document.getElementById('cp-hue-thumb');
   const hexInput = document.getElementById('cp-hex');
   let H = 330, S = 0.4, V = 0.8;
+  let cpBgImage = null; // 현재 배경 이미지(있으면 컬러 변경 중에도 유지)
 
   const curHex = () => hsvToHex(H, S, V);
   function paint() {
@@ -1950,10 +1957,11 @@ function setupColorPicker() {
     const c = curHex();
     svThumb.style.background = c;
     hexInput.value = c;
-    // 항상 실시간 미리보기(인덱스/컬러블록 포함) — 적용 전에도 창 색 확인
-    applyCustomTheme(c, null);
+    // 항상 실시간 미리보기(인덱스/컬러블록 포함). 배경 이미지가 있으면 유지
+    applyCustomTheme(c, cpBgImage);
   }
   function openWith(hex) {
+    cpBgImage = (state.settings.custom && state.settings.custom.bgImage) || null;
     const { r, g, b } = hexToRgb(hex || '#cdb0bb');
     const v = rgbToHsv(r, g, b);
     H = v.h; S = v.s; V = v.v;
@@ -1988,7 +1996,7 @@ function setupColorPicker() {
   });
 
   const commit = () => {
-    state.settings.custom = { color: curHex(), bgImage: null };
+    state.settings.custom = { color: curHex(), bgImage: cpBgImage }; // 배경 이미지 유지
     state.settings.theme = 'custom';
     save();
     applySettings();

@@ -64,7 +64,7 @@ body {
   box-shadow: var(--shadow);
 }
 
-/* 커스텀 배경 이미지 레이어 — 콘텐츠 뒤(z-index:-1), 블러+밝기로 글자 가독성 확보 */
+/* 커스텀 배경 이미지 레이어 — 콘텐츠 뒤(z-index:-1), 원본 그대로(필터 없음) */
 #app-bg {
   display: none;
   position: absolute;
@@ -73,8 +73,6 @@ body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(1.5px) brightness(1.05) saturate(0.9);
-  transform: scale(1.05); /* 블러로 생기는 가장자리 비침 방지 */
 }
 
 /* ======================= 타이틀바 (짙은 바) ======================= */
