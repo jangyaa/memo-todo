@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('api', {
   // 외부 링크 열기
   openExternal: (url) => ipcRenderer.invoke('open:external', url),
 
+  // 메모 별도 편집 창 열기
+  openMemoEditor: (id) => ipcRenderer.invoke('memo:openEditor', id),
+
   // 클라우드 동기화
   sync: {
     status: () => ipcRenderer.invoke('sync:status'),

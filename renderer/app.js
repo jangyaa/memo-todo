@@ -8,7 +8,7 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-const BLOCK_ALPHA = 49; // 투두/메모 블록 불투명도(%)
+const BLOCK_ALPHA = 51; // 투두/메모 블록 불투명도(%)
 function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
   return i < 0 ? 0 : i;
@@ -46,6 +46,7 @@ function makeColorButton(item) {
 function looksHtml(s) { return /<[a-z!/]|&[a-z]+;|&#/i.test(s || ''); }
 
 let state = {
+  ddays: [], // { id, title, date } — 최상단 고정 디데이 블록
   todos: [], // { id, title, color, items, pinned, pinnedAt }
   memos: [], // { id, content, tags, color, folderId, pinned, pinnedAt }
   folders: [], // { id, name, collapsed }
@@ -226,7 +227,7 @@ function deriveTheme(baseHex) {
     '--bg': hslHex(h, clamp01(s * 0.35), 0.975),
     '--panel': '#ffffff',
     '--ink': hslHex(h, 0.10, 0.30),
-    '--ink-soft': hslHex(h, 0.10, 0.68),
+    '--ink-soft': hslHex(h, 0.10, 0.61),
     '--line': hslHex(h, clamp01(s * 0.30), 0.93),
     '--pink': hslHex(h, clamp01(s * 0.55), 0.88),
     '--pink-deep': baseHex,                                       // 선택색 그대로
@@ -291,6 +292,7 @@ function extractColor(dataUrl, cb) {
 async function load() {
   const data = await window.api.loadData();
   if (data && typeof data === 'object') {
+    state.ddays = Array.isArray(data.ddays) ? data.ddays : [];
     state.todos = Array.isArray(data.todos) ? data.todos : [];
     state.memos = Array.isArray(data.memos) ? data.memos.map(normalizeMemo) : [];
     state.folders = Array.isArray(data.folders) ? data.folders : [];
@@ -305,6 +307,7 @@ window.api.onDataChanged((data) => {
     active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
   if (editing) return;
   if (!data) return;
+  state.ddays = data.ddays || [];
   state.todos = data.todos || [];
   state.memos = (data.memos || []).map(normalizeMemo);
   state.folders = data.folders || [];
@@ -424,6 +427,7 @@ function orderedTodos() {
 
 function renderTodos() {
   todoBoard.innerHTML = '';
+  todoBoard.appendChild(buildDdayBlock()); // 항상 최상단 고정(이동 불가)
   if (state.todos.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
@@ -432,6 +436,105 @@ function renderTodos() {
     return;
   }
   orderedTodos().forEach((todo) => todoBoard.appendChild(buildBlock(todo)));
+}
+
+/* D-DAY 라벨 계산 (오늘 기준) */
+function ddayDiff(date) {
+  if (!date) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const t = new Date(date + 'T00:00:00');
+  if (isNaN(t.getTime())) return null;
+  return Math.round((t - today) / 86400000);
+}
+function ddayLabel(date) {
+  const d = ddayDiff(date);
+  if (d === null) return 'D-DAY';
+  if (d > 0) return 'D-' + d;
+  if (d === 0) return 'D-DAY';
+  return 'D+' + (-d);
+}
+function ddayClass(date) {
+  const d = ddayDiff(date);
+  if (d === null) return '';
+  if (d === 0) return ' today';
+  if (d < 0) return ' past';
+  return '';
+}
+
+/* 최상단 고정 D-DAY 블록 (이동 불가, 항상 존재) */
+function buildDdayBlock() {
+  const block = document.createElement('div');
+  block.className = 'dday-block';
+
+  const head = document.createElement('div');
+  head.className = 'dday-bar';
+  const label = document.createElement('span');
+  label.className = 'dday-heading';
+  label.textContent = 'D-DAY';
+  const add = document.createElement('button');
+  add.className = 'icon-btn small';
+  add.textContent = '＋';
+  add.title = '디데이 추가';
+  add.addEventListener('click', () => {
+    state.ddays.push({ id: uid(), title: '', date: '' });
+    save();
+    renderTodos();
+  });
+  head.appendChild(label);
+  head.appendChild(add);
+  block.appendChild(head);
+
+  if (state.ddays.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'dday-empty';
+    hint.textContent = '＋ 로 디데이를 추가하세요';
+    block.appendChild(hint);
+  } else {
+    state.ddays.forEach((d) => block.appendChild(buildDdayItem(d)));
+  }
+  return block;
+}
+
+function buildDdayItem(d) {
+  const row = document.createElement('div');
+  row.className = 'dday-item';
+
+  const badge = document.createElement('span');
+  badge.className = 'dday-badge' + ddayClass(d.date);
+  badge.textContent = ddayLabel(d.date);
+
+  const name = document.createElement('input');
+  name.className = 'dday-name';
+  name.placeholder = '제목';
+  name.value = d.title || '';
+  name.addEventListener('input', () => { d.title = name.value; save(); });
+
+  const date = document.createElement('input');
+  date.type = 'date';
+  date.className = 'dday-date';
+  date.value = d.date || '';
+  date.addEventListener('input', () => {
+    d.date = date.value;
+    badge.textContent = ddayLabel(d.date);
+    badge.className = 'dday-badge' + ddayClass(d.date);
+    save();
+  });
+
+  const del = document.createElement('button');
+  del.className = 'item-del';
+  del.textContent = '✕';
+  del.title = '삭제';
+  del.addEventListener('click', () => {
+    state.ddays = state.ddays.filter((x) => x.id !== d.id);
+    save();
+    renderTodos();
+  });
+
+  row.appendChild(badge);
+  row.appendChild(name);
+  row.appendChild(date);
+  row.appendChild(del);
+  return row;
 }
 
 function buildBlock(todo) {
@@ -694,10 +797,10 @@ function buildProgress(item, countEl) {
   for (let i = 0; i < total; i++) {
     const pb = document.createElement('span');
     pb.className = 'pseg';
-    // 5칸 단위로 명도를 단계적으로(간격은 동일) — 5씩 눈으로 가늠
+    // 5칸 단위: 테마색보다 옅은 색(흰색 혼합 많음)으로 시작해 마지막 그룹에서 테마색(100%)
     const g = Math.floor(i / 5);
-    const bright = groups > 1 ? 1 - (g / (groups - 1)) * 0.30 : 1;
-    pb.style.filter = `brightness(${bright.toFixed(3)})`;
+    const mix = groups > 1 ? 55 + (g / (groups - 1)) * 45 : 100;
+    pb.style.setProperty('--seg-mix', mix.toFixed(1) + '%');
     pb.addEventListener('click', () => {
       item.progress.done = (i + 1 === item.progress.done) ? i : i + 1;
       if (item.progress.done >= total) {
@@ -1025,6 +1128,15 @@ function buildMemoBlock(memo) {
   });
   tagBar.appendChild(tagAdd);
   block.appendChild(tagBar);
+
+  // 블록 더블클릭 → 별도 편집 창 (본문/제목/태그/링크 위에서는 제외)
+  block.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.note-body') || e.target.closest('input') ||
+        e.target.closest('.tag-chip') || e.target.closest('.link') ||
+        e.target.closest('.icon-btn')) return;
+    e.preventDefault();
+    if (window.api.openMemoEditor) window.api.openMemoEditor(memo.id);
+  });
 
   // 메모 블록 하단 빈 곳을 누르면 태그 입력 활성화 (본문/헤더/제목/칩/링크 제외)
   block.addEventListener('mousedown', (e) => {
@@ -1947,7 +2059,8 @@ function setupColorPicker() {
   let cpBgImage = null; // 현재 배경 이미지(있으면 컬러 변경 중에도 유지)
 
   const curHex = () => hsvToHex(H, S, V);
-  function paint() {
+  let rafId = 0;
+  function updateThumbs() {
     sv.style.background =
       `linear-gradient(to top, #000, transparent), ` +
       `linear-gradient(to right, #fff, ${hslHex(H, 1, 0.5)})`;
@@ -1957,8 +2070,15 @@ function setupColorPicker() {
     const c = curHex();
     svThumb.style.background = c;
     hexInput.value = c;
-    // 항상 실시간 미리보기(인덱스/컬러블록 포함). 배경 이미지가 있으면 유지
-    applyCustomTheme(c, cpBgImage);
+  }
+  function paint() {
+    updateThumbs(); // 커서/썸은 즉시 갱신(가벼움) → 마우스 따라 바로 이동
+    // 무거운 테마 적용(변수 24개+블록 재계산)은 프레임당 1회로 합쳐 지연 제거
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = 0;
+      applyCustomTheme(curHex(), cpBgImage);
+    });
   }
   function openWith(hex) {
     cpBgImage = (state.settings.custom && state.settings.custom.bgImage) || null;
@@ -2221,8 +2341,26 @@ function setupFormatToolbar() {
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       if (btn.dataset.cmd === 'hr') { toggleDivPop(btn); return; }
+      if (btn.dataset.cmd === 'image') { imageFile.click(); return; }
       run(btn.dataset.cmd);
     });
+  });
+
+  // 이미지 삽입: 선택 위치에 그림 추가(본문에 data URL로 저장)
+  const imageFile = document.getElementById('ft-image-file');
+  imageFile.addEventListener('change', () => {
+    const f = imageFile.files[0];
+    imageFile.value = '';
+    if (!f || !savedBody) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (!restoreSelection() || !savedBody) return;
+      document.execCommand('insertHTML', false,
+        `<img src="${reader.result}" style="max-width:100%"><br>`);
+      persist();
+      setTimeout(showForSelection, 0);
+    };
+    reader.readAsDataURL(f);
   });
 
   // 구분선 스타일 팝오버

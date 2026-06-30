@@ -189,6 +189,21 @@ ipcMain.handle('open:external', (_e, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
 });
 
+// 메모 별도 편집 창 (프레임 있는 일반 창 → OS 상단바로 이동/리사이즈)
+ipcMain.handle('memo:openEditor', (_e, id) => {
+  const win = new BrowserWindow({
+    width: 560, height: 680, minWidth: 360, minHeight: 360,
+    title: '메모',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true, nodeIntegration: false
+    }
+  });
+  win.setMenuBarVisibility(false);
+  win.loadFile(path.join(__dirname, 'renderer', 'editor.html'),
+    { query: { id: String(id) } });
+});
+
 // 탭을 창 밖으로 끌어 분리: 해당 뷰를 새 창으로, 원래 창은 나머지 뷰만
 ipcMain.handle('view:tearOut', (event, view) => {
   const win = BrowserWindow.fromWebContents(event.sender);

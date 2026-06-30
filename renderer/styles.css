@@ -3,7 +3,7 @@
   --bg: #faf8f9;
   --panel: #ffffff;
   --ink: #555055;
-  --ink-soft: #b0a9ae;
+  --ink-soft: #9e989d;
   --line: #f0eaed;
   --pink: #edd9e0;
   --pink-deep: #cdb0bb;
@@ -212,6 +212,37 @@ body {
   gap: 12px;
 }
 
+/* D-DAY 고정 블록 (최상단) */
+.dday-block {
+  background: color-mix(in srgb, var(--pink-deep) 14%, rgba(255, 255, 255, 0.55));
+  border-radius: 14px;
+  padding: 10px 14px 12px;
+  box-shadow: 0 2px 6px rgba(180, 150, 165, 0.12);
+}
+.dday-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.dday-heading { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; color: var(--pink-deep); }
+.dday-empty { font-size: 12px; color: var(--ink-soft); padding: 4px 2px; }
+.dday-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.dday-badge {
+  flex-shrink: 0; min-width: 52px; text-align: center;
+  font-size: 12.5px; font-weight: 800; color: #fff;
+  background: var(--pink-deep); border-radius: 999px; padding: 3px 9px;
+}
+.dday-badge.today { background: #e0664a; }
+.dday-badge.past { background: var(--ink-soft); }
+.dday-name {
+  flex: 1; min-width: 0; border: none; background: transparent;
+  font-size: 14px; color: var(--ink); outline: none;
+}
+.dday-name::placeholder { color: var(--ink-soft); opacity: 0.7; }
+.dday-date {
+  flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px;
+  padding: 3px 6px; font-size: 12px; color: var(--ink); background: #fff; outline: none;
+}
+.dday-date:focus { border-color: var(--pink); }
+.dday-item .item-del { opacity: 0; }
+.dday-item:hover .item-del { opacity: 0.7; }
+
 /* 투두 블럭(반투명 흰색) */
 .todo-block {
   position: relative;
@@ -246,7 +277,7 @@ body {
   -webkit-app-region: no-drag;
 }
 .block-title { margin-bottom: 10px; }
-.block-title::placeholder { color: rgba(74, 65, 72, 0.35); }
+.block-title::placeholder { color: rgba(74, 65, 72, 0.48); }
 
 
 .checklist { display: flex; flex-direction: column; gap: 5px; }
@@ -284,7 +315,8 @@ body {
 .pseg:first-child { border-radius: 6px 2px 2px 6px; }
 .pseg:last-child { border-radius: 2px 6px 6px 2px; }
 .pseg:hover { background: color-mix(in srgb, var(--pink-deep) 38%, transparent); }
-.pseg.filled { background: var(--pink-deep); }
+/* 채워진 칸: 테마색을 흰색과 혼합(--seg-mix=옅음~100%) → 옅은색으로 시작해 테마색으로 끝남 */
+.pseg.filled { background: color-mix(in srgb, var(--pink-deep) var(--seg-mix, 100%), #fff); }
 /* 진행도 숫자(n/total) — 세부항목 텍스트 바로 뒤, 같은 크기/줄에 정렬 */
 .prog-count {
   align-self: baseline; flex-shrink: 0; margin-left: 6px;
@@ -329,7 +361,7 @@ body {
 .check-text:empty::before {
   content: attr(data-placeholder);
   color: var(--ink-soft);
-  opacity: 0.6;
+  opacity: 0.7;
 }
 .check-item.done .check-text {
   text-decoration: line-through;
@@ -597,9 +629,10 @@ body {
   margin-bottom: 4px;
   -webkit-app-region: no-drag;
 }
-.memo-title::placeholder { color: var(--ink-soft); opacity: 0.5; }
+.memo-title::placeholder { color: var(--ink-soft); opacity: 0.62; }
 
 .note-body hr { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
+.note-body img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; display: block; }
 
 /* 글머리(리스트) */
 .note-body ul, .note-body ol { margin: 4px 0; padding-left: 22px; }
@@ -950,7 +983,8 @@ body {
 .format-toolbar .hl-line { fill: #ffcf3f; }
 .ft-arrow { color: var(--ink-soft); }
 #ft-size-val { font-size: 13px; min-width: 42px; text-align: center; }
-.ft-colors { display: inline-flex; gap: 4px; }
+.ft-line-color { flex-wrap: nowrap; } /* 색 줄: + 버튼이 다음 줄로 넘어가지 않게 */
+.ft-colors { display: inline-flex; gap: 4px; flex-shrink: 0; }
 .ft-color {
   width: 18px; height: 18px; min-width: 18px; border-radius: 50%;
   border: 1px solid var(--line); cursor: pointer; padding: 0;
