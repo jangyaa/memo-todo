@@ -8,7 +8,7 @@ const BLOCK_COLORS = [
   'var(--c0)', 'var(--c1)', 'var(--c2)',
   'var(--c3)', 'var(--c4)', 'var(--c5)'
 ];
-const BLOCK_ALPHA = 45; // 투두/메모 블록 불투명도(%)
+const BLOCK_ALPHA = 50; // 투두/메모 블록 불투명도(%)
 function colorIndexOf(item) {
   const i = BLOCK_COLORS.indexOf(item && item.color);
   return i < 0 ? 0 : i;
@@ -188,7 +188,14 @@ function setView(v) {
   currentView = v;
   renderTabs();
   applyView();
+  // 탭 전환 시: 떠 있는 모든 창/선택 영역 닫기 (서식창·메뉴·프로필·검색·텍스트 선택)
+  hideMenus();
   if (typeof hideFormatToolbar === 'function') hideFormatToolbar();
+  const pm = document.getElementById('profile-menu');
+  if (pm) pm.classList.remove('open');
+  if (typeof closeFind === 'function') closeFind();
+  const sel = window.getSelection && window.getSelection();
+  if (sel) sel.removeAllRanges();
 }
 
 let tabDrag = null;
@@ -452,26 +459,48 @@ function buildItem(todo, item) {
   top.className = 'ci-top';
   top.appendChild(box);
   top.appendChild(text);
+
+  // 진행도 숫자(n/total) — 세부항목 텍스트 옆. 더블클릭 시 현재 진행도 직접 입력
+  let progCount = null;
+  if (item.progress && item.progress.total > 0) {
+    progCount = document.createElement('span');
+    progCount.className = 'prog-count';
+    progCount.title = '더블클릭하여 진행도 입력';
+    progCount.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!item.progress) return;
+      const total = item.progress.total;
+      promptNumber(item.progress.done, (n) => {
+        if (!item.progress) return;
+        const done = Math.max(0, Math.min(n, total));
+        if (done >= total) item.progress = null; // 다 채우면 진행도 제거
+        else item.progress.done = done;
+        save();
+        renderTodos();
+      }, { title: '진행도', min: 0, max: total });
+    });
+    top.appendChild(progCount);
+  }
+
   top.appendChild(progBtn);
   top.appendChild(del);
   row.appendChild(top);
 
-  // 진행도 바 (칸 + 숫자) — 클릭 시 제자리 갱신(블록 전체 리렌더 X)
+  // 진행도 게이지 — 클릭 시 제자리 갱신(블록 전체 리렌더 X), 칸 위 hover로 순번 표시
   if (item.progress && item.progress.total > 0) {
-    row.appendChild(buildProgress(item));
+    row.appendChild(buildProgress(item, progCount));
   }
 
   return row;
 }
 
-/* 진행도 게이지: 우측 상단 n/total + 가로 꽉 채운 둥근 분절 게이지. 클릭 시 in-place 갱신 */
-function buildProgress(item) {
+/* 진행도 게이지: 가로 꽉 채운 둥근 분절 게이지. 칸 hover 시 순번(title) 표시, 클릭 시 in-place 갱신.
+ * n/total 카운트(countEl)는 세부항목 텍스트 옆에서 함께 갱신된다. */
+function buildProgress(item, countEl) {
   const wrap = document.createElement('div');
   wrap.className = 'progress';
   const total = item.progress.total;
-
-  const count = document.createElement('span');
-  count.className = 'progress-count';
 
   const boxes = document.createElement('div');
   boxes.className = 'progress-boxes';
@@ -480,12 +509,13 @@ function buildProgress(item) {
   const refresh = () => {
     [...boxes.children].forEach((pb, i) =>
       pb.classList.toggle('filled', i < item.progress.done));
-    count.textContent = `${item.progress.done}/${total}`;
+    if (countEl) countEl.textContent = `${item.progress.done}/${total}`;
   };
 
   for (let i = 0; i < total; i++) {
     const pb = document.createElement('span');
     pb.className = 'pseg';
+    pb.title = String(i + 1); // 몇 번째 칸인지 hover로 표시
     pb.addEventListener('click', () => {
       item.progress.done = (i + 1 === item.progress.done) ? i : i + 1;
       if (item.progress.done >= total) {
@@ -493,6 +523,7 @@ function buildProgress(item) {
         item.progress = null;
         save();
         wrap.remove();
+        if (countEl) countEl.remove();
         return;
       }
       save();
@@ -501,7 +532,6 @@ function buildProgress(item) {
     boxes.appendChild(pb);
   }
 
-  wrap.appendChild(count);
   wrap.appendChild(boxes);
   refresh();
   return wrap;
@@ -516,13 +546,20 @@ function focusItem(todoId, itemId) {
   }
 }
 
-/* 숫자 입력 모달 (진행도 칸 수) */
+/* 숫자 입력 모달 (진행도 칸 수 / 현재 진행도) */
 let numCb = null;
-function promptNumber(initial, cb) {
+let numMin = 1;
+let numMax = 99;
+function promptNumber(initial, cb, opts = {}) {
   numCb = cb;
+  numMin = opts.min != null ? opts.min : 1;
+  numMax = opts.max != null ? opts.max : 99;
   const ov = document.getElementById('num-overlay');
   const inp = document.getElementById('num-input');
-  inp.value = initial || '';
+  document.getElementById('num-title').textContent = opts.title || '진행도 칸 수';
+  inp.min = numMin;
+  inp.max = numMax;
+  inp.value = (initial === 0 || initial) ? initial : '';
   ov.classList.add('open');
   setTimeout(() => { inp.focus(); inp.select(); }, 0);
 }
@@ -534,7 +571,7 @@ function setupNumPrompt() {
     const n = parseInt(inp.value, 10);
     const cb = numCb;
     close();
-    if (cb && n >= 1) cb(n);
+    if (cb && Number.isFinite(n) && n >= numMin) cb(Math.min(n, numMax));
   };
   document.getElementById('num-ok').addEventListener('click', commit);
   document.getElementById('num-close').addEventListener('click', close);
@@ -695,10 +732,10 @@ function buildMemoBlock(memo) {
     updateIndexTitle(memo);
   });
   titleInput.addEventListener('keydown', (e) => {
+    // 제목이 비어 있어도 Enter/Tab으로 본문에 진입 (커서를 본문에 놓는다)
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
-      const b = block.querySelector('.note-body');
-      if (b) { b.focus(); }
+      focusNoteEnd(memo.id);
     }
   });
   block.appendChild(titleInput);
@@ -829,6 +866,17 @@ function handleMarkdownKey(e, body, memo) {
     if (liOf()) {
       e.preventDefault();
       document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+      persist();
+      return true;
+    }
+    return false;
+  }
+  // 빈 글머리 줄에서 Backspace → 글머리 제거(내어쓰기, 최상위면 일반 줄로 빠짐)
+  if (e.key === 'Backspace') {
+    const li = liOf();
+    if (li && li.textContent.trim() === '') {
+      e.preventDefault();
+      document.execCommand('outdent');
       persist();
       return true;
     }
@@ -1624,6 +1672,9 @@ function setupProfileTheme() {
 
   profileBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    // 다른 떠 있는 창들(서식창·색/우클릭 메뉴)을 먼저 닫는다
+    hideMenus();
+    if (typeof hideFormatToolbar === 'function') hideFormatToolbar();
     const r = profileBtn.getBoundingClientRect();
     profileMenu.style.left = r.left + 'px';
     profileMenu.style.top = (r.bottom + 6) + 'px';
@@ -1881,13 +1932,17 @@ function setupFormatToolbar() {
   });
 
   function openColorPop() {
-    const r = document.getElementById('ft-addcolor').getBoundingClientRect();
+    // 컬러 팔레트(서식창) 바로 옆에 띄운다. 오른쪽 공간이 없으면 왼쪽으로.
     colorPop.classList.add('open');
-    let x = r.left, y = r.bottom + 4;
+    const br = bar.getBoundingClientRect();
+    const ar = document.getElementById('ft-addcolor').getBoundingClientRect();
     const cr = colorPop.getBoundingClientRect();
-    if (x + cr.width > window.innerWidth - 8) x = window.innerWidth - 8 - cr.width;
-    if (y + cr.height > window.innerHeight - 8) y = r.top - cr.height - 4;
-    colorPop.style.left = Math.max(8, x) + 'px';
+    let x = br.right + 8;
+    if (x + cr.width > window.innerWidth - 8) x = br.left - cr.width - 8;
+    if (x < 8) x = Math.max(8, window.innerWidth - cr.width - 8);
+    let y = ar.top - 4;
+    if (y + cr.height > window.innerHeight - 8) y = window.innerHeight - cr.height - 8;
+    colorPop.style.left = x + 'px';
     colorPop.style.top = Math.max(8, y) + 'px';
   }
   document.getElementById('ft-addcolor').addEventListener('mousedown', (e) => {

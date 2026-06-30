@@ -321,7 +321,7 @@ body {
 .check-item:hover .item-prog { opacity: 0.6; }
 .item-prog:hover { color: var(--pink-deep); opacity: 1; }
 
-.progress { display: flex; flex-direction: column; gap: 4px; margin: 7px 0 3px 22px; }
+.progress { margin: 6px 0 3px 22px; }
 .progress-boxes { display: grid; gap: 2px; width: 100%; }
 .pseg {
   height: 10px; border-radius: 2px;
@@ -332,10 +332,11 @@ body {
 .pseg:last-child { border-radius: 2px 6px 6px 2px; }
 .pseg:hover { background: color-mix(in srgb, var(--pink-deep) 38%, transparent); }
 .pseg.filled { background: var(--pink-deep); }
-.progress-count {
-  align-self: flex-end;
-  font-size: 11.5px; color: var(--pink-deep); font-weight: 700;
-  white-space: nowrap; letter-spacing: 0.02em;
+/* 진행도 숫자(n/total) — 세부항목 텍스트 옆 */
+.prog-count {
+  align-self: center; flex-shrink: 0;
+  font-size: 12px; color: var(--pink-deep); font-weight: 700;
+  white-space: nowrap; letter-spacing: 0.02em; cursor: pointer; padding: 0 2px;
 }
 
 .check-box {
@@ -363,7 +364,7 @@ body {
   min-width: 0;
   border: none;
   background: transparent;
-  font-size: 13.5px;
+  font-size: 14px; /* 메모 본문 기본 크기와 동일 */
   color: var(--ink);
   outline: none;
   line-height: 1.4;
@@ -596,13 +597,14 @@ body {
 /* 드래그 중 블록 + 드롭 위치 미리보기 선 */
 .dragging { opacity: 0.4; }
 .drop-indicator {
-  height: 4px;
+  height: 6px;
   background: var(--indicator);
   border-radius: 4px;
-  margin: 0 6px;
+  margin: 2px 6px;
   position: relative;
-  z-index: 5;
+  z-index: 10;
   pointer-events: none;
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--indicator) 70%, transparent);
 }
 
 /* 메모 한 개 = 반투명 흰색 블록 */
@@ -622,6 +624,9 @@ body {
   height: 18px;
   margin-bottom: 2px;
   cursor: grab;
+  /* memo-page는 user-select:text 라 헤더가 텍스트 선택으로 잡혀 드래그가 불안정해짐 → 차단 */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .memo-head:active { cursor: grabbing; }
 
@@ -719,6 +724,9 @@ body {
   padding: 9px 12px; font-size: 14px; outline: none; margin: 8px 0;
 }
 #num-input:focus { border-color: var(--pink); }
+/* 숫자 입력 스피너(위/아래 화살표) 제거 */
+#num-input::-webkit-inner-spin-button,
+#num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 .sync-pane input {
   width: 100%;
@@ -1038,12 +1046,16 @@ body {
 .folder-eye:hover { opacity: 1; }
 .folder.hidden-folder .folder-head { opacity: 0.5; }
 
-/* 서식 툴바 떠 있는 동안 인덱스 확장 잠금 */
+/* 서식 툴바 떠 있는 동안 인덱스 확장 잠금 — 축소 상태 그대로 유지 */
 body.ft-open .memo-index:hover { width: 50px; }
+body.ft-open .memo-index:hover .index-chip { justify-content: center; }
+body.ft-open .memo-index:hover .folder-head { justify-content: center; }
 body.ft-open .memo-index:hover .label,
 body.ft-open .memo-index:hover .folder-name,
+body.ft-open .memo-index:hover .folder-caret,
 body.ft-open .memo-index:hover .index-title,
-body.ft-open .memo-index:hover .folder-eye { opacity: 0; }
+body.ft-open .memo-index:hover .folder-eye { display: none; }
+body.ft-open .memo-index:hover .folder-children { display: none; }
 
 /* 서식 적용 결과 (형광펜 등) */
 .note-body mark, .note-body [style*="background"] { border-radius: 2px; }
