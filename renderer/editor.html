@@ -36,7 +36,8 @@
       transition: transform 0.18s ease, opacity 0.18s ease;
     }
     .ed-menu.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
-    .ed-menu .bt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 7px 12px; }
+    /* 아이콘 간격이 창 폭에 맞춰 고르게 조정되도록(우측 여백만 늘지 않게) */
+    .ed-menu .bt-row { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 3px; padding: 7px 16px; }
     .ed-menu button {
       min-width: 30px; height: 30px; border: none; background: transparent; border-radius: 7px;
       color: var(--ink); font-size: 14px; cursor: pointer;
@@ -50,26 +51,32 @@
     /* 폰트 버튼: 구분선 넘지 않게 폭 축소 + 세모(▾) 키움 */
     .ed-menu .bt-font .fontdd-btn { height: 28px; padding: 0 7px; gap: 4px; }
     .ed-menu .bt-font .fontdd-lbl { max-width: 60px; }
-    .ed-menu .bt-font .fontdd-car { font-size: 14px; }
+    .ed-menu .bt-font .fontdd-car { font-size: 15px; }
     /* 메뉴가 오버레이라 콘텐츠 상단 여백 확보(블럭이 안 가려지고 위치 고정) */
     .ed-scroll { flex: 1; overflow-y: auto; padding: 56px 16px 40px; display: flex; justify-content: center; }
     .ed-card { width: 100%; max-width: 720px; border-radius: 16px; padding: 22px 26px 26px; display: flex; flex-direction: column; }
     .ed-card .memo-title { font-size: 24px; margin-bottom: 14px; }
     .ed-card .note-body { font-size: 16px; line-height: 1.9; min-height: 340px; }
-    /* 태그는 블럭(카드) 안쪽 하단에 확실히 포함 */
-    .ed-card .note-tags { margin-top: 14px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); }
-    /* 하단 편집바(인용구/구분선/이미지) */
+    /* 태그: 카드 안쪽 하단, 한 줄 높이로 컴팩트 + 본문 구분선 진하게 */
+    .ed-card .note-tags {
+      margin-top: 12px; padding-top: 9px; min-height: 0;
+      border-top: 1px solid color-mix(in srgb, var(--ink) 26%, transparent);
+    }
+    /* 하단 편집바 — 상단 편집창과 동일한 밝은 외형. 왼쪽 시간 · 오른쪽 삽입도구 */
     .ed-bottombar {
-      flex-shrink: 0; display: flex; justify-content: center; gap: 6px;
-      padding: 8px 12px; background: var(--titlebar);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 7px 14px; background: color-mix(in srgb, var(--pink-soft) 92%, #fff);
+      border-top: 1px solid var(--line);
     }
-    .ed-bottombar button {
-      display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px;
-      border: none; border-radius: 9px; background: rgba(255,255,255,0.16); color: #fff;
-      font-size: 12.5px; font-weight: 600; cursor: pointer;
+    .ed-times { font-size: 11px; color: var(--ink-soft); line-height: 1.5; white-space: nowrap; }
+    .ed-inserts { display: flex; align-items: center; gap: 4px; }
+    .ed-inserts button {
+      display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 11px;
+      border: none; border-radius: 8px; background: transparent; color: var(--ink);
+      font-size: 12.5px; cursor: pointer;
     }
-    .ed-bottombar button:hover { background: rgba(255,255,255,0.3); }
-    .ed-bottombar button svg { width: 15px; height: 15px; fill: currentColor; }
+    .ed-inserts button:hover { background: var(--pink-soft); color: var(--pink-deep); }
+    .ed-inserts button svg { width: 15px; height: 15px; fill: currentColor; }
   </style>
 </head>
 <body>
@@ -92,8 +99,11 @@
         <div class="note-tags" id="ed-tags"></div>
       </div>
     </div>
-    <!-- 하단 편집바: 인용구 / 구분선 / 이미지 삽입 -->
-    <div class="ed-bottombar" id="ed-bottombar"></div>
+    <!-- 하단 편집바: 왼쪽 생성/편집 시간 · 오른쪽 인용구/구분선/이미지 삽입 -->
+    <div class="ed-bottombar" id="ed-bottombar">
+      <div class="ed-times" id="ed-times"></div>
+      <div class="ed-inserts" id="ed-inserts"></div>
+    </div>
   </div>
 
   <!-- 구분선 스타일 팝오버 -->

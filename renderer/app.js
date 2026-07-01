@@ -126,7 +126,9 @@ function normalizeMemo(m, i) {
     color: m.color || BLOCK_COLORS[i % BLOCK_COLORS.length],
     folderId: m.folderId || null,
     pinned: !!m.pinned,
-    pinnedAt: m.pinnedAt || 0
+    pinnedAt: m.pinnedAt || 0,
+    createdAt: m.createdAt || Date.now(),
+    updatedAt: m.updatedAt || m.createdAt || Date.now()
   };
 }
 
@@ -137,6 +139,8 @@ function save() {
     window.api.saveData(JSON.parse(JSON.stringify(state)));
   }, 350);
 }
+// 메모 편집 시각 갱신 후 저장(상세창 하단의 '최근 편집' 표시용)
+function touchMemo(memo) { if (memo) memo.updatedAt = Date.now(); save(); }
 
 function normalizeSettings(s) {
   s = s || {};
@@ -859,7 +863,8 @@ function visibleMemos() {
 }
 
 function addMemo() {
-  const memo = { id: uid(), title: '', content: '', tags: [], color: nextMemoColor() };
+  const now = Date.now();
+  const memo = { id: uid(), title: '', content: '', tags: [], color: nextMemoColor(), createdAt: now, updatedAt: now };
   state.memos.push(memo);
   save();
   renderMemos();
@@ -981,7 +986,7 @@ function buildMemoBlock(memo) {
   titleEl.innerHTML = memo.title || '';
   titleEl.addEventListener('input', () => {
     memo.title = titleEl.innerHTML;
-    save();
+    touchMemo(memo);
     updateIndexTitle(memo);
   });
   titleEl.addEventListener('keydown', (e) => {
@@ -1003,7 +1008,7 @@ function buildMemoBlock(memo) {
   body.innerHTML = looksHtml(memo.content) ? memo.content : linkifyHtml(memo.content || '');
   body.addEventListener('input', () => {
     memo.content = body.innerHTML;
-    save();
+    touchMemo(memo);
   });
   body.addEventListener('blur', () => {
     linkifyElement(body);
@@ -2165,26 +2170,26 @@ async function init() {
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
   document.getElementById('btn-add-folder').addEventListener('click', addFolder);
-  // +버튼 주변 빠른 실행 버튼 — 현재는 메모추가만 동작(나머지는 추후 기능 연결)
+  // +버튼 주변 빠른 실행 버튼(투두·메모 뷰 공통) — 현재는 메모추가만 동작(나머지는 추후 기능)
   // hover 후 버튼으로 마우스 이동 시 사라지지 않도록 열림/닫힘을 지연 제어(사이 빈틈 보정)
-  const fabWrap = document.getElementById('fab-wrap');
-  if (fabWrap) {
+  document.querySelectorAll('.fab-wrap').forEach((fabWrap) => {
     let fabCloseTimer = null;
     const openFab = () => { clearTimeout(fabCloseTimer); fabWrap.classList.add('fab-open'); };
     const closeFab = () => { fabCloseTimer = setTimeout(() => fabWrap.classList.remove('fab-open'), 280); };
-    const fabHot = [document.getElementById('btn-add-memo'), ...fabWrap.querySelectorAll('.fab-mini')];
+    const fabHot = [fabWrap.querySelector('.fab'), ...fabWrap.querySelectorAll('.fab-mini')];
     fabHot.forEach((el) => {
+      if (!el) return;
       el.addEventListener('mouseenter', openFab);
       el.addEventListener('mouseleave', closeFab);
     });
     fabWrap.querySelectorAll('.fab-mini').forEach((b) => {
       b.addEventListener('click', () => {
         fabWrap.classList.remove('fab-open');
-        if (b.dataset.act === 'memo') addMemo();
+        if (b.dataset.act === 'memo') { setView('memo'); addMemo(); }
         // sticker / alarm / stopwatch: UI만 — 기능 추후 추가
       });
     });
-  }
+  });
 
   renderTabs();
   applyView();

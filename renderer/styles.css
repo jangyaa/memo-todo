@@ -184,8 +184,8 @@ body {
 .fab-wrap { position: absolute; right: 16px; bottom: 16px; z-index: 30; width: 44px; height: 44px; }
 .fab {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  right: 16px;
+  bottom: 16px;
   z-index: 2;
   border: none;
   background: var(--pink-deep);
@@ -200,6 +200,8 @@ body {
               0 4px 10px color-mix(in srgb, var(--pink-deep) 24%, transparent);
   transition: transform 0.1s;
 }
+/* fab-wrap 안에 있을 땐 래퍼(우측하단 16px)에 맞춰 코너 배치 */
+.fab-wrap .fab { right: 0; bottom: 0; }
 .fab:hover { transform: scale(1.08); }
 .fab:active { transform: scale(0.96); }
 
@@ -686,6 +688,14 @@ body {
 /* 글머리(리스트) */
 .note-body ul, .note-body ol { margin: 4px 0; padding-left: 22px; }
 .note-body li { margin: 1px 0; color: var(--ink); } /* 중첩해도 글자색 옅어지지 않게 */
+/* '-'/'* ' 글머리는 대시(–) 마커로 표시 */
+.note-body ul:not(.md-check) { list-style-type: '–  '; }
+/* 숫자 글머리 중첩(두번 입력) → 괄호 숫자 (1) */
+.note-body ol ol { list-style: none; counter-reset: pcount; }
+.note-body ol ol > li { counter-increment: pcount; position: relative; }
+.note-body ol ol > li::before {
+  content: "(" counter(pcount) ")"; position: absolute; left: -21px; color: var(--ink);
+}
 .note-body ul.md-check { list-style: none; padding-left: 4px; }
 .note-body ul.md-check > li { position: relative; padding-left: 22px; }
 .note-body ul.md-check > li::before {
@@ -1069,12 +1079,13 @@ body {
 /* ── 커스텀 글꼴 드롭다운 ── */
 .ft-fontdd, .bt-font { display: inline-flex; }
 .fontdd-btn {
-  display: inline-flex; align-items: center; gap: 6px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 6px;
+  height: 28px; min-width: 96px;
   border: 1px solid var(--line); border-radius: 8px; background: #fff;
-  font-size: 12px; padding: 0 8px; cursor: pointer; color: var(--ink);
+  font-size: 12px; padding: 0 9px; cursor: pointer; color: var(--ink);
 }
 .fontdd-lbl { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fontdd-car { font-size: 12px; color: var(--ink-soft); }
+.fontdd-car { font-size: 15px; line-height: 1; color: var(--ink-soft); }
 .fontdd-list {
   display: none; position: fixed; z-index: 340; background: #fff;
   border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);

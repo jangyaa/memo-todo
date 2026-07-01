@@ -443,7 +443,8 @@ function buildFontDropdown(mountEl, opts) {
   function open() {
     if (opts.restore) opts.restore();
     const r = btn.getBoundingClientRect();
-    list.style.minWidth = r.width + 'px';
+    // 버튼과 확장 리스트의 가로폭을 동일하게 맞춤
+    list.style.width = r.width + 'px';
     list.classList.add('open');
     const lr = list.getBoundingClientRect();
     let top = r.bottom + 4;
@@ -635,6 +636,24 @@ function setupFormatToolbar(config) {
     persist();
     setTimeout(showForSelection, 0);
   }
+  // 선택 범위가 구분선(hr) 하나면 그 hr 요소 반환
+  function selectedHr() {
+    if (!savedRange) return null;
+    const sc = savedRange.startContainer;
+    if (sc && sc.nodeType === 1 && (savedRange.endOffset - savedRange.startOffset === 1)) {
+      const node = sc.childNodes[savedRange.startOffset];
+      if (node && node.tagName === 'HR') return node;
+    }
+    const anc = savedRange.commonAncestorContainer;
+    if (anc && anc.tagName === 'HR') return anc;
+    return null;
+  }
+  // 글자색 적용 — 구분선이 선택돼 있으면 구분선 색을 바꾼다
+  function applyFontColor(hex) {
+    const hr = selectedHr();
+    if (hr) { hr.style.borderTopColor = hex; hr.style.color = hex; if (savedBody) persist(); setTimeout(showForSelection, 0); return; }
+    run('foreColor', hex);
+  }
 
   const imageFile = document.getElementById('ft-image-file');
   bar.querySelectorAll('button[data-cmd]').forEach((btn) => {
@@ -666,13 +685,14 @@ function setupFormatToolbar(config) {
   });
 
   const divPop = document.getElementById('ft-divpop');
+  // 기본 구분선 색은 현재 폰트 색(currentColor)을 따름 → 이후 색 스와치로 개별 변경 가능
   const DIV_HTML = {
-    solid: '<hr style="border:none;border-top:1px solid #c4b3bc;margin:8px 0">',
-    dashed: '<hr style="border:none;border-top:1px dashed #b9a8b0;margin:8px 0">',
-    dotted: '<hr style="border:none;border-top:2px dotted #b9a8b0;margin:8px 0">',
-    thick: '<hr style="border:none;border-top:3px solid #c4b3bc;margin:8px 0">',
-    double: '<hr style="border:none;border-top:3px double #b9a8b0;margin:8px 0">',
-    short: '<hr style="border:none;border-top:2px solid #c4b3bc;width:40%;margin:8px auto">'
+    solid: '<hr style="border:none;border-top:1px solid currentColor;margin:8px 0">',
+    dashed: '<hr style="border:none;border-top:1px dashed currentColor;margin:8px 0">',
+    dotted: '<hr style="border:none;border-top:2px dotted currentColor;margin:8px 0">',
+    thick: '<hr style="border:none;border-top:3px solid currentColor;margin:8px 0">',
+    double: '<hr style="border:none;border-top:3px double currentColor;margin:8px 0">',
+    short: '<hr style="border:none;border-top:2px solid currentColor;width:40%;margin:8px auto">'
   };
   function toggleDivPop(btn) {
     if (divPop.classList.contains('open')) { divPop.classList.remove('open'); return; }
@@ -705,7 +725,7 @@ function setupFormatToolbar(config) {
   buildPresetSwatches(colors, {
     get: getFontColors,
     save: (l) => persistPresetKey('fontColors', l),
-    onApply: (hex) => run('foreColor', hex)
+    onApply: (hex) => applyFontColor(hex)
   });
 
   // 형광펜 색상 프리셋 팝오버(+ 추가)
@@ -735,6 +755,12 @@ function setupFormatToolbar(config) {
   }
   hlPop.addEventListener('mousedown', (e) => {
     if (!e.target.closest('.swz-color') && !e.target.closest('.swz-add') && !e.target.closest('.swz-del')) e.preventDefault();
+  });
+  // 형광 팝오버가 열린 상태에서 서식창의 다른 버튼(또는 바깥)을 누르면 닫힘
+  document.addEventListener('mousedown', (e) => {
+    if (hlPop.contains(e.target) || (_wheelPop && _wheelPop.contains(e.target)) ||
+        (e.target.closest && e.target.closest('button[data-cmd="hilite"]'))) return;
+    hlPop.classList.remove('open');
   });
 
   // 커스텀 글꼴 드롭다운
@@ -837,7 +863,7 @@ function setupBlogToolbar(menuEl, editableEl, persistCb, insertBarEl) {
   function run(cmd, val) {
     restore();
     try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
-    if (cmd === 'hr') document.execCommand('insertHorizontalRule');
+    if (cmd === 'hr') document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid currentColor;margin:8px 0">');
     else if (cmd === 'quote') {
       const s = window.getSelection(); let n = s.anchorNode; n = n && (n.nodeType === 1 ? n : n.parentElement);
       document.execCommand('formatBlock', false, (n && n.closest && n.closest('blockquote')) ? 'div' : 'blockquote');

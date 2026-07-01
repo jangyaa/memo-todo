@@ -6,8 +6,22 @@ const $ = (id) => document.getElementById(id);
 const titleEl = $('ed-title');
 const bodyEl = $('ed-body');
 const tagsEl = $('ed-tags');
+const timesEl = $('ed-times');
 const card = $('ed-card');
 let memo = null;
+
+// 하단바 시간 표시(생성 / 최근 편집)
+function fmtTime(ts) {
+  const d = new Date(ts || Date.now());
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function renderTimes() {
+  if (!memo || !timesEl) return;
+  const c = memo.createdAt || Date.now();
+  const u = memo.updatedAt || c;
+  timesEl.innerHTML = `생성 ${fmtTime(c)}<br>편집 ${fmtTime(u)}`;
+}
 
 const BLOCK_COLORS = ['var(--c0)', 'var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)'];
 const sortTags = (tags) => [...tags].sort((a, b) => a.localeCompare(b, 'ko'));
@@ -88,6 +102,7 @@ async function load() {
   titleEl.innerHTML = memo.title || '';
   bodyEl.innerHTML = memo.content || '';
   renderTags();
+  renderTimes();
 }
 
 // 카드 하단 빈 곳 클릭 → 태그 입력 활성화 (본문/제목/입력/칩 제외)
@@ -120,6 +135,10 @@ function save() {
     m.title = title;
     m.content = content;
     m.tags = memo.tags || [];
+    m.updatedAt = Date.now();
+    if (!m.createdAt) m.createdAt = m.updatedAt;
+    memo.updatedAt = m.updatedAt; memo.createdAt = m.createdAt;
+    renderTimes();
     await window.api.saveData(latest);
   }, 300);
 }
@@ -144,7 +163,7 @@ setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭�
 /* 편집창(블로그식 상단 전체 서식 메뉴) — 편집 시작 시 슬라이드, 바깥 클릭 시 닫힘 */
 (function setupEditMenu() {
   const menu = $('ed-menu');
-  setupBlogToolbar(menu, bodyEl, () => save(), $('ed-bottombar'));
+  setupBlogToolbar(menu, bodyEl, () => save(), $('ed-inserts'));
   document.addEventListener('focusin', (e) => {
     if (e.target.closest && e.target.closest('#ed-body, #ed-title')) menu.classList.add('open');
   });
@@ -173,6 +192,7 @@ window.api.onDataChanged((d) => {
     titleEl.innerHTML = m.title || '';
     bodyEl.innerHTML = m.content || '';
     renderTags();
+    renderTimes();
     const t = plainTitle(m.title) || '메모';
     $('ed-titletext').textContent = t;
   }

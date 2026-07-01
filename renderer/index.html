@@ -24,7 +24,13 @@
     <!-- ===================== 할 일(투두) 뷰 ===================== -->
     <section class="view view-todo" id="view-todo">
       <div class="todo-board" id="todo-board"></div>
-      <button class="fab" id="btn-add-todo" title="할 일 추가">＋</button>
+      <div class="fab-wrap" id="fab-wrap-todo">
+        <button class="fab-mini" data-act="stopwatch" style="--dy:-196px">스톱워치</button>
+        <button class="fab-mini" data-act="alarm" style="--dy:-148px">알람 추가</button>
+        <button class="fab-mini" data-act="memo" style="--dy:-100px">메모 추가</button>
+        <button class="fab-mini" data-act="sticker" style="--dy:-52px">스티커 편집</button>
+        <button class="fab" id="btn-add-todo" title="할 일 추가">＋</button>
+      </div>
     </section>
 
     <!-- ===================== 메모 뷰 ===================== -->
@@ -56,8 +62,8 @@
       <div class="fab-wrap" id="fab-wrap">
         <button class="fab-mini" data-act="stopwatch" style="--dy:-196px">스톱워치</button>
         <button class="fab-mini" data-act="alarm" style="--dy:-148px">알람 추가</button>
-        <button class="fab-mini" data-act="sticker" style="--dy:-100px">스티커 편집</button>
-        <button class="fab-mini" data-act="memo" style="--dy:-52px">메모 추가</button>
+        <button class="fab-mini" data-act="memo" style="--dy:-100px">메모 추가</button>
+        <button class="fab-mini" data-act="sticker" style="--dy:-52px">스티커 편집</button>
         <button class="fab" id="btn-add-memo" title="메모 추가">＋</button>
       </div>
     </section>
