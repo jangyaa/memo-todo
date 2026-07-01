@@ -789,16 +789,17 @@ function setupFormatToolbar(config) {
   return hide;
 }
 
-/* 편집영역에 삽입할 이미지(피규어) HTML — 정렬/캡션 지원 */
+/* 편집영역에 삽입할 이미지(피규어) HTML — 인라인블록(같은 줄 여러 장 가능) + 정렬/캡션 지원 */
 function imageFigureHTML(src) {
-  return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
+  return '<figure class="note-img" contenteditable="false">' +
     '<img src="' + src + '" style="max-width:100%">' +
     '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
-    '</figure><p><br></p>';
+    '</figure>';
 }
 
 /* ----- 이미지 컨트롤 -----
- * contenteditable 안의 <img>를 클릭하면 정렬 툴바(좌/가운데/우) + 삭제 X 배지 + 우하단 리사이즈 핸들이 뜬다. */
+ * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들.
+ * 같은 줄(연속 figure)의 이미지는 높이를 맞추고, 리사이즈 시 함께 조정되며 블럭을 넘지 않는다. */
 function setupImageControls(persistCb) {
   const AL = {
     left: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg>',
@@ -824,8 +825,37 @@ function setupImageControls(persistCb) {
   handle.style.display = 'none';
   document.body.appendChild(handle);
 
-  let target = null, dragging = false, startX = 0, startW = 0;
-  const figOf = (img) => (img && img.closest && img.closest('figure')) || img;
+  let target = null, dragging = false, startX = 0, startW = 0, startH = 0, dragGroup = [];
+  const MAX_H = 360; // 단독 이미지 기본 높이 상한(블럭 세로 넘침 방지)
+  const figOf = (img) => (img && img.closest && img.closest('figure.note-img')) || img;
+
+  // 같은 줄(연속된 figure.note-img)의 figure들
+  function lineFigs(fig) {
+    const figs = [];
+    const isFig = (n) => n && n.nodeType === 1 && n.classList && n.classList.contains('note-img');
+    const isBreak = (n) => n && ((n.nodeType === 1 && (n.tagName === 'BR' || n.tagName === 'DIV' || n.tagName === 'P')) ||
+      (n.nodeType === 3 && n.textContent.replace(/\s/g, '') !== ''));
+    let n = fig;
+    while (n) { if (isFig(n)) figs.unshift(n); else if (isBreak(n)) break; n = n.previousSibling; }
+    n = fig.nextSibling;
+    while (n) { if (isFig(n)) figs.push(n); else if (isBreak(n)) break; n = n.nextSibling; }
+    return figs.length ? figs : [fig];
+  }
+  const lineImgs = (fig) => lineFigs(fig).map((f) => f.querySelector && f.querySelector('img')).filter(Boolean);
+  function blockWidth(img) {
+    const ed = img.closest('[contenteditable]');
+    return (ed ? ed.clientWidth : 600) - 12;
+  }
+  // 한 줄 이미지 폭 합이 블럭을 넘으면 높이를 줄여 맞춤(블럭 넘어가지 않게)
+  function clampGroup(imgs) {
+    if (!imgs.length) return;
+    const maxW = blockWidth(imgs[0]);
+    let sum = 0; imgs.forEach((im) => { sum += im.getBoundingClientRect().width; });
+    if (sum > maxW && sum > 0) {
+      const f = maxW / sum;
+      imgs.forEach((im) => { const h = im.getBoundingClientRect().height * f; im.style.height = Math.round(h) + 'px'; im.style.width = 'auto'; });
+    }
+  }
 
   function place() {
     if (!target) { bar.style.display = 'none'; del.style.display = 'none'; handle.style.display = 'none'; return; }
@@ -842,28 +872,45 @@ function setupImageControls(persistCb) {
   }
   function hide() { target = null; place(); }
 
+  // 삽입 직후 이미지 로드 시: 기존 줄 이미지 높이에 맞춤 + 블럭 넘침 방지(load는 버블 안 됨 → capture)
+  document.addEventListener('load', (e) => {
+    const img = e.target;
+    if (!img || img.tagName !== 'IMG' || !(img.closest && img.closest('[contenteditable]'))) return;
+    if (img.style.height) return; // 이미 크기 지정(저장)된 이미지는 그대로
+    const fig = figOf(img);
+    const imgs = lineImgs(fig);
+    const others = imgs.filter((x) => x !== img && x.getBoundingClientRect().height > 0);
+    if (others.length) {
+      const h = others[0].getBoundingClientRect().height; // 기존 이미지 세로에 맞춤
+      if (h > 0) { img.style.height = Math.round(h) + 'px'; img.style.width = 'auto'; }
+    } else if (img.getBoundingClientRect().height > MAX_H) {
+      img.style.height = MAX_H + 'px'; img.style.width = 'auto'; // 세로로 긴 이미지 제한
+    }
+    clampGroup(lineImgs(fig));
+    if (persistCb) persistCb();
+  }, true);
+
   document.addEventListener('click', (e) => {
     if (e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
     if (img && img.closest('[contenteditable]')) { target = img; place(); return; }
-    // 캡션 편집 중에는 컨트롤 유지, 그 외 영역 클릭 시 숨김
     if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
   });
 
-  // 정렬(좌/가운데/우)
+  // 정렬(좌/가운데/우) — 같은 줄 이미지를 정렬 래퍼(.img-line)로 묶어 text-align 지정(캡션도 따라감)
   bar.querySelectorAll('button[data-al]').forEach((b) => {
     b.addEventListener('mousedown', (e) => {
       e.preventDefault();
       if (!target) return;
-      const fig = figOf(target);
-      const al = b.dataset.al;
-      if (fig.tagName === 'FIGURE') {
-        fig.style.textAlign = al;
-      } else {
-        fig.style.display = 'block';
-        fig.style.marginLeft = al === 'left' ? '0' : 'auto';
-        fig.style.marginRight = al === 'right' ? '0' : 'auto';
+      const figs = lineFigs(figOf(target));
+      let wrap = figs[0].parentNode;
+      if (!(wrap && wrap.classList && wrap.classList.contains('img-line'))) {
+        wrap = document.createElement('div');
+        wrap.className = 'img-line';
+        figs[0].parentNode.insertBefore(wrap, figs[0]);
+        figs.forEach((f) => wrap.appendChild(f));
       }
+      wrap.style.textAlign = b.dataset.al;
       if (persistCb) persistCb();
       place();
     });
@@ -872,24 +919,31 @@ function setupImageControls(persistCb) {
   del.addEventListener('mousedown', (e) => {
     e.preventDefault();
     if (!target) return;
-    figOf(target).remove();
+    const fig = figOf(target);
+    const wrap = fig.parentNode;
+    fig.remove();
+    if (wrap && wrap.classList && wrap.classList.contains('img-line') && !wrap.querySelector('figure')) wrap.remove();
     hide();
     if (persistCb) persistCb();
   });
-  // 리사이즈
+  // 리사이즈 — 같은 줄 이미지 높이를 함께 조정, 블럭 넘지 않게 클램프
   handle.addEventListener('pointerdown', (e) => {
     if (!target) return;
     e.preventDefault();
     dragging = true;
     startX = e.clientX;
-    startW = target.getBoundingClientRect().width;
+    const r = target.getBoundingClientRect();
+    startW = r.width; startH = r.height;
+    dragGroup = lineImgs(figOf(target));
     try { handle.setPointerCapture(e.pointerId); } catch (_) {}
   });
   document.addEventListener('pointermove', (e) => {
     if (!dragging || !target) return;
-    const w = Math.max(40, Math.round(startW + (e.clientX - startX)));
-    target.style.width = w + 'px';
-    target.style.height = 'auto';
+    const newW = Math.max(40, startW + (e.clientX - startX));
+    const ratio = startW ? newW / startW : 1;
+    const newH = Math.max(30, Math.round(startH * ratio));
+    (dragGroup.length ? dragGroup : [target]).forEach((im) => { im.style.height = newH + 'px'; im.style.width = 'auto'; });
+    clampGroup(dragGroup.length ? dragGroup : [target]);
     place();
   });
   document.addEventListener('pointerup', () => {

@@ -10,17 +10,15 @@ const timesEl = $('ed-times');
 const card = $('ed-card');
 let memo = null;
 
-// 하단바 시간 표시 — 한 줄 "YY.MM.DD - 'YY.MM.DD" (생성 - 편집)
-function fmtYMD(ts) {
+// 하단바 시간 표시 — 최신 수정 시각만 "YY.MM.DD  HH:MM"
+function fmtEdited(ts) {
   const d = new Date(ts || Date.now());
   const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getFullYear() % 100)}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+  return `${p(d.getFullYear() % 100)}.${p(d.getMonth() + 1)}.${p(d.getDate())}  ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 function renderTimes() {
   if (!memo || !timesEl) return;
-  const c = memo.createdAt || Date.now();
-  const u = memo.updatedAt || c;
-  timesEl.textContent = `${fmtYMD(c)} - '${fmtYMD(u)}`;
+  timesEl.textContent = fmtEdited(memo.updatedAt || memo.createdAt);
 }
 
 const BLOCK_COLORS = ['var(--c0)', 'var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)'];

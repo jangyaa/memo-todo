@@ -301,13 +301,17 @@ body {
   font-size: 10px; line-height: 1; cursor: pointer; align-items: center; justify-content: center;
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
-/* 삽입 이미지(피규어) + 캡션 */
-figure.note-img { margin: 8px 0; }
-figure.note-img img { display: inline-block; vertical-align: top; }
+/* 삽입 이미지(피규어) + 캡션 — 인라인블록(같은 줄 여러 장 가능) */
+figure.note-img {
+  display: inline-block; vertical-align: top; margin: 8px 6px 8px 0; max-width: 100%;
+}
+figure.note-img img { display: block; max-width: 100%; height: auto; }
 figcaption.note-cap {
   font-size: 12px; color: var(--ink-soft); margin-top: 5px; outline: none; min-height: 1.1em;
+  text-align: inherit; /* 캡션 정렬 = 이미지(줄) 정렬 */
 }
 figcaption.note-cap:empty::before { content: attr(data-ph); color: var(--ink-soft); opacity: 0.55; }
+.img-line { display: block; } /* 정렬 래퍼 — text-align은 인라인으로 지정 */
 .dday-item:hover .item-del { opacity: 0.7; }
 
 /* 투두 블럭(반투명 흰색) */
@@ -713,8 +717,9 @@ figcaption.note-cap:empty::before { content: attr(data-ph); color: var(--ink-sof
 /* 글머리(리스트) */
 .note-body ul, .note-body ol { margin: 4px 0; padding-left: 22px; }
 .note-body li { margin: 1px 0; color: var(--ink); } /* 중첩해도 글자색 옅어지지 않게 */
-/* '-'/'* ' 글머리는 대시(–) 마커로 표시 */
+/* '-'/'* ' 글머리는 대시(–) 마커, 두번 입력(중첩)하면 점(•) 마커 */
 .note-body ul:not(.md-check) { list-style-type: '–  '; }
+.note-body ul:not(.md-check) ul:not(.md-check) { list-style-type: '•  '; }
 /* 숫자 글머리 중첩(두번 입력) → 괄호 숫자 (1) */
 .note-body ol ol { list-style: none; counter-reset: pcount; }
 .note-body ol ol > li { counter-increment: pcount; position: relative; }
