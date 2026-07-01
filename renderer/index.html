@@ -52,7 +52,14 @@
           <div class="memo-page" id="memo-page"></div>
         </div>
       </div>
-      <button class="fab" id="btn-add-memo" title="메모 추가">＋</button>
+      <!-- +버튼 hover 시 주변으로 퍼지는 빠른 실행 메뉴 (기능은 추후, 지금은 UI만) -->
+      <div class="fab-wrap" id="fab-wrap">
+        <button class="fab-mini" data-act="memo" style="--dx:0px;--dy:-70px" title="메모 추가"><span class="fab-ic">📝</span><span class="fab-tip">메모 추가</span></button>
+        <button class="fab-mini" data-act="sticker" style="--dx:-41px;--dy:-57px" title="스티커 편집"><span class="fab-ic">🎨</span><span class="fab-tip">스티커 편집</span></button>
+        <button class="fab-mini" data-act="alarm" style="--dx:-66px;--dy:-22px" title="알람 추가"><span class="fab-ic">⏰</span><span class="fab-tip">알람 추가</span></button>
+        <button class="fab-mini" data-act="stopwatch" style="--dx:-70px;--dy:0px" title="스톱워치"><span class="fab-ic">⏱️</span><span class="fab-tip">스톱워치</span></button>
+        <button class="fab" id="btn-add-memo" title="메모 추가">＋</button>
+      </div>
     </section>
   </div>
 
@@ -147,12 +154,6 @@
   <!-- 색상 선택 팝오버 (블록 색) -->
   <div class="color-pop" id="color-pop"></div>
 
-  <!-- 글자 색 선택 팝오버 (서식) -->
-  <div class="ft-colorpop" id="ft-colorpop">
-    <div class="ftc-grid" id="ftc-grid"></div>
-    <input type="text" id="ftc-hex" placeholder="#hex 코드" maxlength="7" />
-  </div>
-
   <!-- 구분선 스타일 팝오버 -->
   <div class="ft-divpop" id="ft-divpop">
     <button class="ftd" data-divstyle="solid"><span style="border-top:1px solid currentColor"></span></button>
@@ -178,7 +179,6 @@
     <div class="ft-line ft-line-color">
       <span class="ft-tag">색</span>
       <span class="ft-colors" id="ft-colors"></span>
-      <button class="ft-addcolor" id="ft-addcolor" title="색 추가">+</button>
     </div>
     <div class="ft-line">
       <span class="ft-tag">크기</span>
@@ -188,7 +188,7 @@
     </div>
     <div class="ft-line">
       <span class="ft-tag">글꼴</span>
-      <select id="ft-font"></select>
+      <span id="ft-font" class="ft-fontdd"></span>
     </div>
     <div class="ft-line ft-align">
       <button data-cmd="justifyLeft" title="왼쪽"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg></button>

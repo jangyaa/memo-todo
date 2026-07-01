@@ -24,6 +24,11 @@ contextBridge.exposeInMainWorld('api', {
   // 메모 별도 편집 창 열기
   openMemoEditor: (id) => ipcRenderer.invoke('memo:openEditor', id),
 
+  // 테마색 실시간 미리보기(다른 창에 즉시 반영). color=null 이면 저장된 테마로 복귀
+  sendThemePreview: (color) => ipcRenderer.invoke('theme:preview', color),
+  onThemePreview: (callback) =>
+    ipcRenderer.on('theme:preview', (_e, color) => callback(color)),
+
   // 클라우드 동기화
   sync: {
     status: () => ipcRenderer.invoke('sync:status'),

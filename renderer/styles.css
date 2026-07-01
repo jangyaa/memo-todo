@@ -181,11 +181,12 @@ body {
 .view.active { display: flex; flex-direction: column; position: relative; }
 
 /* 우측 하단 떠 있는 추가(+) 버튼 */
+.fab-wrap { position: absolute; right: 16px; bottom: 16px; z-index: 30; width: 44px; height: 44px; }
 .fab {
   position: absolute;
-  right: 16px;
-  bottom: 16px;
-  z-index: 30;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   border: none;
   background: var(--pink-deep);
   color: #fff;
@@ -201,6 +202,27 @@ body {
 }
 .fab:hover { transform: scale(1.08); }
 .fab:active { transform: scale(0.96); }
+
+/* +버튼 hover 시 주변으로 퍼지는 빠른 실행 미니 버튼 */
+.fab-mini {
+  position: absolute; right: 3px; bottom: 3px; width: 38px; height: 38px; border-radius: 50%;
+  border: none; background: #fff; cursor: pointer; z-index: 1;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 17px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.16);
+  opacity: 0; transform: translate(0, 0) scale(0.4); pointer-events: none;
+  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.18s;
+}
+.fab-wrap:hover .fab-mini {
+  opacity: 1; pointer-events: auto;
+  transform: translate(var(--dx), var(--dy)) scale(1);
+}
+.fab-mini:hover { background: var(--pink-soft); }
+.fab-mini .fab-tip {
+  position: absolute; right: 46px; top: 50%; transform: translateY(-50%);
+  background: rgba(40,32,38,0.9); color: #fff; font-size: 11px; white-space: nowrap;
+  padding: 3px 8px; border-radius: 7px; opacity: 0; transition: opacity 0.15s; pointer-events: none;
+}
+.fab-mini:hover .fab-tip { opacity: 1; }
 
 /* ======================= 투두 뷰 ======================= */
 .todo-board {
@@ -1017,19 +1039,80 @@ body {
 .format-toolbar .hl-line { fill: #ffcf3f; }
 .ft-arrow { color: var(--ink-soft); }
 #ft-size-val { font-size: 13px; min-width: 42px; text-align: center; }
-.ft-line-color { flex-wrap: nowrap; } /* 색 줄: + 버튼이 다음 줄로 넘어가지 않게 */
-.ft-colors { display: inline-flex; gap: 4px; flex-shrink: 0; }
-.ft-color {
+.ft-line-color { flex-wrap: wrap; }
+.ft-colors { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.ft-align { gap: 2px; }
+.ft-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+
+/* ── 편집 가능한 색상 프리셋 스와치 (글자색/형광 공용) ── */
+.swz { position: relative; display: inline-flex; line-height: 0; }
+.swz-color {
   width: 18px; height: 18px; min-width: 18px; border-radius: 50%;
   border: 1px solid var(--line); cursor: pointer; padding: 0;
 }
-.ft-addcolor {
-  width: 20px; height: 20px; min-width: 20px; border: 1.5px solid var(--ink-soft) !important;
-  border-radius: 50%; color: var(--ink-soft); margin-left: 2px; font-size: 12px;
+.swz-del {
+  display: none; position: absolute; top: -5px; right: -5px;
+  width: 13px; height: 13px; border-radius: 50%; background: #e0576f; color: #fff;
+  font-size: 11px; line-height: 12px; text-align: center; cursor: pointer; z-index: 2;
 }
-#ft-font { border: 1px solid var(--line); border-radius: 8px; font-size: 12px; padding: 3px 6px; }
-.ft-align { gap: 2px; }
-.ft-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+.swz.show-del .swz-del { display: block; }
+.swz-add {
+  width: 19px; height: 19px; min-width: 19px; border: 1.5px dashed var(--ink-soft);
+  background: transparent; border-radius: 50%; color: var(--ink-soft);
+  font-size: 13px; cursor: pointer; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; line-height: 0;
+}
+.swz-add:hover { border-style: solid; color: var(--pink-deep); border-color: var(--pink-deep); }
+
+/* ── 형광펜 색상 팝오버 ── */
+.ft-hlpop {
+  display: none; position: fixed; z-index: 330; background: #fff;
+  border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 10px;
+}
+.ft-hlpop.open { display: block; }
+.hl-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: 168px; }
+
+/* ── 커스텀 글꼴 드롭다운 ── */
+.ft-fontdd, .bt-font { display: inline-flex; }
+.fontdd-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  font-size: 12px; padding: 0 8px; cursor: pointer; color: var(--ink);
+}
+.fontdd-lbl { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fontdd-car { font-size: 9px; color: var(--ink-soft); }
+.fontdd-list {
+  display: none; position: fixed; z-index: 340; background: #fff;
+  border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+  padding: 5px; max-height: 260px; overflow-y: auto;
+}
+.fontdd-list.open { display: block; }
+.fontdd-item {
+  display: block; width: 100%; text-align: left; border: none; background: transparent;
+  border-radius: 7px; padding: 7px 10px; font-size: 14px; cursor: pointer; color: var(--ink);
+}
+.fontdd-item:hover { background: var(--pink-soft); color: var(--pink-deep); }
+
+/* ── 컬러 휠 팝오버 (직접 선택 + hex, RGB/스포이드 없음) ── */
+.wheel-pop {
+  display: none; position: fixed; z-index: 360; background: #fff;
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 12px;
+  width: 200px;
+}
+.wheel-pop.open { display: block; }
+.wheel-canvas { display: block; margin: 0 auto 8px; cursor: crosshair; touch-action: none; }
+.wheel-val { width: 100%; margin: 0 0 10px; accent-color: var(--pink-deep); }
+.wheel-foot { display: flex; align-items: center; gap: 6px; }
+.wheel-prev { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); flex-shrink: 0; }
+.wheel-hex {
+  flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 7px;
+  padding: 5px 7px; font-size: 12px; outline: none;
+}
+.wheel-hex:focus { border-color: var(--pink); }
+.wheel-ok {
+  border: none; background: var(--pink-deep); color: #fff; border-radius: 7px;
+  padding: 6px 10px; font-size: 12px; cursor: pointer; flex-shrink: 0;
+}
 
 /* 색상 선택 팝오버 (블록 색) */
 .color-pop {
@@ -1043,24 +1126,6 @@ body {
   padding: 8px;
 }
 .color-pop.open { display: block; }
-
-/* 글자 색 팝오버 (서식) */
-.ft-colorpop {
-  display: none;
-  position: fixed;
-  z-index: 320;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  padding: 10px;
-  width: 172px;
-}
-.ft-colorpop.open { display: block; }
-.ftc-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 8px; }
-.ftc-sw { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); cursor: pointer; padding: 0; }
-#ftc-hex { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font-size: 11px; outline: none; }
-#ftc-hex:focus { border-color: var(--pink); }
 
 /* 구분선 스타일 팝오버 */
 .ft-divpop {

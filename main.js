@@ -178,6 +178,12 @@ ipcMain.handle('data:save', (event, data) => {
   return true;
 });
 
+// 테마색 실시간 미리보기 — 저장 없이 다른 창에만 즉시 전달
+ipcMain.handle('theme:preview', (event, color) => {
+  broadcast('theme:preview', color, event.sender.id);
+  return true;
+});
+
 ipcMain.handle('window:control', (event, action) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return;

@@ -61,9 +61,12 @@ function renderTags() {
   tagsEl.appendChild(tagAdd);
 }
 
+let edSettings = {};
 async function load() {
   const data = await window.api.loadData();
-  applyThemeSettings((data && data.settings) || {});
+  edSettings = (data && data.settings) || {};
+  applyThemeSettings(edSettings);
+  setSharedSettings(edSettings); // 서식 프리셋(글자색/형광) 공유
   memo = (data && data.memos || []).find((m) => m.id === memoId);
   if (!memo) {
     card.innerHTML = '<p style="color:var(--ink-soft)">메모를 찾을 수 없습니다.</p>';
@@ -140,7 +143,8 @@ setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭�
   document.addEventListener('mousedown', (e) => {
     if (menu.contains(e.target)) return;
     if (e.target.closest && (e.target.closest('#ed-body, #ed-title') ||
-        e.target.closest('#format-toolbar') || e.target.closest('.ft-colorpop') ||
+        e.target.closest('#format-toolbar') || e.target.closest('.ft-hlpop') ||
+        e.target.closest('.wheel-pop') || e.target.closest('.fontdd-list') ||
         e.target.closest('.ft-divpop'))) return;
     menu.classList.remove('open');
   });
@@ -148,8 +152,12 @@ setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭�
 
 window.api.onDataChanged((d) => {
   if (!d) return;
+  // 테마/서식 프리셋은 편집 중이어도 실시간 반영(본창 테마 변경 즉시 적용)
+  edSettings = d.settings || {};
+  applyThemeSettings(edSettings);
+  setSharedSettings(edSettings);
   const a = document.activeElement;
-  if (a && (a.isContentEditable || a.tagName === 'INPUT')) return;
+  if (a && (a.isContentEditable || a === bodyEl || a === titleEl || a.tagName === 'INPUT')) return; // 편집 중엔 본문 갱신만 보류
   const m = (d.memos || []).find((x) => x.id === memoId);
   if (m) {
     memo = m;
@@ -160,6 +168,12 @@ window.api.onDataChanged((d) => {
     const t = plainTitle(m.title) || '메모';
     $('ed-titletext').textContent = t;
   }
+});
+
+// 본창에서 테마색을 드래그로 조정하는 동안 실시간 미리보기(저장 전), null 이면 원복
+window.api.onThemePreview((color) => {
+  if (color) applyCustomTheme(color, (edSettings.custom && edSettings.custom.bgImage) || null);
+  else applyThemeSettings(edSettings);
 });
 
 load();

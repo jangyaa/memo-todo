@@ -1833,6 +1833,7 @@ function setupGlobalKeys() {
 function applySettings() {
   const s = state.settings || {};
   applyThemeSettings(s); // 커스텀 테마 적용(없으면 기본)
+  setSharedSettings(s);  // 서식 프리셋(글자색/형광) 창 간 공유 갱신
 
   const img = s.profileImage;
   [document.getElementById('btn-profile'), document.getElementById('pm-avatar')]
@@ -1972,6 +1973,7 @@ function setupColorPicker() {
     rafId = requestAnimationFrame(() => {
       rafId = 0;
       applyCustomTheme(curHex(), cpBgImage);
+      if (window.api.sendThemePreview) window.api.sendThemePreview(curHex()); // 상세창 실시간 미리보기
     });
   }
   function openWith(hex) {
@@ -2017,7 +2019,11 @@ function setupColorPicker() {
     ov.classList.remove('open');
     document.getElementById('theme-overlay').classList.remove('open');
   };
-  const cancel = () => { ov.classList.remove('open'); applySettings(); };
+  const cancel = () => {
+    ov.classList.remove('open');
+    applySettings();
+    if (window.api.sendThemePreview) window.api.sendThemePreview(null); // 상세창 미리보기 원복
+  };
   document.getElementById('cp-apply').addEventListener('click', commit);
   document.getElementById('cp-close').addEventListener('click', cancel);
   ov.addEventListener('click', (e) => { if (e.target === ov) cancel(); });
@@ -2153,6 +2159,13 @@ async function init() {
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
   document.getElementById('btn-add-folder').addEventListener('click', addFolder);
+  // +버튼 주변 빠른 실행 미니 버튼 — 현재는 메모추가만 동작(나머지는 추후 기능 연결)
+  document.querySelectorAll('.fab-mini').forEach((b) => {
+    b.addEventListener('click', () => {
+      if (b.dataset.act === 'memo') addMemo();
+      // sticker / alarm / stopwatch: UI만 — 기능 추후 추가
+    });
+  });
 
   renderTabs();
   applyView();

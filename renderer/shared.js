@@ -148,12 +148,20 @@ function handleMarkdownKey(e, body, persistCb) {
     }
     if (check && sub.tagName === 'UL') sub.classList.add('md-check');
     sub.appendChild(li);
-    // 커서를 li 안 텍스트 위치에 두기(빈 li면 텍스트 노드 보장 → 체크박스 뒤에 정상 위치)
-    let tn = li.firstChild;
-    if (!tn || tn.nodeType !== 3) { tn = document.createTextNode(''); li.insertBefore(tn, li.firstChild); }
+    // 커서를 li 콘텐츠 시작(체크박스 ::before 뒤)에 두고, 빈 항목은 <br>로 라인박스 보장
+    // (빈 텍스트노드는 크롬이 정리해버려 입력이 안 되는 문제가 있어 <br>+요소오프셋 사용)
     const s = window.getSelection();
     const rr = document.createRange();
-    rr.setStart(tn, tn.length); rr.collapse(true);
+    if (li.textContent === '') {
+      while (li.firstChild) li.removeChild(li.firstChild);
+      li.appendChild(document.createElement('br'));
+      rr.setStart(li, 0);
+    } else {
+      let tn = li.firstChild;
+      if (tn.nodeType !== 3) { tn = document.createTextNode(''); li.insertBefore(tn, li.firstChild); }
+      rr.setStart(tn, tn.length);
+    }
+    rr.collapse(true);
     s.removeAllRanges(); s.addRange(rr);
     return true;
   };
@@ -262,6 +270,243 @@ const FONTS = [
   { id: "'Courier New',monospace", name: '고정폭' }
 ];
 
+/* =========================================================================
+ * 공용 서식 설정 — 글자색/형광 프리셋(창 간 공유 + 영속, 테마색 비연동)
+ * ========================================================================= */
+const DEFAULT_FONT_COLORS = ['#4a4148', '#9aa0b0', '#e0667f', '#8b6cff', '#3aa39a'];
+const DEFAULT_HILITE_COLORS = ['#ffe9a8', '#ffd0e2', '#c9f0d8', '#cfe4ff', '#efd3ff'];
+let SHARED_SETTINGS = {};
+const _presetListeners = [];
+function onPresetsChanged(fn) { _presetListeners.push(fn); }
+function _firePresets() { _presetListeners.forEach((fn) => { try { fn(); } catch (_) {} }); }
+function setSharedSettings(s) { SHARED_SETTINGS = s || {}; _firePresets(); }
+function getFontColors() {
+  const a = SHARED_SETTINGS.fontColors;
+  return Array.isArray(a) && a.length ? a.slice() : DEFAULT_FONT_COLORS.slice();
+}
+function getHiliteColors() {
+  const a = SHARED_SETTINGS.hiliteColors;
+  return Array.isArray(a) && a.length ? a.slice() : DEFAULT_HILITE_COLORS.slice();
+}
+// 프리셋 변경을 즉시 로컬 반영 + 데이터 파일에 저장(다른 창은 data:changed로 갱신)
+async function persistPresetKey(key, list) {
+  SHARED_SETTINGS[key] = list.slice();
+  _firePresets();
+  try {
+    const data = await window.api.loadData();
+    data.settings = data.settings || {};
+    data.settings[key] = list.slice();
+    await window.api.saveData(data);
+  } catch (_) {}
+}
+
+/* ----- 컬러 휠 팝오버 (직접 색 선택 + hex, RGB/스포이드 없음) ----- */
+let _wheelPop = null;
+function openColorWheel(anchorEl, initHex, onPick) {
+  if (!_wheelPop) {
+    _wheelPop = document.createElement('div');
+    _wheelPop.className = 'wheel-pop';
+    _wheelPop.innerHTML =
+      '<canvas class="wheel-canvas" width="176" height="176"></canvas>' +
+      '<input type="range" class="wheel-val" min="4" max="100" value="100" title="밝기" />' +
+      '<div class="wheel-foot">' +
+      '<span class="wheel-prev"></span>' +
+      '<input type="text" class="wheel-hex" placeholder="#hex 코드" maxlength="7" />' +
+      '<button type="button" class="wheel-ok">추가</button>' +
+      '</div>';
+    document.body.appendChild(_wheelPop);
+    document.addEventListener('mousedown', (e) => {
+      if (_wheelPop._open && !_wheelPop.contains(e.target) && e.target !== _wheelPop._anchor &&
+          !(_wheelPop._anchor && _wheelPop._anchor.contains(e.target))) closeColorWheel();
+    });
+  }
+  const pop = _wheelPop;
+  const canvas = pop.querySelector('.wheel-canvas');
+  const valEl = pop.querySelector('.wheel-val');
+  const prev = pop.querySelector('.wheel-prev');
+  const hexEl = pop.querySelector('.wheel-hex');
+  const okBtn = pop.querySelector('.wheel-ok');
+  let ctx = null; try { ctx = canvas.getContext('2d'); } catch (_) {}
+  const RAD = 88, CX = 88, CY = 88;
+  const iv = rgbToHsv(...(function (o) { return [o.r, o.g, o.b]; })(hexToRgb(initHex || '#e0667f')));
+  let H = iv.h, S = iv.s, V = iv.v;
+
+  function drawWheel() {
+    if (!ctx) return;
+    const img = ctx.createImageData(176, 176);
+    const d = img.data;
+    for (let y = 0; y < 176; y++) {
+      for (let x = 0; x < 176; x++) {
+        const dx = x - CX, dy = y - CY, dist = Math.sqrt(dx * dx + dy * dy);
+        const idx = (y * 176 + x) * 4;
+        if (dist > RAD) { d[idx + 3] = 0; continue; }
+        let ang = Math.atan2(dy, dx) * 180 / Math.PI; if (ang < 0) ang += 360;
+        const rgb = hsvToRgb(ang, Math.min(1, dist / RAD), V);
+        d[idx] = rgb.r; d[idx + 1] = rgb.g; d[idx + 2] = rgb.b; d[idx + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    // 현재 선택 지점 표시
+    const rr = S * RAD, aa = H * Math.PI / 180;
+    const px = CX + rr * Math.cos(aa), py = CY + rr * Math.sin(aa);
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(px, py, 6.5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+  }
+  const curHex = () => hsvToHex(H, S, V);
+  function sync() { prev.style.background = curHex(); hexEl.value = curHex(); drawWheel(); }
+  function pickAt(e) {
+    const r = canvas.getBoundingClientRect();
+    const dx = (e.clientX - r.left) - CX, dy = (e.clientY - r.top) - CY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    let ang = Math.atan2(dy, dx) * 180 / Math.PI; if (ang < 0) ang += 360;
+    H = ang; S = Math.min(1, dist / RAD); sync();
+  }
+  let dragging = false;
+  canvas.onpointerdown = (e) => { dragging = true; try { canvas.setPointerCapture(e.pointerId); } catch (_) {} pickAt(e); };
+  canvas.onpointermove = (e) => { if (dragging) pickAt(e); };
+  canvas.onpointerup = () => { dragging = false; };
+  valEl.oninput = () => { V = Math.max(0.04, valEl.value / 100); sync(); };
+  hexEl.onmousedown = (e) => e.stopPropagation();
+  hexEl.oninput = () => {
+    let v = hexEl.value.trim();
+    if (/^#?[0-9a-fA-F]{6}$/.test(v)) {
+      if (v[0] !== '#') v = '#' + v;
+      const hv = rgbToHsv(...(function (o) { return [o.r, o.g, o.b]; })(hexToRgb(v)));
+      H = hv.h; S = hv.s; V = hv.v; valEl.value = Math.round(V * 100);
+      prev.style.background = v; drawWheel();
+    }
+  };
+  const confirm = () => {
+    let v = hexEl.value.trim();
+    if (/^#?[0-9a-fA-F]{6}$/.test(v)) { if (v[0] !== '#') v = '#' + v; onPick(v); }
+    else onPick(curHex());
+    closeColorWheel();
+  };
+  okBtn.onmousedown = (e) => { e.preventDefault(); confirm(); };
+  hexEl.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } };
+
+  valEl.value = Math.round(V * 100);
+  sync();
+  pop._open = true; pop._anchor = anchorEl; pop.classList.add('open');
+  const ar = anchorEl.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  let x = ar.left, y = ar.bottom + 6;
+  if (x + pr.width > window.innerWidth - 8) x = window.innerWidth - 8 - pr.width;
+  if (y + pr.height > window.innerHeight - 8) y = ar.top - pr.height - 6;
+  pop.style.left = Math.max(8, x) + 'px';
+  pop.style.top = Math.max(8, y) + 'px';
+}
+function closeColorWheel() { if (_wheelPop) { _wheelPop.classList.remove('open'); _wheelPop._open = false; } }
+
+/* ----- 커스텀 글꼴 드롭다운(기본 select 대체, 각 항목을 해당 폰트로 미리보기) ----- */
+function buildFontDropdown(mountEl, opts) {
+  mountEl.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'fontdd-btn';
+  const lbl = document.createElement('span'); lbl.className = 'fontdd-lbl'; lbl.textContent = '기본';
+  const car = document.createElement('span'); car.className = 'fontdd-car'; car.textContent = '▾';
+  btn.append(lbl, car); mountEl.appendChild(btn);
+  const list = document.createElement('div'); list.className = 'fontdd-list';
+  FONTS.forEach((f) => {
+    const it = document.createElement('button');
+    it.type = 'button'; it.className = 'fontdd-item'; it.textContent = f.name;
+    it.style.fontFamily = f.id || 'inherit'; it.dataset.id = f.id;
+    it.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      lbl.textContent = f.name; lbl.style.fontFamily = f.id || 'inherit';
+      list.classList.remove('open');
+      if (opts.onPick) opts.onPick(f.id);
+    });
+    list.appendChild(it);
+  });
+  document.body.appendChild(list);
+  function open() {
+    if (opts.restore) opts.restore();
+    const r = btn.getBoundingClientRect();
+    list.style.minWidth = r.width + 'px';
+    list.classList.add('open');
+    const lr = list.getBoundingClientRect();
+    let top = r.bottom + 4;
+    if (top + lr.height > window.innerHeight - 8) top = r.top - lr.height - 4;
+    list.style.left = r.left + 'px';
+    list.style.top = Math.max(8, top) + 'px';
+  }
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (list.classList.contains('open')) list.classList.remove('open'); else open();
+  });
+  document.addEventListener('mousedown', (e) => {
+    if (!list.contains(e.target) && !btn.contains(e.target)) list.classList.remove('open');
+  });
+}
+
+/* ----- 편집 가능한 색상 프리셋 스와치 (글자색/형광 공용)
+ * opts: { get():hex[], save(hex[]), onApply(hex), initFor():hex } — 꾹 눌러 삭제, + 로 추가 ----- */
+function buildPresetSwatches(container, opts) {
+  function render() {
+    container.innerHTML = '';
+    const list = opts.get();
+    list.forEach((c) => {
+      const wrap = document.createElement('span'); wrap.className = 'swz';
+      const sw = document.createElement('button');
+      sw.type = 'button'; sw.className = 'swz-color'; sw.style.background = c; sw.dataset.color = c;
+      const del = document.createElement('span'); del.className = 'swz-del'; del.textContent = '−';
+      wrap.append(sw, del);
+      let lpTimer = null, long = false;
+      sw.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        long = false;
+        lpTimer = setTimeout(() => { long = true; wrap.classList.add('show-del'); }, 500);
+        const up = () => {
+          clearTimeout(lpTimer);
+          document.removeEventListener('mouseup', up);
+          if (!long) { opts.onApply(c); if (opts.closeOnApply) opts.closeOnApply(); }
+        };
+        document.addEventListener('mouseup', up);
+      });
+      del.addEventListener('mousedown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        opts.save(opts.get().filter((x) => x !== c));
+      });
+      container.appendChild(wrap);
+    });
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'swz-add'; add.textContent = '+'; add.title = '색 추가';
+    add.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const init = (opts.initFor && opts.initFor()) || list[list.length - 1] || '#e0667f';
+      openColorWheel(add, init, (hex) => {
+        const nl = opts.get();
+        if (!nl.includes(hex)) opts.save([...nl, hex]);
+      });
+    });
+    container.appendChild(add);
+  }
+  // 스와치 밖 클릭 시 삭제 배지 숨김
+  document.addEventListener('mousedown', (e) => {
+    if (!container.contains(e.target)) {
+      container.querySelectorAll('.swz.show-del').forEach((w) => w.classList.remove('show-del'));
+    }
+  });
+  onPresetsChanged(render);
+  render();
+}
+
+/* ----- 선택 영역이 이미 형광(배경색) 처리됐는지 ----- */
+function selectionHilited(editable) {
+  const s = window.getSelection();
+  if (!s.rangeCount) return false;
+  let n = s.anchorNode; n = n && (n.nodeType === 1 ? n : n.parentElement);
+  while (n && n !== editable && n !== document.body) {
+    const bg = n.style && n.style.backgroundColor;
+    if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') return true;
+    n = n.parentElement;
+  }
+  return false;
+}
+
 /* ----- 선택 시 뜨는 서식 툴바 (메인 앱 + 상세 창 공용) -----
  * config: { selector, persist(savedBody), scrollEl, lockIndex } → hide 함수 반환 */
 function setupFormatToolbar(config) {
@@ -269,26 +514,8 @@ function setupFormatToolbar(config) {
   const persistCb = config.persist || function () {};
   const bar = document.getElementById('format-toolbar');
   const colors = document.getElementById('ft-colors');
-  const fontSel = document.getElementById('ft-font');
+  const fontMount = document.getElementById('ft-font');
   const sizeVal = document.getElementById('ft-size-val');
-  const PALETTE = [
-    { c: '#4a4148' }, { c: '#9aa0b0' },
-    { v: '--pink-deep' }, { v: '--indicator' }, { v: '--pink' }
-  ];
-  colors.innerHTML = '';
-  PALETTE.forEach((p) => {
-    const d = document.createElement('button');
-    d.className = 'ft-color';
-    if (p.v) { d.style.background = `var(${p.v})`; d.dataset.var = p.v; }
-    else { d.style.background = p.c; d.dataset.color = p.c; }
-    colors.appendChild(d);
-  });
-  fontSel.innerHTML = '';
-  FONTS.forEach((f) => {
-    const o = document.createElement('option');
-    o.value = f.id; o.textContent = f.name;
-    fontSel.appendChild(o);
-  });
 
   let savedRange = null, savedBody = null, sizePt = 14;
 
@@ -302,7 +529,8 @@ function setupFormatToolbar(config) {
   function hide() {
     bar.classList.remove('open');
     if (config.lockIndex) document.body.classList.remove('ft-open');
-    document.getElementById('ft-colorpop').classList.remove('open');
+    hlPop.classList.remove('open');
+    closeColorWheel();
     document.getElementById('ft-divpop').classList.remove('open');
     savedRange = null; savedBody = null;
   }
@@ -340,8 +568,9 @@ function setupFormatToolbar(config) {
   if (config.scrollEl) config.scrollEl.addEventListener('scroll', hide);
   // 서식창 밖(에디터블 밖) 좌클릭 시 닫고 선택 해제
   document.addEventListener('mousedown', (e) => {
-    if (bar.contains(e.target) ||
-        document.getElementById('ft-colorpop').contains(e.target) ||
+    if (bar.contains(e.target) || hlPop.contains(e.target) ||
+        (_wheelPop && _wheelPop.contains(e.target)) ||
+        (e.target.closest && e.target.closest('.fontdd-list')) ||
         document.getElementById('ft-divpop').contains(e.target)) return;
     if (!(e.target.closest && e.target.closest(sel0))) {
       hide();
@@ -364,14 +593,28 @@ function setupFormatToolbar(config) {
   function run(cmd, value) {
     if (!restoreSelection() || !savedBody) return;
     try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
-    if (cmd === 'hilite') document.execCommand('hiliteColor', false, '#ffe9a8');
-    else if (cmd === 'quote') {
+    if (cmd === 'quote') {
       const sel = window.getSelection();
       let n = sel.anchorNode; n = n && (n.nodeType === 1 ? n : n.parentElement);
       document.execCommand('formatBlock', false,
         (n && n.closest && n.closest('blockquote')) ? 'div' : 'blockquote');
     } else if (cmd === 'hr') document.execCommand('insertHorizontalRule', false, null);
     else document.execCommand(cmd, false, value || null);
+    persist();
+    setTimeout(showForSelection, 0);
+  }
+  // 형광펜: 색 지정 적용 / 이미 적용된 곳이면 해제(토글)
+  function applyHilite(hex) {
+    if (!restoreSelection() || !savedBody) return;
+    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    document.execCommand('hiliteColor', false, hex);
+    persist();
+    setTimeout(showForSelection, 0);
+  }
+  function removeHilite() {
+    if (!restoreSelection() || !savedBody) return;
+    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    document.execCommand('hiliteColor', false, 'transparent');
     persist();
     setTimeout(showForSelection, 0);
   }
@@ -382,6 +625,12 @@ function setupFormatToolbar(config) {
       e.preventDefault();
       if (btn.dataset.cmd === 'hr') { toggleDivPop(btn); return; }
       if (btn.dataset.cmd === 'image') { imageFile.click(); return; }
+      if (btn.dataset.cmd === 'hilite') {
+        restoreSelection();
+        if (selectionHilited(savedBody)) removeHilite();
+        else openHlPop(btn);
+        return;
+      }
       run(btn.dataset.cmd);
     });
   });
@@ -435,67 +684,47 @@ function setupFormatToolbar(config) {
       applySizePt(sizePt + (btn.dataset.size === 'inc' ? 1 : -1));
     });
   });
-  colors.addEventListener('mousedown', (e) => {
-    const d = e.target.closest('.ft-color');
-    if (!d) return;
-    e.preventDefault();
-    let col = d.dataset.color;
-    if (!col && d.dataset.var) col = getComputedStyle(document.documentElement).getPropertyValue(d.dataset.var).trim();
-    if (col) run('foreColor', col);
+  // 글자색 프리셋(테마 비연동, 편집 가능) — 클릭 적용 / 꾹 눌러 삭제 / + 로 컬러휠 추가
+  buildPresetSwatches(colors, {
+    get: getFontColors,
+    save: (l) => persistPresetKey('fontColors', l),
+    onApply: (hex) => run('foreColor', hex)
   });
-  const colorPop = document.getElementById('ft-colorpop');
-  const grid = document.getElementById('ftc-grid');
-  const hexInput = document.getElementById('ftc-hex');
-  const GRID = [
-    '#000000', '#5a5560', '#9a8f96', '#c9c2c7', '#ffffff',
-    '#e0667f', '#ec96b3', '#f6c0d4', '#c79bab', '#8b6cff',
-    '#7fa7e0', '#4a90d9', '#3aa39a', '#86c79a', '#bde85a',
-    '#e0ad57', '#e58a5a', '#b5713a'
-  ];
-  grid.innerHTML = '';
-  GRID.forEach((c) => {
-    const sw = document.createElement('button');
-    sw.className = 'ftc-sw'; sw.style.background = c; sw.dataset.color = c;
-    grid.appendChild(sw);
+
+  // 형광펜 색상 프리셋 팝오버(+ 추가)
+  const hlPop = document.createElement('div');
+  hlPop.className = 'ft-hlpop';
+  const hlWrap = document.createElement('div');
+  hlWrap.className = 'hl-swatches';
+  hlPop.appendChild(hlWrap);
+  document.body.appendChild(hlPop);
+  buildPresetSwatches(hlWrap, {
+    get: getHiliteColors,
+    save: (l) => persistPresetKey('hiliteColors', l),
+    onApply: (hex) => applyHilite(hex),
+    initFor: () => '#ffe9a8',
+    closeOnApply: () => hlPop.classList.remove('open')
   });
-  function openColorPop() {
-    colorPop.classList.add('open');
-    const br = bar.getBoundingClientRect();
-    const ar = document.getElementById('ft-addcolor').getBoundingClientRect();
-    const cr = colorPop.getBoundingClientRect();
-    let x = br.right + 8;
-    if (x + cr.width > window.innerWidth - 8) x = br.left - cr.width - 8;
-    if (x < 8) x = Math.max(8, window.innerWidth - cr.width - 8);
-    let y = ar.top - 4;
-    if (y + cr.height > window.innerHeight - 8) y = window.innerHeight - cr.height - 8;
-    colorPop.style.left = x + 'px';
-    colorPop.style.top = Math.max(8, y) + 'px';
+  function openHlPop(btn) {
+    if (hlPop.classList.contains('open')) { hlPop.classList.remove('open'); return; }
+    hlPop.classList.add('open');
+    const r = btn.getBoundingClientRect();
+    const cr = hlPop.getBoundingClientRect();
+    let x = r.left, y = r.bottom + 6;
+    if (x + cr.width > window.innerWidth - 8) x = window.innerWidth - 8 - cr.width;
+    if (y + cr.height > window.innerHeight - 8) y = r.top - cr.height - 6;
+    hlPop.style.left = Math.max(8, x) + 'px';
+    hlPop.style.top = Math.max(8, y) + 'px';
   }
-  document.getElementById('ft-addcolor').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    if (colorPop.classList.contains('open')) colorPop.classList.remove('open');
-    else openColorPop();
+  hlPop.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('.swz-color') && !e.target.closest('.swz-add') && !e.target.closest('.swz-del')) e.preventDefault();
   });
-  grid.addEventListener('mousedown', (e) => {
-    const sw = e.target.closest('.ftc-sw');
-    if (!sw) return;
-    e.preventDefault();
-    run('foreColor', sw.dataset.color);
-    colorPop.classList.remove('open');
+
+  // 커스텀 글꼴 드롭다운
+  buildFontDropdown(fontMount, {
+    restore: () => restoreSelection(),
+    onPick: (id) => run('fontName', id)
   });
-  hexInput.addEventListener('mousedown', (e) => e.stopPropagation());
-  hexInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      let v = hexInput.value.trim();
-      if (/^#?[0-9a-fA-F]{3,6}$/.test(v)) {
-        if (v[0] !== '#') v = '#' + v;
-        run('foreColor', v); hexInput.value = ''; colorPop.classList.remove('open');
-      }
-    }
-  });
-  fontSel.addEventListener('mousedown', (e) => e.stopPropagation());
-  fontSel.addEventListener('change', () => { run('fontName', fontSel.value); });
 
   return hide;
 }
@@ -562,11 +791,9 @@ function setupBlogToolbar(menuEl, editableEl, persistCb) {
     '<button data-c="strikeThrough" title="취소선"><s>S</s></button>' +
     '<button data-c="hilite" title="형광펜"><svg viewBox="0 0 20 20"><path d="M4 13 L12 5 L15 8 L7 16 L4 16 Z"/><rect x="3" y="18" width="14" height="2" fill="#ffcf3f"/></svg></button>' +
     '<span class="bt-sep"></span>' +
-    '<span class="bt-colors"></span><button class="bt-add" title="색 추가">+</button>' +
-    '<span class="bt-sep"></span>' +
     '<button data-sz="dec" title="작게">◀</button><span class="bt-size">16pt</span><button data-sz="inc" title="크게">▶</button>' +
     '<span class="bt-sep"></span>' +
-    '<select class="bt-font" title="글꼴"></select>' +
+    '<span class="bt-font"></span>' +
     '<span class="bt-sep"></span>' +
     '<button data-c="justifyLeft" title="왼쪽">' + ALIGN.justifyLeft + '</button>' +
     '<button data-c="justifyCenter" title="가운데">' + ALIGN.justifyCenter + '</button>' +
@@ -589,16 +816,30 @@ function setupBlogToolbar(menuEl, editableEl, persistCb) {
   function run(cmd, val) {
     restore();
     try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
-    if (cmd === 'hilite') document.execCommand('hiliteColor', false, '#ffe9a8');
-    else if (cmd === 'hr') document.execCommand('insertHorizontalRule');
+    if (cmd === 'hr') document.execCommand('insertHorizontalRule');
     else if (cmd === 'quote') {
       const s = window.getSelection(); let n = s.anchorNode; n = n && (n.nodeType === 1 ? n : n.parentElement);
       document.execCommand('formatBlock', false, (n && n.closest && n.closest('blockquote')) ? 'div' : 'blockquote');
     } else document.execCommand(cmd, false, val || null);
     done();
   }
+  function applyHilite(hex) {
+    restore();
+    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    document.execCommand('hiliteColor', false, hex);
+    done();
+  }
   menuEl.querySelectorAll('button[data-c]').forEach((b) => {
-    b.addEventListener('mousedown', (e) => { e.preventDefault(); run(b.dataset.c); });
+    b.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (b.dataset.c === 'hilite') {
+        restore();
+        if (selectionHilited(editableEl)) applyHilite('transparent');
+        else openHlPop(b);
+        return;
+      }
+      run(b.dataset.c);
+    });
   });
   // 크기
   const sizeLbl = menuEl.querySelector('.bt-size');
@@ -614,56 +855,39 @@ function setupBlogToolbar(menuEl, editableEl, persistCb) {
       done();
     });
   });
-  // 글꼴
-  const fontSel = menuEl.querySelector('.bt-font');
-  FONTS.forEach((f) => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; fontSel.appendChild(o); });
-  fontSel.addEventListener('mousedown', (e) => e.stopPropagation());
-  fontSel.addEventListener('change', () => run('fontName', fontSel.value));
-  // 색상 스와치
-  const colorsEl = menuEl.querySelector('.bt-colors');
-  [{ c: '#4a4148' }, { c: '#9aa0b0' }, { v: '--pink-deep' }, { v: '--indicator' }, { v: '--pink' }].forEach((p) => {
-    const d = document.createElement('button');
-    d.className = 'bt-color';
-    if (p.v) { d.style.background = `var(${p.v})`; d.dataset.var = p.v; } else { d.style.background = p.c; d.dataset.color = p.c; }
-    d.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      let col = d.dataset.color || getComputedStyle(document.documentElement).getPropertyValue(d.dataset.var).trim();
-      if (col) run('foreColor', col);
-    });
-    colorsEl.appendChild(d);
+  // 커스텀 글꼴 드롭다운
+  buildFontDropdown(menuEl.querySelector('.bt-font'), {
+    restore: () => restore(),
+    onPick: (id) => run('fontName', id)
   });
-  // 색 추가 팝업(동적 생성)
-  const pop = document.createElement('div');
-  pop.className = 'ft-colorpop bt-pop';
-  pop.innerHTML = '<div class="ftc-grid"></div><input type="text" placeholder="#hex 코드" maxlength="7" />';
-  document.body.appendChild(pop);
-  const grid = pop.querySelector('.ftc-grid');
-  ['#000000', '#5a5560', '#9a8f96', '#c9c2c7', '#ffffff', '#e0667f', '#ec96b3', '#f6c0d4',
-    '#c79bab', '#8b6cff', '#7fa7e0', '#4a90d9', '#3aa39a', '#86c79a', '#bde85a', '#e0ad57',
-    '#e58a5a', '#b5713a'].forEach((c) => {
-    const sw = document.createElement('button'); sw.className = 'ftc-sw'; sw.style.background = c;
-    sw.addEventListener('mousedown', (e) => { e.preventDefault(); run('foreColor', c); pop.classList.remove('open'); });
-    grid.appendChild(sw);
+  // 형광펜 색상 프리셋 팝오버(+ 추가) — 글자색 스와치는 상세편집창에서 제거
+  const hlPop = document.createElement('div');
+  hlPop.className = 'ft-hlpop';
+  const hlWrap = document.createElement('div');
+  hlWrap.className = 'hl-swatches';
+  hlPop.appendChild(hlWrap);
+  document.body.appendChild(hlPop);
+  buildPresetSwatches(hlWrap, {
+    get: getHiliteColors,
+    save: (l) => persistPresetKey('hiliteColors', l),
+    onApply: (hex) => applyHilite(hex),
+    initFor: () => '#ffe9a8',
+    closeOnApply: () => hlPop.classList.remove('open')
   });
-  const hex = pop.querySelector('input');
-  hex.addEventListener('mousedown', (e) => e.stopPropagation());
-  hex.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    let v = hex.value.trim();
-    if (/^#?[0-9a-fA-F]{3,6}$/.test(v)) { if (v[0] !== '#') v = '#' + v; run('foreColor', v); hex.value = ''; pop.classList.remove('open'); }
-  });
-  const addBtn = menuEl.querySelector('.bt-add');
-  addBtn.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    if (pop.classList.contains('open')) { pop.classList.remove('open'); return; }
-    pop.classList.add('open');
-    const r = addBtn.getBoundingClientRect();
-    const cr = pop.getBoundingClientRect();
-    let x = r.left, y = r.bottom + 4;
+  function openHlPop(btn) {
+    if (hlPop.classList.contains('open')) { hlPop.classList.remove('open'); return; }
+    hlPop.classList.add('open');
+    const r = btn.getBoundingClientRect();
+    const cr = hlPop.getBoundingClientRect();
+    let x = r.left, y = r.bottom + 6;
     if (x + cr.width > window.innerWidth - 8) x = window.innerWidth - 8 - cr.width;
-    pop.style.left = Math.max(8, x) + 'px';
-    pop.style.top = y + 'px';
+    if (y + cr.height > window.innerHeight - 8) y = r.top - cr.height - 6;
+    hlPop.style.left = Math.max(8, x) + 'px';
+    hlPop.style.top = Math.max(8, y) + 'px';
+  }
+  document.addEventListener('mousedown', (e) => {
+    if (!hlPop.contains(e.target) && !(e.target.closest && e.target.closest('button[data-c="hilite"]')) &&
+        !(_wheelPop && _wheelPop.contains(e.target))) hlPop.classList.remove('open');
   });
   // 이미지
   const imgInput = document.createElement('input');
