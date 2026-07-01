@@ -694,9 +694,7 @@ function setupFormatToolbar(config) {
     const reader = new FileReader();
     reader.onload = () => {
       if (!restoreSelection() || !savedBody) return;
-      document.execCommand('insertHTML', false, imageFigureHTML(reader.result));
-      persist();
-      setTimeout(showForSelection, 0);
+      insertNoteImage(savedBody, reader.result, () => { persist(); setTimeout(showForSelection, 0); });
     };
     reader.readAsDataURL(f);
   });
@@ -789,17 +787,39 @@ function setupFormatToolbar(config) {
   return hide;
 }
 
-/* 편집영역에 삽입할 이미지(피규어) HTML — 인라인블록(같은 줄 여러 장 가능) + 정렬/캡션 지원 */
+/* 편집영역에 삽입할 이미지 블록(피규어) HTML.
+ * 한 줄(figure) = 이미지 그룹 + 공통 캡션 1개. 여러 이미지는 .img-row 안에 나란히. */
 function imageFigureHTML(src) {
-  return '<figure class="note-img" contenteditable="false">' +
-    '<img src="' + src + '" style="max-width:100%">' +
+  return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
+    '<span class="img-row"><img src="' + src + '" style="max-width:100%"></span>' +
     '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
     '</figure>';
+}
+// 현재 선택된 이미지(같은 줄에 추가 삽입 판단용) — 창 전역
+let ACTIVE_NOTE_IMG = null;
+function activeNoteImage() { return (ACTIVE_NOTE_IMG && ACTIVE_NOTE_IMG.isConnected) ? ACTIVE_NOTE_IMG : null; }
+// 이미지 삽입: 활성 이미지가 있으면 그 줄(figure)에 추가, 없으면 새 줄(블록) + 다음 빈 줄
+function insertNoteImage(editable, src, doneCb) {
+  const active = activeNoteImage();
+  if (active && editable.contains(active)) {
+    const fig = active.closest('figure.note-img');
+    const row = fig && fig.querySelector('.img-row');
+    if (row) {
+      const im = document.createElement('img');
+      im.src = src; im.style.maxWidth = '100%';
+      row.appendChild(im);
+      if (doneCb) doneCb();
+      return;
+    }
+  }
+  // 새 이미지 줄 + 뒤에 빈 문단(커서를 아래로 옮겨 이어서 입력/Enter 가능)
+  document.execCommand('insertHTML', false, imageFigureHTML(src) + '<p><br></p>');
+  if (doneCb) doneCb();
 }
 
 /* ----- 이미지 컨트롤 -----
  * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들.
- * 같은 줄(연속 figure)의 이미지는 높이를 맞추고, 리사이즈 시 함께 조정되며 블럭을 넘지 않는다. */
+ * 한 줄(figure) 안의 이미지들은 그룹: 높이를 맞추고, 리사이즈 시 함께 조정되며 블럭을 넘지 않는다. */
 function setupImageControls(persistCb) {
   const AL = {
     left: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg>',
@@ -826,22 +846,12 @@ function setupImageControls(persistCb) {
   document.body.appendChild(handle);
 
   let target = null, dragging = false, startX = 0, startW = 0, startH = 0, dragGroup = [];
-  const MAX_H = 360; // 단독 이미지 기본 높이 상한(블럭 세로 넘침 방지)
-  const figOf = (img) => (img && img.closest && img.closest('figure.note-img')) || img;
-
-  // 같은 줄(연속된 figure.note-img)의 figure들
-  function lineFigs(fig) {
-    const figs = [];
-    const isFig = (n) => n && n.nodeType === 1 && n.classList && n.classList.contains('note-img');
-    const isBreak = (n) => n && ((n.nodeType === 1 && (n.tagName === 'BR' || n.tagName === 'DIV' || n.tagName === 'P')) ||
-      (n.nodeType === 3 && n.textContent.replace(/\s/g, '') !== ''));
-    let n = fig;
-    while (n) { if (isFig(n)) figs.unshift(n); else if (isBreak(n)) break; n = n.previousSibling; }
-    n = fig.nextSibling;
-    while (n) { if (isFig(n)) figs.push(n); else if (isBreak(n)) break; n = n.nextSibling; }
-    return figs.length ? figs : [fig];
-  }
-  const lineImgs = (fig) => lineFigs(fig).map((f) => f.querySelector && f.querySelector('img')).filter(Boolean);
+  const figOf = (img) => (img && img.closest && img.closest('figure.note-img')) || null;
+  // 한 줄(figure) 안의 이미지 그룹
+  const rowImgs = (img) => {
+    const fig = figOf(img); if (!fig) return [img];
+    return Array.from(fig.querySelectorAll('.img-row img'));
+  };
   function blockWidth(img) {
     const ed = img.closest('[contenteditable]');
     return (ed ? ed.clientWidth : 600) - 12;
@@ -870,59 +880,48 @@ function setupImageControls(persistCb) {
     handle.style.left = (r.right - 7) + 'px';
     handle.style.top = (r.bottom - 7) + 'px';
   }
-  function hide() { target = null; place(); }
+  function hide() { target = null; ACTIVE_NOTE_IMG = null; place(); }
 
-  // 삽입 직후 이미지 로드 시: 기존 줄 이미지 높이에 맞춤 + 블럭 넘침 방지(load는 버블 안 됨 → capture)
+  // 삽입 직후 이미지 로드 시: 같은 줄의 기존 이미지 높이에 맞춤(load는 버블 안 됨 → capture)
   document.addEventListener('load', (e) => {
     const img = e.target;
-    if (!img || img.tagName !== 'IMG' || !(img.closest && img.closest('[contenteditable]'))) return;
+    if (!img || img.tagName !== 'IMG' || !(img.closest && img.closest('.img-row'))) return;
     if (img.style.height) return; // 이미 크기 지정(저장)된 이미지는 그대로
-    const fig = figOf(img);
-    const imgs = lineImgs(fig);
+    const imgs = rowImgs(img);
     const others = imgs.filter((x) => x !== img && x.getBoundingClientRect().height > 0);
     if (others.length) {
       const h = others[0].getBoundingClientRect().height; // 기존 이미지 세로에 맞춤
       if (h > 0) { img.style.height = Math.round(h) + 'px'; img.style.width = 'auto'; }
-    } else if (img.getBoundingClientRect().height > MAX_H) {
-      img.style.height = MAX_H + 'px'; img.style.width = 'auto'; // 세로로 긴 이미지 제한
+      clampGroup(imgs);
+      if (persistCb) persistCb();
     }
-    clampGroup(lineImgs(fig));
-    if (persistCb) persistCb();
   }, true);
 
   document.addEventListener('click', (e) => {
     if (e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
-    if (img && img.closest('[contenteditable]')) { target = img; place(); return; }
+    if (img && img.closest('.img-row')) { target = img; ACTIVE_NOTE_IMG = img; place(); return; }
     if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
   });
 
-  // 정렬(좌/가운데/우) — 같은 줄 이미지를 정렬 래퍼(.img-line)로 묶어 text-align 지정(캡션도 따라감)
+  // 정렬(좌/가운데/우) — figure(줄)에 text-align 지정. 캡션도 inherit로 따라감
   bar.querySelectorAll('button[data-al]').forEach((b) => {
     b.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      if (!target) return;
-      const figs = lineFigs(figOf(target));
-      let wrap = figs[0].parentNode;
-      if (!(wrap && wrap.classList && wrap.classList.contains('img-line'))) {
-        wrap = document.createElement('div');
-        wrap.className = 'img-line';
-        figs[0].parentNode.insertBefore(wrap, figs[0]);
-        figs.forEach((f) => wrap.appendChild(f));
-      }
-      wrap.style.textAlign = b.dataset.al;
+      const fig = target && figOf(target);
+      if (!fig) return;
+      fig.style.textAlign = b.dataset.al;
       if (persistCb) persistCb();
       place();
     });
   });
-  // 삭제
+  // 삭제 — 선택 이미지만 제거(그룹 중 하나). 줄에 이미지가 없어지면 figure 전체 제거
   del.addEventListener('mousedown', (e) => {
     e.preventDefault();
     if (!target) return;
     const fig = figOf(target);
-    const wrap = fig.parentNode;
-    fig.remove();
-    if (wrap && wrap.classList && wrap.classList.contains('img-line') && !wrap.querySelector('figure')) wrap.remove();
+    target.remove();
+    if (fig && !fig.querySelector('.img-row img')) fig.remove();
     hide();
     if (persistCb) persistCb();
   });
@@ -934,7 +933,7 @@ function setupImageControls(persistCb) {
     startX = e.clientX;
     const r = target.getBoundingClientRect();
     startW = r.width; startH = r.height;
-    dragGroup = lineImgs(figOf(target));
+    dragGroup = rowImgs(target);
     try { handle.setPointerCapture(e.pointerId); } catch (_) {}
   });
   document.addEventListener('pointermove', (e) => {
@@ -942,12 +941,23 @@ function setupImageControls(persistCb) {
     const newW = Math.max(40, startW + (e.clientX - startX));
     const ratio = startW ? newW / startW : 1;
     const newH = Math.max(30, Math.round(startH * ratio));
-    (dragGroup.length ? dragGroup : [target]).forEach((im) => { im.style.height = newH + 'px'; im.style.width = 'auto'; });
-    clampGroup(dragGroup.length ? dragGroup : [target]);
+    const grp = dragGroup.length ? dragGroup : [target];
+    grp.forEach((im) => { im.style.height = newH + 'px'; im.style.width = 'auto'; });
+    clampGroup(grp);
     place();
   });
   document.addEventListener('pointerup', () => {
     if (dragging) { dragging = false; if (persistCb) persistCb(); }
+  });
+  // 캡션에서 Ctrl/Cmd+A → 캡션 내용만 선택(메모 본문 전체 선택 방지)
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'a') return;
+    const a = document.activeElement;
+    const cap = a && a.closest && a.closest('.note-cap');
+    if (!cap) return;
+    e.preventDefault();
+    const r = document.createRange(); r.selectNodeContents(cap);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
   });
   window.addEventListener('scroll', () => { if (target) place(); }, true);
 }
@@ -1080,7 +1090,7 @@ function setupBlogToolbar(menuEl, editableEl, persistCb, insertBarEl) {
     const f = imgInput.files[0]; imgInput.value = '';
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => { restore(); document.execCommand('insertHTML', false, imageFigureHTML(reader.result)); done(); };
+    reader.onload = () => { restore(); insertNoteImage(editableEl, reader.result, () => done()); };
     reader.readAsDataURL(f);
   });
   if (insertBarEl) {
