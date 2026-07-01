@@ -203,26 +203,20 @@ body {
 .fab:hover { transform: scale(1.08); }
 .fab:active { transform: scale(0.96); }
 
-/* +버튼 hover 시 주변으로 퍼지는 빠른 실행 미니 버튼 */
+/* +버튼 hover 시 위로 퍼지는 빠른 실행 텍스트 버튼(테마색) */
 .fab-mini {
-  position: absolute; right: 3px; bottom: 3px; width: 38px; height: 38px; border-radius: 50%;
-  border: none; background: #fff; cursor: pointer; z-index: 1;
-  display: inline-flex; align-items: center; justify-content: center; font-size: 17px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.16);
-  opacity: 0; transform: translate(0, 0) scale(0.4); pointer-events: none;
-  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.18s;
+  position: absolute; right: 0; bottom: 3px; height: 34px; border-radius: 17px;
+  border: none; background: var(--pink-deep); color: #fff; cursor: pointer; z-index: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; padding: 0 14px;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--pink-deep) 30%, transparent);
+  opacity: 0; transform: translateY(0) scale(0.6); pointer-events: none; transform-origin: bottom right;
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.16s;
 }
-.fab-wrap:hover .fab-mini {
-  opacity: 1; pointer-events: auto;
-  transform: translate(var(--dx), var(--dy)) scale(1);
+.fab-wrap.fab-open .fab-mini {
+  opacity: 1; pointer-events: auto; transform: translateY(var(--dy)) scale(1);
 }
-.fab-mini:hover { background: var(--pink-soft); }
-.fab-mini .fab-tip {
-  position: absolute; right: 46px; top: 50%; transform: translateY(-50%);
-  background: rgba(40,32,38,0.9); color: #fff; font-size: 11px; white-space: nowrap;
-  padding: 3px 8px; border-radius: 7px; opacity: 0; transition: opacity 0.15s; pointer-events: none;
-}
-.fab-mini:hover .fab-tip { opacity: 1; }
+.fab-mini:hover { background: color-mix(in srgb, var(--pink-deep) 82%, #000); }
 
 /* ======================= 투두 뷰 ======================= */
 .todo-board {
@@ -1055,7 +1049,7 @@ body {
   width: 13px; height: 13px; border-radius: 50%; background: #e0576f; color: #fff;
   font-size: 11px; line-height: 12px; text-align: center; cursor: pointer; z-index: 2;
 }
-.swz.show-del .swz-del { display: block; }
+.del-mode .swz-del { display: block; }
 .swz-add {
   width: 19px; height: 19px; min-width: 19px; border: 1.5px dashed var(--ink-soft);
   background: transparent; border-radius: 50%; color: var(--ink-soft);
@@ -1080,7 +1074,7 @@ body {
   font-size: 12px; padding: 0 8px; cursor: pointer; color: var(--ink);
 }
 .fontdd-lbl { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fontdd-car { font-size: 9px; color: var(--ink-soft); }
+.fontdd-car { font-size: 12px; color: var(--ink-soft); }
 .fontdd-list {
   display: none; position: fixed; z-index: 340; background: #fff;
   border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
@@ -1093,23 +1087,36 @@ body {
 }
 .fontdd-item:hover { background: var(--pink-soft); color: var(--pink-deep); }
 
-/* ── 컬러 휠 팝오버 (직접 선택 + hex, RGB/스포이드 없음) ── */
+/* ── 색 추가 팝오버 (SV 사각형 + 색상 슬라이더, RGB/스포이드 없음) ── */
 .wheel-pop {
   display: none; position: fixed; z-index: 360; background: #fff;
   border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 12px;
   width: 200px;
 }
 .wheel-pop.open { display: block; }
-.wheel-canvas { display: block; margin: 0 auto 8px; cursor: crosshair; touch-action: none; }
-.wheel-val { width: 100%; margin: 0 0 10px; accent-color: var(--pink-deep); }
-.wheel-foot { display: flex; align-items: center; gap: 6px; }
-.wheel-prev { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); flex-shrink: 0; }
-.wheel-hex {
+.cw-sv {
+  position: relative; width: 100%; height: 130px; border-radius: 10px;
+  margin: 0 0 10px; cursor: crosshair; touch-action: none; border: 1px solid var(--line);
+}
+.cw-sv-thumb, .cw-hue-thumb {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+.cw-hue {
+  position: relative; width: 100%; height: 14px; border-radius: 999px;
+  cursor: pointer; touch-action: none; margin: 0 0 10px;
+  background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+}
+.cw-hue-thumb { top: 50%; }
+.cw-foot { display: flex; align-items: center; gap: 6px; }
+.cw-prev { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); flex-shrink: 0; }
+.cw-hex {
   flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 7px;
   padding: 5px 7px; font-size: 12px; outline: none;
 }
-.wheel-hex:focus { border-color: var(--pink); }
-.wheel-ok {
+.cw-hex:focus { border-color: var(--pink); }
+.cw-ok {
   border: none; background: var(--pink-deep); color: #fff; border-radius: 7px;
   padding: 6px 10px; font-size: 12px; cursor: pointer; flex-shrink: 0;
 }

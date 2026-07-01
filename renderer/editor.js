@@ -67,6 +67,14 @@ async function load() {
   edSettings = (data && data.settings) || {};
   applyThemeSettings(edSettings);
   setSharedSettings(edSettings); // 서식 프리셋(글자색/형광) 공유
+  // 상세창의 프리셋 변경은 최신 데이터에 병합 저장(본창은 data:changed로 연동)
+  setPresetPersist(async (key, list) => {
+    const latest = await window.api.loadData();
+    latest.settings = latest.settings || {};
+    latest.settings[key] = list.slice();
+    edSettings = latest.settings;
+    await window.api.saveData(latest);
+  });
   memo = (data && data.memos || []).find((m) => m.id === memoId);
   if (!memo) {
     card.innerHTML = '<p style="color:var(--ink-soft)">메모를 찾을 수 없습니다.</p>';
@@ -136,7 +144,7 @@ setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭�
 /* 편집창(블로그식 상단 전체 서식 메뉴) — 편집 시작 시 슬라이드, 바깥 클릭 시 닫힘 */
 (function setupEditMenu() {
   const menu = $('ed-menu');
-  setupBlogToolbar(menu, bodyEl, () => save());
+  setupBlogToolbar(menu, bodyEl, () => save(), $('ed-bottombar'));
   document.addEventListener('focusin', (e) => {
     if (e.target.closest && e.target.closest('#ed-body, #ed-title')) menu.classList.add('open');
   });

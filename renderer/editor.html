@@ -47,12 +47,29 @@
     .ed-menu .bt-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
     .ed-menu .bt-size { font-size: 13px; min-width: 40px; text-align: center; }
     .ed-menu .bt-font { display: inline-flex; }
-    .ed-menu .fontdd-btn { height: 28px; }
+    /* 폰트 버튼: 구분선 넘지 않게 폭 축소 + 세모(▾) 키움 */
+    .ed-menu .bt-font .fontdd-btn { height: 28px; padding: 0 7px; gap: 4px; }
+    .ed-menu .bt-font .fontdd-lbl { max-width: 60px; }
+    .ed-menu .bt-font .fontdd-car { font-size: 14px; }
     /* 메뉴가 오버레이라 콘텐츠 상단 여백 확보(블럭이 안 가려지고 위치 고정) */
-    .ed-scroll { flex: 1; overflow-y: auto; padding: 56px 16px 120px; display: flex; justify-content: center; }
-    .ed-card { width: 100%; max-width: 720px; border-radius: 16px; padding: 22px 26px 40px; }
+    .ed-scroll { flex: 1; overflow-y: auto; padding: 56px 16px 40px; display: flex; justify-content: center; }
+    .ed-card { width: 100%; max-width: 720px; border-radius: 16px; padding: 22px 26px 26px; display: flex; flex-direction: column; }
     .ed-card .memo-title { font-size: 24px; margin-bottom: 14px; }
-    .ed-card .note-body { font-size: 16px; line-height: 1.9; min-height: 64vh; }
+    .ed-card .note-body { font-size: 16px; line-height: 1.9; min-height: 340px; }
+    /* 태그는 블럭(카드) 안쪽 하단에 확실히 포함 */
+    .ed-card .note-tags { margin-top: 14px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); }
+    /* 하단 편집바(인용구/구분선/이미지) */
+    .ed-bottombar {
+      flex-shrink: 0; display: flex; justify-content: center; gap: 6px;
+      padding: 8px 12px; background: var(--titlebar);
+    }
+    .ed-bottombar button {
+      display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px;
+      border: none; border-radius: 9px; background: rgba(255,255,255,0.16); color: #fff;
+      font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .ed-bottombar button:hover { background: rgba(255,255,255,0.3); }
+    .ed-bottombar button svg { width: 15px; height: 15px; fill: currentColor; }
   </style>
 </head>
 <body>
@@ -75,6 +92,8 @@
         <div class="note-tags" id="ed-tags"></div>
       </div>
     </div>
+    <!-- 하단 편집바: 인용구 / 구분선 / 이미지 삽입 -->
+    <div class="ed-bottombar" id="ed-bottombar"></div>
   </div>
 
   <!-- 구분선 스타일 팝오버 -->

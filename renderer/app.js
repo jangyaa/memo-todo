@@ -140,7 +140,7 @@ function save() {
 
 function normalizeSettings(s) {
   s = s || {};
-  return {
+  const out = {
     theme: s.theme || 'default',
     profileImage: s.profileImage || null,
     // 커스텀 테마: { color: '#hex', bgImage: dataURL|null }
@@ -148,6 +148,10 @@ function normalizeSettings(s) {
       ? { color: s.custom.color, bgImage: s.custom.bgImage || null }
       : null
   };
+  // 서식 색상 프리셋(글자색/형광)은 반드시 보존(창/재실행 간 유지 + 창 간 연동)
+  if (Array.isArray(s.fontColors)) out.fontColors = s.fontColors.slice();
+  if (Array.isArray(s.hiliteColors)) out.hiliteColors = s.hiliteColors.slice();
+  return out;
 }
 
 // 색상 변환·테마 유도(deriveTheme/applyCustomTheme 등)는 shared.js로 이동(상세 창과 공용)
@@ -2131,6 +2135,8 @@ async function init() {
   setupProfileTheme();
   setupColorPicker();
   setupCropper();
+  // 색상 프리셋 저장을 앱의 상태 저장 경로로 라우팅(롤백 방지 + 창 간 연동)
+  setPresetPersist((key, list) => { state.settings[key] = list.slice(); save(); });
   hideFormatToolbar = setupFormatToolbar({
     selector: '.note-body, .memo-title',
     scrollEl: memoPage,
@@ -2159,13 +2165,26 @@ async function init() {
   document.getElementById('btn-add-todo').addEventListener('click', addTodo);
   document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
   document.getElementById('btn-add-folder').addEventListener('click', addFolder);
-  // +버튼 주변 빠른 실행 미니 버튼 — 현재는 메모추가만 동작(나머지는 추후 기능 연결)
-  document.querySelectorAll('.fab-mini').forEach((b) => {
-    b.addEventListener('click', () => {
-      if (b.dataset.act === 'memo') addMemo();
-      // sticker / alarm / stopwatch: UI만 — 기능 추후 추가
+  // +버튼 주변 빠른 실행 버튼 — 현재는 메모추가만 동작(나머지는 추후 기능 연결)
+  // hover 후 버튼으로 마우스 이동 시 사라지지 않도록 열림/닫힘을 지연 제어(사이 빈틈 보정)
+  const fabWrap = document.getElementById('fab-wrap');
+  if (fabWrap) {
+    let fabCloseTimer = null;
+    const openFab = () => { clearTimeout(fabCloseTimer); fabWrap.classList.add('fab-open'); };
+    const closeFab = () => { fabCloseTimer = setTimeout(() => fabWrap.classList.remove('fab-open'), 280); };
+    const fabHot = [document.getElementById('btn-add-memo'), ...fabWrap.querySelectorAll('.fab-mini')];
+    fabHot.forEach((el) => {
+      el.addEventListener('mouseenter', openFab);
+      el.addEventListener('mouseleave', closeFab);
     });
-  });
+    fabWrap.querySelectorAll('.fab-mini').forEach((b) => {
+      b.addEventListener('click', () => {
+        fabWrap.classList.remove('fab-open');
+        if (b.dataset.act === 'memo') addMemo();
+        // sticker / alarm / stopwatch: UI만 — 기능 추후 추가
+      });
+    });
+  }
 
   renderTabs();
   applyView();

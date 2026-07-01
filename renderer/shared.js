@@ -212,8 +212,28 @@ function handleMarkdownKey(e, body, persistCb) {
       persist();
       return true;
     }
-    // 내용 있는 글머리의 '맨 앞'에서 Enter → 빈 글머리가 위에 생기지 않도록 막음
-    if (li && caretAtLiStart(li)) { e.preventDefault(); return true; }
+    // 내용 있는 글머리 '맨 앞'에서 Enter → 텍스트는 아래 새 글머리로 내려가고, 원래 줄은 빈 일반 줄(글머리 사라짐)
+    if (li && li.textContent.trim() !== '' && caretAtLiStart(li)) {
+      e.preventDefault();
+      const list = li.parentElement;
+      const div = document.createElement('div');
+      div.appendChild(document.createElement('br'));
+      if (!li.previousElementSibling) {
+        list.parentNode.insertBefore(div, list); // 첫 항목: 목록 앞에 빈 줄
+      } else {
+        // 중간 항목: li부터 끝까지를 새 목록으로 분리하고 그 앞에 빈 줄
+        const newList = list.cloneNode(false);
+        list.parentNode.insertBefore(div, list.nextSibling);
+        list.parentNode.insertBefore(newList, div.nextSibling);
+        let n = li;
+        while (n) { const nx = n.nextElementSibling; newList.appendChild(n); n = nx; }
+      }
+      const rr = document.createRange();
+      rr.setStart(li, 0); rr.collapse(true);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(rr);
+      persist();
+      return true;
+    }
     return false;
   }
   // 빈 글머리에서 Backspace → 글머리 제거
@@ -288,31 +308,39 @@ function getHiliteColors() {
   const a = SHARED_SETTINGS.hiliteColors;
   return Array.isArray(a) && a.length ? a.slice() : DEFAULT_HILITE_COLORS.slice();
 }
-// 프리셋 변경을 즉시 로컬 반영 + 데이터 파일에 저장(다른 창은 data:changed로 갱신)
-async function persistPresetKey(key, list) {
+// 프리셋 저장 방식은 창마다 주입(메인=state.save 경로, 상세=loadData/saveData)
+// 이렇게 해야 메인 창의 상태 저장이 프리셋을 덮어써 롤백되는 문제가 없음
+let _presetPersist = null;
+function setPresetPersist(fn) { _presetPersist = fn; }
+// 프리셋 변경 → 즉시 로컬 반영 + 주입된 저장 경로로 영속화(다른 창은 data:changed로 갱신)
+function persistPresetKey(key, list) {
   SHARED_SETTINGS[key] = list.slice();
   _firePresets();
-  try {
-    const data = await window.api.loadData();
-    data.settings = data.settings || {};
-    data.settings[key] = list.slice();
-    await window.api.saveData(data);
-  } catch (_) {}
+  if (_presetPersist) { _presetPersist(key, list.slice()); return; }
+  // 폴백: 주입 전이면 직접 저장
+  (async () => {
+    try {
+      const data = await window.api.loadData();
+      data.settings = data.settings || {};
+      data.settings[key] = list.slice();
+      await window.api.saveData(data);
+    } catch (_) {}
+  })();
 }
 
-/* ----- 컬러 휠 팝오버 (직접 색 선택 + hex, RGB/스포이드 없음) ----- */
+/* ----- 색 추가 팝오버 (SV 사각형 + 색상 슬라이더, 테마 피커와 동일 방식 / RGB·스포이드 없음) ----- */
 let _wheelPop = null;
 function openColorWheel(anchorEl, initHex, onPick) {
   if (!_wheelPop) {
     _wheelPop = document.createElement('div');
     _wheelPop.className = 'wheel-pop';
     _wheelPop.innerHTML =
-      '<canvas class="wheel-canvas" width="176" height="176"></canvas>' +
-      '<input type="range" class="wheel-val" min="4" max="100" value="100" title="밝기" />' +
-      '<div class="wheel-foot">' +
-      '<span class="wheel-prev"></span>' +
-      '<input type="text" class="wheel-hex" placeholder="#hex 코드" maxlength="7" />' +
-      '<button type="button" class="wheel-ok">추가</button>' +
+      '<div class="cw-sv"><span class="cw-sv-thumb"></span></div>' +
+      '<div class="cw-hue"><span class="cw-hue-thumb"></span></div>' +
+      '<div class="cw-foot">' +
+      '<span class="cw-prev"></span>' +
+      '<input type="text" class="cw-hex" placeholder="#hex 코드" maxlength="7" />' +
+      '<button type="button" class="cw-ok">추가</button>' +
       '</div>';
     document.body.appendChild(_wheelPop);
     document.addEventListener('mousedown', (e) => {
@@ -321,61 +349,52 @@ function openColorWheel(anchorEl, initHex, onPick) {
     });
   }
   const pop = _wheelPop;
-  const canvas = pop.querySelector('.wheel-canvas');
-  const valEl = pop.querySelector('.wheel-val');
-  const prev = pop.querySelector('.wheel-prev');
-  const hexEl = pop.querySelector('.wheel-hex');
-  const okBtn = pop.querySelector('.wheel-ok');
-  let ctx = null; try { ctx = canvas.getContext('2d'); } catch (_) {}
-  const RAD = 88, CX = 88, CY = 88;
+  const sv = pop.querySelector('.cw-sv');
+  const svThumb = pop.querySelector('.cw-sv-thumb');
+  const hue = pop.querySelector('.cw-hue');
+  const hueThumb = pop.querySelector('.cw-hue-thumb');
+  const prev = pop.querySelector('.cw-prev');
+  const hexEl = pop.querySelector('.cw-hex');
+  const okBtn = pop.querySelector('.cw-ok');
   const iv = rgbToHsv(...(function (o) { return [o.r, o.g, o.b]; })(hexToRgb(initHex || '#e0667f')));
   let H = iv.h, S = iv.s, V = iv.v;
-
-  function drawWheel() {
-    if (!ctx) return;
-    const img = ctx.createImageData(176, 176);
-    const d = img.data;
-    for (let y = 0; y < 176; y++) {
-      for (let x = 0; x < 176; x++) {
-        const dx = x - CX, dy = y - CY, dist = Math.sqrt(dx * dx + dy * dy);
-        const idx = (y * 176 + x) * 4;
-        if (dist > RAD) { d[idx + 3] = 0; continue; }
-        let ang = Math.atan2(dy, dx) * 180 / Math.PI; if (ang < 0) ang += 360;
-        const rgb = hsvToRgb(ang, Math.min(1, dist / RAD), V);
-        d[idx] = rgb.r; d[idx + 1] = rgb.g; d[idx + 2] = rgb.b; d[idx + 3] = 255;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-    // 현재 선택 지점 표시
-    const rr = S * RAD, aa = H * Math.PI / 180;
-    const px = CX + rr * Math.cos(aa), py = CY + rr * Math.sin(aa);
-    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.beginPath(); ctx.arc(px, py, 6.5, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke();
-  }
   const curHex = () => hsvToHex(H, S, V);
-  function sync() { prev.style.background = curHex(); hexEl.value = curHex(); drawWheel(); }
-  function pickAt(e) {
-    const r = canvas.getBoundingClientRect();
-    const dx = (e.clientX - r.left) - CX, dy = (e.clientY - r.top) - CY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    let ang = Math.atan2(dy, dx) * 180 / Math.PI; if (ang < 0) ang += 360;
-    H = ang; S = Math.min(1, dist / RAD); sync();
+
+  function sync() {
+    sv.style.background =
+      'linear-gradient(to top, #000, transparent), ' +
+      'linear-gradient(to right, #fff, ' + hslHex(H, 1, 0.5) + ')';
+    svThumb.style.left = (S * 100) + '%';
+    svThumb.style.top = ((1 - V) * 100) + '%';
+    svThumb.style.background = curHex();
+    hueThumb.style.left = (H / 360 * 100) + '%';
+    prev.style.background = curHex();
+    hexEl.value = curHex();
   }
-  let dragging = false;
-  canvas.onpointerdown = (e) => { dragging = true; try { canvas.setPointerCapture(e.pointerId); } catch (_) {} pickAt(e); };
-  canvas.onpointermove = (e) => { if (dragging) pickAt(e); };
-  canvas.onpointerup = () => { dragging = false; };
-  valEl.oninput = () => { V = Math.max(0.04, valEl.value / 100); sync(); };
+  const drag = (el, handler) => {
+    let on = false;
+    el.addEventListener('pointerdown', (e) => { on = true; try { el.setPointerCapture(e.pointerId); } catch (_) {} handler(e); });
+    el.addEventListener('pointermove', (e) => { if (on) handler(e); });
+    el.addEventListener('pointerup', () => { on = false; });
+  };
+  drag(sv, (e) => {
+    const r = sv.getBoundingClientRect();
+    S = clamp01((e.clientX - r.left) / r.width);
+    V = clamp01(1 - (e.clientY - r.top) / r.height);
+    sync();
+  });
+  drag(hue, (e) => {
+    const r = hue.getBoundingClientRect();
+    H = clamp01((e.clientX - r.left) / r.width) * 360;
+    sync();
+  });
   hexEl.onmousedown = (e) => e.stopPropagation();
   hexEl.oninput = () => {
     let v = hexEl.value.trim();
     if (/^#?[0-9a-fA-F]{6}$/.test(v)) {
       if (v[0] !== '#') v = '#' + v;
       const hv = rgbToHsv(...(function (o) { return [o.r, o.g, o.b]; })(hexToRgb(v)));
-      H = hv.h; S = hv.s; V = hv.v; valEl.value = Math.round(V * 100);
-      prev.style.background = v; drawWheel();
+      H = hv.h; S = hv.s; V = hv.v; sync();
     }
   };
   const confirm = () => {
@@ -387,7 +406,6 @@ function openColorWheel(anchorEl, initHex, onPick) {
   okBtn.onmousedown = (e) => { e.preventDefault(); confirm(); };
   hexEl.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } };
 
-  valEl.value = Math.round(V * 100);
   sync();
   pop._open = true; pop._anchor = anchorEl; pop.classList.add('open');
   const ar = anchorEl.getBoundingClientRect();
@@ -458,7 +476,8 @@ function buildPresetSwatches(container, opts) {
       sw.addEventListener('mousedown', (e) => {
         e.preventDefault();
         long = false;
-        lpTimer = setTimeout(() => { long = true; wrap.classList.add('show-del'); }, 500);
+        // 꾹 누르면 삭제 모드 → 모든 스와치에 − 배지 표시
+        lpTimer = setTimeout(() => { long = true; container.classList.add('del-mode'); }, 500);
         const up = () => {
           clearTimeout(lpTimer);
           document.removeEventListener('mouseup', up);
@@ -484,11 +503,9 @@ function buildPresetSwatches(container, opts) {
     });
     container.appendChild(add);
   }
-  // 스와치 밖 클릭 시 삭제 배지 숨김
+  // 스와치 밖 클릭 시 삭제 모드 해제
   document.addEventListener('mousedown', (e) => {
-    if (!container.contains(e.target)) {
-      container.querySelectorAll('.swz.show-del').forEach((w) => w.classList.remove('show-del'));
-    }
+    if (!container.contains(e.target)) container.classList.remove('del-mode');
   });
   onPresetsChanged(render);
   render();
@@ -775,7 +792,7 @@ function setupImageResize(persistCb) {
 
 /* 블로그식 가로 편집 툴바 (상세창 상단 슬라이드 메뉴) — 서식창의 모든 기능 포함.
  * menuEl 안에 버튼들을 만들고, editableEl의 커서/선택에 명령 적용. persistCb로 저장. */
-function setupBlogToolbar(menuEl, editableEl, persistCb) {
+function setupBlogToolbar(menuEl, editableEl, persistCb, insertBarEl) {
   let range = null, sizePt = 16;
   const ALIGN = {
     justifyLeft: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg>',
@@ -798,10 +815,14 @@ function setupBlogToolbar(menuEl, editableEl, persistCb) {
     '<button data-c="justifyLeft" title="왼쪽">' + ALIGN.justifyLeft + '</button>' +
     '<button data-c="justifyCenter" title="가운데">' + ALIGN.justifyCenter + '</button>' +
     '<button data-c="justifyRight" title="오른쪽">' + ALIGN.justifyRight + '</button>' +
-    '<button data-c="quote" title="인용구">❝</button>' +
-    '<button data-c="hr" title="구분선">―</button>' +
-    '<button data-ins="image" title="이미지">' + IMG + '</button>' +
     '</div>';
+  // 인용구/구분선/이미지는 하단 편집바로 분리(상단 메뉴 폭 축소)
+  if (insertBarEl) {
+    insertBarEl.innerHTML =
+      '<button data-c="quote" title="인용구">❝ <span>인용구</span></button>' +
+      '<button data-c="hr" title="구분선">― <span>구분선</span></button>' +
+      '<button data-ins="image" title="이미지">' + IMG + ' <span>이미지</span></button>';
+  }
 
   const saveR = () => {
     const s = window.getSelection();
@@ -889,11 +910,10 @@ function setupBlogToolbar(menuEl, editableEl, persistCb) {
     if (!hlPop.contains(e.target) && !(e.target.closest && e.target.closest('button[data-c="hilite"]')) &&
         !(_wheelPop && _wheelPop.contains(e.target))) hlPop.classList.remove('open');
   });
-  // 이미지
+  // 하단 편집바: 인용구/구분선(run) + 이미지(파일 삽입)
   const imgInput = document.createElement('input');
   imgInput.type = 'file'; imgInput.accept = 'image/*'; imgInput.style.display = 'none';
   document.body.appendChild(imgInput);
-  menuEl.querySelector('button[data-ins="image"]').addEventListener('mousedown', (e) => { e.preventDefault(); imgInput.click(); });
   imgInput.addEventListener('change', () => {
     const f = imgInput.files[0]; imgInput.value = '';
     if (!f) return;
@@ -901,6 +921,13 @@ function setupBlogToolbar(menuEl, editableEl, persistCb) {
     reader.onload = () => { restore(); document.execCommand('insertHTML', false, `<img src="${reader.result}" style="max-width:100%"><br>`); done(); };
     reader.readAsDataURL(f);
   });
+  if (insertBarEl) {
+    insertBarEl.querySelectorAll('button[data-c]').forEach((b) => {
+      b.addEventListener('mousedown', (e) => { e.preventDefault(); run(b.dataset.c); });
+    });
+    const imgBtn = insertBarEl.querySelector('button[data-ins="image"]');
+    if (imgBtn) imgBtn.addEventListener('mousedown', (e) => { e.preventDefault(); imgInput.click(); });
+  }
 }
 
 /* 구분선(hr) 클릭 시 선택 → Backspace로 삭제 가능 */
