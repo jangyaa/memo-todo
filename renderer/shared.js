@@ -226,12 +226,15 @@ function handleMarkdownKey(e, body, persistCb) {
   const node = r.startContainer;
   if (node.nodeType !== 3) return false;
   const before = node.textContent.slice(0, r.startOffset);
+  const after = node.textContent.slice(r.startOffset);
 
   let kind = null, check = false;
   if (before === '-' || before === '*') kind = 'ul';
   else if (before === 'ㅁ' || before === '[]') { kind = 'ul'; check = true; }
   else if (/^\d+\.$/.test(before)) kind = 'ol';
   if (!kind) return false;
+  // 마커 뒤에 이미 텍스트가 있으면 변환하지 않음(줄 병합/이동 방지)
+  if (after.trim() !== '') return false;
 
   e.preventDefault();
   node.deleteData(0, before.length);
@@ -539,6 +542,141 @@ function setupImageResize(persistCb) {
     if (dragging) { dragging = false; if (persistCb) persistCb(); }
   });
   window.addEventListener('scroll', () => { if (target) place(); }, true);
+}
+
+/* 블로그식 가로 편집 툴바 (상세창 상단 슬라이드 메뉴) — 서식창의 모든 기능 포함.
+ * menuEl 안에 버튼들을 만들고, editableEl의 커서/선택에 명령 적용. persistCb로 저장. */
+function setupBlogToolbar(menuEl, editableEl, persistCb) {
+  let range = null, sizePt = 16;
+  const ALIGN = {
+    justifyLeft: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg>',
+    justifyCenter: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="3.5" y="7" width="9" height="2"/><rect x="2" y="12" width="12" height="2"/></svg>',
+    justifyRight: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="6" y="7" width="9" height="2"/><rect x="3" y="12" width="12" height="2"/></svg>'
+  };
+  const IMG = '<svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5.5" cy="6" r="1.3"/><path d="M2.5 12 L6 8.5 L8.5 11 L11 7.5 L13.5 11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+  menuEl.innerHTML =
+    '<div class="bt-row">' +
+    '<button data-c="bold" title="굵게"><b>B</b></button>' +
+    '<button data-c="italic" title="기울임"><i>I</i></button>' +
+    '<button data-c="underline" title="밑줄"><u>U</u></button>' +
+    '<button data-c="strikeThrough" title="취소선"><s>S</s></button>' +
+    '<button data-c="hilite" title="형광펜"><svg viewBox="0 0 20 20"><path d="M4 13 L12 5 L15 8 L7 16 L4 16 Z"/><rect x="3" y="18" width="14" height="2" fill="#ffcf3f"/></svg></button>' +
+    '<span class="bt-sep"></span>' +
+    '<span class="bt-colors"></span><button class="bt-add" title="색 추가">+</button>' +
+    '<span class="bt-sep"></span>' +
+    '<button data-sz="dec" title="작게">◀</button><span class="bt-size">16pt</span><button data-sz="inc" title="크게">▶</button>' +
+    '<span class="bt-sep"></span>' +
+    '<select class="bt-font" title="글꼴"></select>' +
+    '<span class="bt-sep"></span>' +
+    '<button data-c="justifyLeft" title="왼쪽">' + ALIGN.justifyLeft + '</button>' +
+    '<button data-c="justifyCenter" title="가운데">' + ALIGN.justifyCenter + '</button>' +
+    '<button data-c="justifyRight" title="오른쪽">' + ALIGN.justifyRight + '</button>' +
+    '<button data-c="quote" title="인용구">❝</button>' +
+    '<button data-c="hr" title="구분선">―</button>' +
+    '<button data-ins="image" title="이미지">' + IMG + '</button>' +
+    '</div>';
+
+  const saveR = () => {
+    const s = window.getSelection();
+    if (s.rangeCount && editableEl.contains(s.getRangeAt(0).startContainer)) range = s.getRangeAt(0).cloneRange();
+  };
+  editableEl.addEventListener('keyup', saveR);
+  editableEl.addEventListener('mouseup', saveR);
+  editableEl.addEventListener('input', saveR);
+  const restore = () => { editableEl.focus(); if (range) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(range); } };
+  const done = () => { if (persistCb) persistCb(); saveR(); };
+
+  function run(cmd, val) {
+    restore();
+    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    if (cmd === 'hilite') document.execCommand('hiliteColor', false, '#ffe9a8');
+    else if (cmd === 'hr') document.execCommand('insertHorizontalRule');
+    else if (cmd === 'quote') {
+      const s = window.getSelection(); let n = s.anchorNode; n = n && (n.nodeType === 1 ? n : n.parentElement);
+      document.execCommand('formatBlock', false, (n && n.closest && n.closest('blockquote')) ? 'div' : 'blockquote');
+    } else document.execCommand(cmd, false, val || null);
+    done();
+  }
+  menuEl.querySelectorAll('button[data-c]').forEach((b) => {
+    b.addEventListener('mousedown', (e) => { e.preventDefault(); run(b.dataset.c); });
+  });
+  // 크기
+  const sizeLbl = menuEl.querySelector('.bt-size');
+  menuEl.querySelectorAll('button[data-sz]').forEach((b) => {
+    b.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      restore();
+      sizePt = Math.max(8, Math.min(48, sizePt + (b.dataset.sz === 'inc' ? 1 : -1)));
+      try { document.execCommand('styleWithCSS', false, false); } catch (_) {}
+      document.execCommand('fontSize', false, '7');
+      editableEl.querySelectorAll('font[size="7"]').forEach((f) => { f.removeAttribute('size'); f.style.fontSize = sizePt + 'pt'; });
+      sizeLbl.textContent = sizePt + 'pt';
+      done();
+    });
+  });
+  // 글꼴
+  const fontSel = menuEl.querySelector('.bt-font');
+  FONTS.forEach((f) => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; fontSel.appendChild(o); });
+  fontSel.addEventListener('mousedown', (e) => e.stopPropagation());
+  fontSel.addEventListener('change', () => run('fontName', fontSel.value));
+  // 색상 스와치
+  const colorsEl = menuEl.querySelector('.bt-colors');
+  [{ c: '#4a4148' }, { c: '#9aa0b0' }, { v: '--pink-deep' }, { v: '--indicator' }, { v: '--pink' }].forEach((p) => {
+    const d = document.createElement('button');
+    d.className = 'bt-color';
+    if (p.v) { d.style.background = `var(${p.v})`; d.dataset.var = p.v; } else { d.style.background = p.c; d.dataset.color = p.c; }
+    d.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      let col = d.dataset.color || getComputedStyle(document.documentElement).getPropertyValue(d.dataset.var).trim();
+      if (col) run('foreColor', col);
+    });
+    colorsEl.appendChild(d);
+  });
+  // 색 추가 팝업(동적 생성)
+  const pop = document.createElement('div');
+  pop.className = 'ft-colorpop bt-pop';
+  pop.innerHTML = '<div class="ftc-grid"></div><input type="text" placeholder="#hex 코드" maxlength="7" />';
+  document.body.appendChild(pop);
+  const grid = pop.querySelector('.ftc-grid');
+  ['#000000', '#5a5560', '#9a8f96', '#c9c2c7', '#ffffff', '#e0667f', '#ec96b3', '#f6c0d4',
+    '#c79bab', '#8b6cff', '#7fa7e0', '#4a90d9', '#3aa39a', '#86c79a', '#bde85a', '#e0ad57',
+    '#e58a5a', '#b5713a'].forEach((c) => {
+    const sw = document.createElement('button'); sw.className = 'ftc-sw'; sw.style.background = c;
+    sw.addEventListener('mousedown', (e) => { e.preventDefault(); run('foreColor', c); pop.classList.remove('open'); });
+    grid.appendChild(sw);
+  });
+  const hex = pop.querySelector('input');
+  hex.addEventListener('mousedown', (e) => e.stopPropagation());
+  hex.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    let v = hex.value.trim();
+    if (/^#?[0-9a-fA-F]{3,6}$/.test(v)) { if (v[0] !== '#') v = '#' + v; run('foreColor', v); hex.value = ''; pop.classList.remove('open'); }
+  });
+  const addBtn = menuEl.querySelector('.bt-add');
+  addBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    if (pop.classList.contains('open')) { pop.classList.remove('open'); return; }
+    pop.classList.add('open');
+    const r = addBtn.getBoundingClientRect();
+    const cr = pop.getBoundingClientRect();
+    let x = r.left, y = r.bottom + 4;
+    if (x + cr.width > window.innerWidth - 8) x = window.innerWidth - 8 - cr.width;
+    pop.style.left = Math.max(8, x) + 'px';
+    pop.style.top = y + 'px';
+  });
+  // 이미지
+  const imgInput = document.createElement('input');
+  imgInput.type = 'file'; imgInput.accept = 'image/*'; imgInput.style.display = 'none';
+  document.body.appendChild(imgInput);
+  menuEl.querySelector('button[data-ins="image"]').addEventListener('mousedown', (e) => { e.preventDefault(); imgInput.click(); });
+  imgInput.addEventListener('change', () => {
+    const f = imgInput.files[0]; imgInput.value = '';
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => { restore(); document.execCommand('insertHTML', false, `<img src="${reader.result}" style="max-width:100%"><br>`); done(); };
+    reader.readAsDataURL(f);
+  });
 }
 
 /* 구분선(hr) 클릭 시 선택 → Backspace로 삭제 가능 */

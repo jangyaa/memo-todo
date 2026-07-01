@@ -5,13 +5,60 @@ const memoId = new URLSearchParams(location.search).get('id');
 const $ = (id) => document.getElementById(id);
 const titleEl = $('ed-title');
 const bodyEl = $('ed-body');
+const tagsEl = $('ed-tags');
 const card = $('ed-card');
 let memo = null;
+
+const BLOCK_COLORS = ['var(--c0)', 'var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)'];
+const sortTags = (tags) => [...tags].sort((a, b) => a.localeCompare(b, 'ko'));
+function accentVar(m) {
+  const i = BLOCK_COLORS.indexOf(m && m.color);
+  return `var(--a${i < 0 ? 0 : i})`;
+}
 
 function plainTitle(html) {
   const d = document.createElement('div');
   d.innerHTML = html || '';
   return (d.textContent || '').trim();
+}
+
+// 태그 바 (본 창과 동일) — 칩 + ＋태그 추가 입력, 하단 빈 곳 클릭 시 입력 활성화
+function renderTags() {
+  if (!memo) return;
+  const accent = accentVar(memo);
+  tagsEl.innerHTML = '';
+  sortTags(memo.tags || []).forEach((t) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.style.background = `color-mix(in srgb, ${accent} 18%, transparent)`;
+    chip.style.color = accent;
+    chip.innerHTML = '#' + t + ' <b>×</b>';
+    chip.querySelector('b').addEventListener('click', () => {
+      memo.tags = (memo.tags || []).filter((x) => x !== t);
+      save();
+      renderTags();
+    });
+    tagsEl.appendChild(chip);
+  });
+  const tagAdd = document.createElement('input');
+  tagAdd.className = 'tag-add';
+  tagAdd.placeholder = '＋ 태그 추가';
+  tagAdd.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const t = tagAdd.value.trim().replace(/^#/, '');
+    if (t && !(memo.tags || []).includes(t)) {
+      memo.tags = sortTags([...(memo.tags || []), t]);
+      save();
+      renderTags();
+      const inp = tagsEl.querySelector('.tag-add');
+      if (inp) inp.focus(); // 연속 입력
+    } else {
+      tagAdd.value = '';
+    }
+  });
+  tagsEl.appendChild(tagAdd);
 }
 
 async function load() {
@@ -26,9 +73,19 @@ async function load() {
   const t = plainTitle(memo.title) || '메모';
   document.title = t;
   $('ed-titletext').textContent = t;
+  if (!Array.isArray(memo.tags)) memo.tags = [];
   titleEl.innerHTML = memo.title || '';
   bodyEl.innerHTML = memo.content || '';
+  renderTags();
 }
+
+// 카드 하단 빈 곳 클릭 → 태그 입력 활성화 (본문/제목/입력/칩 제외)
+card.addEventListener('mousedown', (e) => {
+  if (e.target.closest('#ed-body') || e.target.closest('#ed-title') ||
+      e.target.closest('input') || e.target.closest('.tag-chip')) return;
+  const inp = tagsEl.querySelector('.tag-add');
+  if (inp) { e.preventDefault(); inp.focus(); }
+});
 
 // 커스텀 창 컨트롤
 $('ed-min').addEventListener('click', () => window.api.windowControl('minimize'));
@@ -51,6 +108,7 @@ function save() {
     if (!m) return;
     m.title = title;
     m.content = content;
+    m.tags = memo.tags || [];
     await window.api.saveData(latest);
   }, 300);
 }
@@ -72,22 +130,10 @@ setupFormatToolbar({
 setupImageResize(() => save());
 setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭제
 
-/* 편집창(블로그식 상단 삽입 메뉴) — 편집 시작 시 슬라이드, 바깥 클릭 시 닫힘 */
+/* 편집창(블로그식 상단 전체 서식 메뉴) — 편집 시작 시 슬라이드, 바깥 클릭 시 닫힘 */
 (function setupEditMenu() {
   const menu = $('ed-menu');
-  let lastRange = null;
-  const saveR = () => {
-    const s = window.getSelection();
-    if (s.rangeCount && bodyEl.contains(s.getRangeAt(0).startContainer)) lastRange = s.getRangeAt(0).cloneRange();
-  };
-  bodyEl.addEventListener('keyup', saveR);
-  bodyEl.addEventListener('mouseup', saveR);
-  bodyEl.addEventListener('input', saveR);
-  function restoreR() {
-    bodyEl.focus();
-    if (lastRange) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(lastRange); }
-  }
-  // 편집 영역 포커스 시 슬라이드 다운, 바깥 클릭 시 닫기
+  setupBlogToolbar(menu, bodyEl, () => save());
   document.addEventListener('focusin', (e) => {
     if (e.target.closest && e.target.closest('#ed-body, #ed-title')) menu.classList.add('open');
   });
@@ -98,35 +144,6 @@ setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭�
         e.target.closest('.ft-divpop'))) return;
     menu.classList.remove('open');
   });
-  const imgInput = $('ed-img-file');
-  menu.querySelectorAll('[data-ins]').forEach((b) => {
-    b.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      const k = b.dataset.ins;
-      if (k === 'image') { imgInput.click(); return; }
-      restoreR();
-      if (k === 'hr') document.execCommand('insertHorizontalRule');
-      else if (k === 'quote') {
-        const s = window.getSelection();
-        let n = s.anchorNode; n = n && (n.nodeType === 1 ? n : n.parentElement);
-        try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
-        document.execCommand('formatBlock', false, (n && n.closest && n.closest('blockquote')) ? 'div' : 'blockquote');
-      }
-      save();
-    });
-  });
-  imgInput.addEventListener('change', () => {
-    const f = imgInput.files[0];
-    imgInput.value = '';
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      restoreR();
-      document.execCommand('insertHTML', false, `<img src="${reader.result}" style="max-width:100%"><br>`);
-      save();
-    };
-    reader.readAsDataURL(f);
-  });
 })();
 
 window.api.onDataChanged((d) => {
@@ -136,8 +153,10 @@ window.api.onDataChanged((d) => {
   const m = (d.memos || []).find((x) => x.id === memoId);
   if (m) {
     memo = m;
+    if (!Array.isArray(memo.tags)) memo.tags = [];
     titleEl.innerHTML = m.title || '';
     bodyEl.innerHTML = m.content || '';
+    renderTags();
     const t = plainTitle(m.title) || '메모';
     $('ed-titletext').textContent = t;
   }
