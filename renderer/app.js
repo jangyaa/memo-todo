@@ -448,19 +448,20 @@ function buildDdayItem(d) {
 }
 
 /* 커스텀 달력 모달 (예쁜 흰색 둥근 창) */
-let calCb = null, calY = 0, calM = 0, calSel = '', calTime = false;
+let calCb = null, calY = 0, calM = 0, calSel = '', calTime = false, editingAlarmId = null;
 const isoOf = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-// 날짜 + 시간 선택(알람용) — cb(datetime 'YYYY-MM-DDTHH:MM')
-function pickDateTime(cb) {
+// 알람 추가/수정 창(날짜+시간+제목) — existing 있으면 수정 모드
+function openAlarmPicker(existing) {
   calTime = true;
-  calCb = cb;
-  const now = new Date();
-  calSel = isoOf(now.getFullYear(), now.getMonth(), now.getDate());
-  calY = now.getFullYear(); calM = now.getMonth();
-  const timeRow = document.getElementById('cal-time');
-  const ti = document.getElementById('cal-time-input');
-  ti.value = `${String(now.getHours()).padStart(2, '0')}:${String((now.getMinutes() + 5) % 60).padStart(2, '0')}`;
-  timeRow.style.display = 'flex';
+  editingAlarmId = existing ? existing.id : null;
+  const base = existing && existing.datetime ? new Date(existing.datetime) : new Date();
+  const d = isNaN(base.getTime()) ? new Date() : base;
+  calSel = isoOf(d.getFullYear(), d.getMonth(), d.getDate());
+  calY = d.getFullYear(); calM = d.getMonth();
+  document.getElementById('cal-hour').value = String(d.getHours());
+  document.getElementById('cal-min').value = String(existing ? d.getMinutes() : (d.getMinutes() + 5) % 60);
+  document.getElementById('cal-alarm-label').value = existing ? (existing.label || '') : '';
+  document.getElementById('cal-time').style.display = 'block';
   renderCalendar();
   document.getElementById('cal-overlay').classList.add('open');
 }
@@ -513,16 +514,24 @@ function setupCalendar() {
   document.getElementById('cal-next').addEventListener('click', () => {
     calM++; if (calM > 11) { calM = 0; calY++; } renderCalendar();
   });
-  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.classList.remove('open'); calCb = null; } });
-  // 알람 시간 확정
+  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.classList.remove('open'); calCb = null; calTime = false; document.getElementById('cal-time').style.display = 'none'; } });
+  // 시/분 드롭다운 채우기
+  const hourSel = document.getElementById('cal-hour');
+  for (let h = 0; h < 24; h++) { const o = document.createElement('option'); o.value = h; o.textContent = String(h).padStart(2, '0'); hourSel.appendChild(o); }
+  const minSel = document.getElementById('cal-min');
+  for (let m = 0; m < 60; m++) { const o = document.createElement('option'); o.value = m; o.textContent = String(m).padStart(2, '0'); minSel.appendChild(o); }
+  // 알람 확정(추가/수정)
   document.getElementById('cal-time-ok').addEventListener('click', () => {
-    const time = document.getElementById('cal-time-input').value || '00:00';
     if (!calSel) return;
-    const cb = calCb; calCb = null;
+    const h = String(hourSel.value).padStart(2, '0');
+    const m = String(minSel.value).padStart(2, '0');
+    const label = document.getElementById('cal-alarm-label').value.trim();
+    const datetime = `${calSel}T${h}:${m}`;
     ov.classList.remove('open');
     document.getElementById('cal-time').style.display = 'none';
     calTime = false;
-    if (cb) cb(`${calSel}T${time}`);
+    if (editingAlarmId) { updateAlarm(editingAlarmId, datetime, label); editingAlarmId = null; }
+    else addAlarm(datetime, label);
   });
 }
 
@@ -534,26 +543,73 @@ function fmtAlarm(dt) {
   const p = (n) => String(n).padStart(2, '0');
   return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+function alarmsSorted() {
+  return (state.alarms || []).slice().sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+}
+function buildAlarmChip(al) {
+  const chip = document.createElement('span');
+  chip.className = 'alarm-chip';
+  chip.title = '더블클릭하여 수정';
+  chip.innerHTML = `⏰ <span class="ac-txt">${al.label ? escapeHtml(al.label) + ' · ' : ''}${fmtAlarm(al.datetime)}</span> <b class="ac-del" title="삭제">✕</b>`;
+  chip.querySelector('.ac-del').addEventListener('click', (e) => { e.stopPropagation(); deleteAlarm(al.id); });
+  chip.addEventListener('dblclick', () => openAlarmPicker(al));
+  return chip;
+}
+// 알람 바: 가장 가까운 알람 1개 + (여러 개면) 확장 삼각형
 function renderAlarms() {
-  const list = (state.alarms || []).slice().sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+  const list = alarmsSorted();
   ['alarm-bar-todo', 'alarm-bar-memo'].forEach((id) => {
     const bar = document.getElementById(id);
     if (!bar) return;
     bar.innerHTML = '';
-    list.forEach((al) => {
-      const chip = document.createElement('span');
-      chip.className = 'alarm-chip';
-      chip.innerHTML = `⏰ ${al.label ? escapeHtml(al.label) + ' ' : ''}${fmtAlarm(al.datetime)} <b class="ac-del" title="삭제">✕</b>`;
-      chip.querySelector('.ac-del').addEventListener('click', () => deleteAlarm(al.id));
-      bar.appendChild(chip);
-    });
+    if (!list.length) return;
+    bar.appendChild(buildAlarmChip(list[0]));
+    if (list.length > 1) {
+      const tg = document.createElement('button');
+      tg.className = 'alarm-toggle'; tg.textContent = '▲'; tg.title = `설정된 알람 ${list.length}개`;
+      tg.addEventListener('click', (e) => { e.stopPropagation(); toggleAlarmPop(tg); });
+      bar.appendChild(tg);
+    }
+  });
+  const pop = document.getElementById('alarm-pop');
+  if (pop && pop.classList.contains('open')) fillAlarmPop();
+}
+function fillAlarmPop() {
+  const pop = document.getElementById('alarm-pop');
+  pop.innerHTML = '';
+  alarmsSorted().forEach((al) => {
+    const row = document.createElement('div');
+    row.className = 'alarm-row';
+    row.title = '더블클릭하여 수정';
+    row.innerHTML = `<span class="ar-when">⏰ ${fmtAlarm(al.datetime)}</span><span class="ar-label">${al.label ? escapeHtml(al.label) : '(제목 없음)'}</span><b class="ac-del" title="삭제">✕</b>`;
+    row.querySelector('.ac-del').addEventListener('click', (e) => { e.stopPropagation(); deleteAlarm(al.id); });
+    row.addEventListener('dblclick', () => { closeAlarmPop(); openAlarmPicker(al); });
+    pop.appendChild(row);
   });
 }
+function toggleAlarmPop(anchor) {
+  const pop = document.getElementById('alarm-pop');
+  if (pop.classList.contains('open')) { closeAlarmPop(); return; }
+  fillAlarmPop();
+  pop.classList.add('open');
+  const r = anchor.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  pop.style.left = Math.max(8, r.right - pr.width) + 'px';
+  pop.style.top = Math.max(8, r.top - pr.height - 6) + 'px';
+}
+function closeAlarmPop() { const p = document.getElementById('alarm-pop'); if (p) p.classList.remove('open'); }
 function addAlarm(datetime, label) {
   if (window.Notification && Notification.permission === 'default') {
     try { Notification.requestPermission(); } catch (_) {}
   }
-  state.alarms.push({ id: uid(), datetime, label: label || '', fired: false });
+  state.alarms.push({ id: uid(), datetime, label: label || '' });
+  save();
+  renderAlarms();
+}
+function updateAlarm(id, datetime, label) {
+  const al = (state.alarms || []).find((a) => a.id === id);
+  if (!al) return;
+  al.datetime = datetime; al.label = label || '';
   save();
   renderAlarms();
 }
@@ -562,18 +618,20 @@ function deleteAlarm(id) {
   save();
   renderAlarms();
 }
+// 지정 시각이 지난 알람은 울린 뒤 자동 삭제
 function checkAlarms() {
   const now = Date.now();
-  let changed = false;
-  (state.alarms || []).forEach((al) => {
-    if (!al.fired && new Date(al.datetime).getTime() <= now) { al.fired = true; changed = true; ringAlarm(al); }
-  });
-  if (changed) { save(); renderAlarms(); }
+  const due = alarmsSorted().filter((al) => new Date(al.datetime).getTime() <= now);
+  if (!due.length) return;
+  state.alarms = (state.alarms || []).filter((al) => new Date(al.datetime).getTime() > now);
+  save();
+  renderAlarms();
+  ringAlarm(due[0], due.length);
 }
-function ringAlarm(al) {
+function ringAlarm(al, count) {
   const ov = document.getElementById('alarm-ring-overlay');
   document.getElementById('ar-title').textContent = al.label || '알람';
-  document.getElementById('ar-time').textContent = fmtAlarm(al.datetime);
+  document.getElementById('ar-time').textContent = fmtAlarm(al.datetime) + (count > 1 ? ` 외 ${count - 1}건` : '');
   ov.classList.add('open');
   try { alarmBeep(); } catch (_) {}
   if (window.Notification && Notification.permission === 'granted') {
@@ -2273,6 +2331,12 @@ async function init() {
   document.getElementById('alarm-ring-overlay').addEventListener('click', (e) => {
     if (e.target.id === 'alarm-ring-overlay') e.currentTarget.classList.remove('open');
   });
+  // 알람 확장 팝오버 바깥 클릭 시 닫기
+  document.addEventListener('mousedown', (e) => {
+    const pop = document.getElementById('alarm-pop');
+    if (pop && pop.classList.contains('open') && !pop.contains(e.target) &&
+        !(e.target.closest && e.target.closest('.alarm-toggle'))) closeAlarmPop();
+  });
   setupImageControls(() => {
     document.querySelectorAll('.note-body').forEach((b) => {
       const m = state.memos.find((x) => x.id === b.dataset.id);
@@ -2301,7 +2365,7 @@ async function init() {
       b.addEventListener('click', () => {
         fabWrap.classList.remove('fab-open');
         if (b.dataset.act === 'memo') { setView('memo'); addMemo(); }
-        else if (b.dataset.act === 'alarm') { pickDateTime((dt) => addAlarm(dt)); }
+        else if (b.dataset.act === 'alarm') { openAlarmPicker(null); }
         // sticker / stopwatch: UI만 — 기능 추후 추가
       });
     });

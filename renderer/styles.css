@@ -220,29 +220,57 @@ body {
 }
 .fab-mini:hover { background: color-mix(in srgb, var(--pink-deep) 82%, #000); }
 
-/* 알람 하단 바(투두·메모 공통) */
+/* 알람 바 — +아이콘과 같은 y높이에 떠 있음(가장 가까운 알람 1개 + 확장 삼각형) */
 .alarm-bar {
-  flex-shrink: 0; display: flex; align-items: center; gap: 8px;
-  min-height: 44px; padding: 6px 66px 6px 14px; overflow-x: auto;
-  border-top: 1px solid var(--line);
-  background: color-mix(in srgb, var(--pink-soft) 55%, transparent);
+  position: absolute; left: 14px; right: 72px; bottom: 16px; height: 44px; z-index: 20;
+  display: flex; align-items: center; gap: 7px;
 }
 .alarm-bar:empty { display: none; }
 .alarm-chip {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 7px;
+  flex-shrink: 1; min-width: 0; display: inline-flex; align-items: center; gap: 7px;
   background: var(--pink-soft); color: var(--pink-deep); border-radius: 999px;
-  padding: 6px 11px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  padding: 7px 12px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pink-deep) 14%, transparent);
 }
-.alarm-chip .ac-del { cursor: pointer; opacity: 0.55; font-weight: 700; }
+.alarm-chip .ac-txt { overflow: hidden; text-overflow: ellipsis; }
+.alarm-chip .ac-del { cursor: pointer; opacity: 0.55; font-weight: 700; flex-shrink: 0; }
 .alarm-chip .ac-del:hover { opacity: 1; }
+.alarm-toggle {
+  flex-shrink: 0; width: 26px; height: 26px; border: none; border-radius: 50%;
+  background: var(--pink-soft); color: var(--pink-deep); cursor: pointer; font-size: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.alarm-toggle:hover { background: var(--pink); }
+/* 확장 팝오버(설정된 알람 전체) */
+.alarm-pop {
+  display: none; position: fixed; z-index: 340; background: #fff;
+  border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 6px; min-width: 210px; max-height: 260px; overflow-y: auto;
+}
+.alarm-pop.open { display: block; }
+.alarm-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; cursor: pointer; }
+.alarm-row:hover { background: var(--pink-soft); }
+.alarm-row .ar-when { font-size: 11px; color: var(--ink-soft); flex-shrink: 0; }
+.alarm-row .ar-label { flex: 1; min-width: 0; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alarm-row .ac-del { cursor: pointer; opacity: 0.5; font-weight: 700; flex-shrink: 0; }
+.alarm-row .ac-del:hover { opacity: 1; }
 
 /* 달력 시간 선택 행(알람용) */
-.cal-time { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-.cal-time input[type="time"] {
-  flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
-  font-size: 14px; outline: none; font-family: inherit; color: var(--ink);
+.cal-time { margin-top: 10px; }
+.cal-time #cal-alarm-label {
+  width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+  font-size: 14px; outline: none; font-family: inherit; color: var(--ink); margin-bottom: 8px;
 }
-.cal-time input[type="time"]:focus { border-color: var(--pink); }
+.cal-time #cal-alarm-label:focus { border-color: var(--pink); }
+.cal-time-row { display: flex; gap: 6px; align-items: center; }
+.cal-sel {
+  flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px;
+  font-size: 15px; text-align: center; outline: none; font-family: inherit; color: var(--ink); background: #fff;
+}
+.cal-sel:focus { border-color: var(--pink); }
+.cal-colon { font-weight: 800; color: var(--ink-soft); }
+.cal-time-row .btn-primary { flex-shrink: 0; }
 
 /* 알람 울림 모달 */
 .alarm-ring { width: 260px; text-align: center; }
@@ -344,9 +372,11 @@ figcaption.note-cap {
   font-size: 12px; color: var(--ink-soft); margin-top: 5px; outline: none; min-height: 1.1em;
   text-align: inherit; /* 캡션 정렬 = 이미지(줄) 정렬 */
 }
-/* 캡션 입력칸: 내용 없으면 숨기고, 이미지에 마우스 얹거나 포커스 시에만 표시 */
+/* 캡션 입력칸: 내용 없으면 숨기고, 이미지 선택/hover/포커스 시 표시 */
 figcaption.note-cap:empty { display: none; }
-figure.note-img:hover figcaption.note-cap:empty, figcaption.note-cap:focus { display: block; }
+figure.note-img:hover figcaption.note-cap:empty,
+figure.note-img.img-active figcaption.note-cap:empty,
+figcaption.note-cap:focus { display: block; }
 figcaption.note-cap:empty::before { content: attr(data-ph); color: var(--ink-soft); opacity: 0.55; }
 .dday-item:hover .item-del { opacity: 0.7; }
 

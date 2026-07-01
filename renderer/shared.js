@@ -791,7 +791,7 @@ function setupFormatToolbar(config) {
  * 한 줄(figure) = 이미지 그룹 + 공통 캡션 1개. 여러 이미지는 .img-row 안에 나란히. */
 function imageFigureHTML(src) {
   return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
-    '<span class="img-row"><img src="' + src + '" style="max-width:100%"></span>' +
+    '<span class="img-row"><img src="' + src + '" style="max-width:100%" draggable="true"></span>' +
     '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
     '</figure>';
 }
@@ -880,7 +880,12 @@ function setupImageControls(persistCb) {
     handle.style.left = (r.right - 7) + 'px';
     handle.style.top = (r.bottom - 7) + 'px';
   }
-  function hide() { target = null; ACTIVE_NOTE_IMG = null; place(); }
+  function markActive(img) {
+    document.querySelectorAll('figure.note-img.img-active').forEach((f) => f.classList.remove('img-active'));
+    const fig = img && figOf(img);
+    if (fig) fig.classList.add('img-active'); // 선택된 이미지의 캡션 입력칸 표시
+  }
+  function hide() { target = null; ACTIVE_NOTE_IMG = null; markActive(null); place(); }
 
   // 삽입 직후 이미지 로드 시: 같은 줄의 기존 이미지 높이에 맞춤(load는 버블 안 됨 → capture)
   document.addEventListener('load', (e) => {
@@ -900,8 +905,8 @@ function setupImageControls(persistCb) {
   document.addEventListener('click', (e) => {
     if (e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
-    // 편집 영역 안의 모든 이미지(피규어/붙여넣기 등)에 컨트롤 표시
-    if (img && img.closest('[contenteditable]')) { target = img; ACTIVE_NOTE_IMG = img; place(); return; }
+    // 편집 영역 안의 모든 이미지(피규어/붙여넣기 등)에 컨트롤 표시 + 캡션 입력칸 노출
+    if (img && img.closest('[contenteditable]')) { target = img; ACTIVE_NOTE_IMG = img; markActive(img); place(); return; }
     if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
   });
 
