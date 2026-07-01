@@ -900,17 +900,25 @@ function setupImageControls(persistCb) {
   document.addEventListener('click', (e) => {
     if (e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
-    if (img && img.closest('.img-row')) { target = img; ACTIVE_NOTE_IMG = img; place(); return; }
+    // 편집 영역 안의 모든 이미지(피규어/붙여넣기 등)에 컨트롤 표시
+    if (img && img.closest('[contenteditable]')) { target = img; ACTIVE_NOTE_IMG = img; place(); return; }
     if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
   });
 
-  // 정렬(좌/가운데/우) — figure(줄)에 text-align 지정. 캡션도 inherit로 따라감
+  // 정렬(좌/가운데/우) — figure(줄)이면 text-align, 단독 이미지면 여백으로 정렬
   bar.querySelectorAll('button[data-al]').forEach((b) => {
     b.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      const fig = target && figOf(target);
-      if (!fig) return;
-      fig.style.textAlign = b.dataset.al;
+      if (!target) return;
+      const fig = figOf(target);
+      const al = b.dataset.al;
+      if (fig) {
+        fig.style.textAlign = al;
+      } else {
+        target.style.display = 'block';
+        target.style.marginLeft = al === 'left' ? '0' : 'auto';
+        target.style.marginRight = al === 'right' ? '0' : 'auto';
+      }
       if (persistCb) persistCb();
       place();
     });
@@ -959,6 +967,40 @@ function setupImageControls(persistCb) {
     const r = document.createRange(); r.selectNodeContents(cap);
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
   });
+
+  // 이미지 위치 이동(드래그) — 네이티브 복제 없이 직접 이동
+  let dragMove = null;
+  document.addEventListener('dragstart', (e) => {
+    const img = e.target.closest && e.target.closest('img');
+    if (img && img.closest('[contenteditable]')) {
+      dragMove = img.closest('figure.note-img') || img; // 그룹이면 줄 전체, 아니면 이미지
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); } catch (_) {}
+      hide();
+    }
+  });
+  document.addEventListener('dragover', (e) => {
+    if (dragMove && e.target.closest && e.target.closest('[contenteditable]')) e.preventDefault();
+  });
+  document.addEventListener('drop', (e) => {
+    if (!dragMove) return;
+    const ed = e.target.closest && e.target.closest('[contenteditable]');
+    if (!ed) { dragMove = null; return; }
+    e.preventDefault(); // 네이티브 삽입(복제) 방지
+    let range = null;
+    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    else if (document.caretPositionFromPoint) {
+      const p = document.caretPositionFromPoint(e.clientX, e.clientY);
+      if (p) { range = document.createRange(); range.setStart(p.offsetNode, p.offset); }
+    }
+    if (range && !dragMove.contains(range.startContainer)) {
+      dragMove.remove();
+      range.insertNode(dragMove); // 이동(복제 아님)
+    }
+    dragMove = null;
+    if (persistCb) persistCb();
+  });
+  document.addEventListener('dragend', () => { dragMove = null; });
+
   window.addEventListener('scroll', () => { if (target) place(); }, true);
 }
 

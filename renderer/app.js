@@ -50,6 +50,7 @@ let state = {
   todos: [], // { id, title, color, items, pinned, pinnedAt }
   memos: [], // { id, content, tags, color, folderId, pinned, pinnedAt }
   folders: [], // { id, name, collapsed }
+  alarms: [], // { id, datetime: 'YYYY-MM-DDTHH:MM', label, fired }
   settings: { theme: 'default', profileImage: null }
 };
 
@@ -191,10 +192,15 @@ async function load() {
     state.todos = Array.isArray(data.todos) ? data.todos : [];
     state.memos = Array.isArray(data.memos) ? data.memos.map(normalizeMemo) : [];
     state.folders = Array.isArray(data.folders) ? data.folders : [];
+    state.alarms = Array.isArray(data.alarms) ? data.alarms : [];
     state.settings = normalizeSettings(data.settings);
   }
+  pruneDdays(); // 지난 디데이 정리
   applySettings();
 }
+
+// 자정을 넘겨 앱이 켜져 있어도 지난 디데이가 사라지도록 주기적으로 점검
+setInterval(() => { if (pruneDdays()) { save(); renderTodos(); } }, 60 * 1000);
 
 window.api.onDataChanged((data) => {
   const active = document.activeElement;
@@ -206,10 +212,12 @@ window.api.onDataChanged((data) => {
   state.todos = data.todos || [];
   state.memos = (data.memos || []).map(normalizeMemo);
   state.folders = data.folders || [];
+  state.alarms = Array.isArray(data.alarms) ? data.alarms : [];
   state.settings = normalizeSettings(data.settings);
   applySettings();
   renderTodos();
   renderMemos();
+  renderAlarms();
 });
 
 /* =========================================================================
@@ -333,6 +341,14 @@ function renderTodos() {
   orderedTodos().forEach((todo) => todoBoard.appendChild(buildBlock(todo)));
 }
 
+/* 지난 디데이(D+1 이상, 즉 목표일 다음날부터) 자동 삭제 — 변경 시 true */
+function pruneDdays() {
+  if (!Array.isArray(state.ddays)) return false;
+  const before = state.ddays.length;
+  state.ddays = state.ddays.filter((d) => { const diff = ddayDiff(d.date); return diff === null || diff >= 0; });
+  return state.ddays.length !== before;
+}
+
 /* D-DAY 라벨 계산 (오늘 기준) */
 function ddayDiff(date) {
   if (!date) return null;
@@ -432,9 +448,25 @@ function buildDdayItem(d) {
 }
 
 /* 커스텀 달력 모달 (예쁜 흰색 둥근 창) */
-let calCb = null, calY = 0, calM = 0, calSel = '';
+let calCb = null, calY = 0, calM = 0, calSel = '', calTime = false;
 const isoOf = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+// 날짜 + 시간 선택(알람용) — cb(datetime 'YYYY-MM-DDTHH:MM')
+function pickDateTime(cb) {
+  calTime = true;
+  calCb = cb;
+  const now = new Date();
+  calSel = isoOf(now.getFullYear(), now.getMonth(), now.getDate());
+  calY = now.getFullYear(); calM = now.getMonth();
+  const timeRow = document.getElementById('cal-time');
+  const ti = document.getElementById('cal-time-input');
+  ti.value = `${String(now.getHours()).padStart(2, '0')}:${String((now.getMinutes() + 5) % 60).padStart(2, '0')}`;
+  timeRow.style.display = 'flex';
+  renderCalendar();
+  document.getElementById('cal-overlay').classList.add('open');
+}
 function pickDate(initial, cb) {
+  calTime = false;
+  document.getElementById('cal-time').style.display = 'none';
   calCb = cb;
   calSel = initial || '';
   const base = initial ? new Date(initial + 'T00:00:00') : new Date();
@@ -465,6 +497,7 @@ function renderCalendar() {
     b.className = 'cal-day' + (iso === todayStr ? ' today' : '') + (iso === calSel ? ' sel' : '');
     b.textContent = day;
     b.addEventListener('click', () => {
+      if (calTime) { calSel = iso; renderCalendar(); return; } // 시간 모드: 날짜만 선택(확인 버튼으로 확정)
       const cb = calCb; calCb = null;
       document.getElementById('cal-overlay').classList.remove('open');
       if (cb) cb(iso);
@@ -481,7 +514,83 @@ function setupCalendar() {
     calM++; if (calM > 11) { calM = 0; calY++; } renderCalendar();
   });
   ov.addEventListener('click', (e) => { if (e.target === ov) { ov.classList.remove('open'); calCb = null; } });
+  // 알람 시간 확정
+  document.getElementById('cal-time-ok').addEventListener('click', () => {
+    const time = document.getElementById('cal-time-input').value || '00:00';
+    if (!calSel) return;
+    const cb = calCb; calCb = null;
+    ov.classList.remove('open');
+    document.getElementById('cal-time').style.display = 'none';
+    calTime = false;
+    if (cb) cb(`${calSel}T${time}`);
+  });
 }
+
+/* =========================================================================
+ * 알람 — 투두·메모 하단 바에 표시, 지정 시각에 울림
+ * ========================================================================= */
+function fmtAlarm(dt) {
+  const d = new Date(dt);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function renderAlarms() {
+  const list = (state.alarms || []).slice().sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+  ['alarm-bar-todo', 'alarm-bar-memo'].forEach((id) => {
+    const bar = document.getElementById(id);
+    if (!bar) return;
+    bar.innerHTML = '';
+    list.forEach((al) => {
+      const chip = document.createElement('span');
+      chip.className = 'alarm-chip';
+      chip.innerHTML = `⏰ ${al.label ? escapeHtml(al.label) + ' ' : ''}${fmtAlarm(al.datetime)} <b class="ac-del" title="삭제">✕</b>`;
+      chip.querySelector('.ac-del').addEventListener('click', () => deleteAlarm(al.id));
+      bar.appendChild(chip);
+    });
+  });
+}
+function addAlarm(datetime, label) {
+  if (window.Notification && Notification.permission === 'default') {
+    try { Notification.requestPermission(); } catch (_) {}
+  }
+  state.alarms.push({ id: uid(), datetime, label: label || '', fired: false });
+  save();
+  renderAlarms();
+}
+function deleteAlarm(id) {
+  state.alarms = state.alarms.filter((a) => a.id !== id);
+  save();
+  renderAlarms();
+}
+function checkAlarms() {
+  const now = Date.now();
+  let changed = false;
+  (state.alarms || []).forEach((al) => {
+    if (!al.fired && new Date(al.datetime).getTime() <= now) { al.fired = true; changed = true; ringAlarm(al); }
+  });
+  if (changed) { save(); renderAlarms(); }
+}
+function ringAlarm(al) {
+  const ov = document.getElementById('alarm-ring-overlay');
+  document.getElementById('ar-title').textContent = al.label || '알람';
+  document.getElementById('ar-time').textContent = fmtAlarm(al.datetime);
+  ov.classList.add('open');
+  try { alarmBeep(); } catch (_) {}
+  if (window.Notification && Notification.permission === 'granted') {
+    try { new Notification('⏰ ' + (al.label || '알람'), { body: fmtAlarm(al.datetime) }); } catch (_) {}
+  }
+}
+function alarmBeep() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  const ctx = new AC();
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
+  g.gain.setValueAtTime(0.15, ctx.currentTime);
+  o.start(); o.stop(ctx.currentTime + 0.5);
+  setTimeout(() => { try { ctx.close(); } catch (_) {} }, 800);
+}
+setInterval(checkAlarms, 15000);
 
 function buildBlock(todo) {
   const block = document.createElement('div');
@@ -1698,6 +1807,7 @@ async function reloadFromLocal() {
   await load();
   renderTodos();
   renderMemos();
+  renderAlarms();
 }
 
 /* =========================================================================
@@ -2158,6 +2268,11 @@ async function init() {
   });
   setupNumPrompt();
   setupCalendar();
+  document.getElementById('ar-dismiss').addEventListener('click',
+    () => document.getElementById('alarm-ring-overlay').classList.remove('open'));
+  document.getElementById('alarm-ring-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'alarm-ring-overlay') e.currentTarget.classList.remove('open');
+  });
   setupImageControls(() => {
     document.querySelectorAll('.note-body').forEach((b) => {
       const m = state.memos.find((x) => x.id === b.dataset.id);
@@ -2186,7 +2301,8 @@ async function init() {
       b.addEventListener('click', () => {
         fabWrap.classList.remove('fab-open');
         if (b.dataset.act === 'memo') { setView('memo'); addMemo(); }
-        // sticker / alarm / stopwatch: UI만 — 기능 추후 추가
+        else if (b.dataset.act === 'alarm') { pickDateTime((dt) => addAlarm(dt)); }
+        // sticker / stopwatch: UI만 — 기능 추후 추가
       });
     });
   });
@@ -2197,6 +2313,8 @@ async function init() {
   await load();
   renderTodos();
   renderMemos();
+  renderAlarms();
+  checkAlarms();
 }
 
 init();

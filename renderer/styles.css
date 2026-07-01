@@ -220,6 +220,36 @@ body {
 }
 .fab-mini:hover { background: color-mix(in srgb, var(--pink-deep) 82%, #000); }
 
+/* 알람 하단 바(투두·메모 공통) */
+.alarm-bar {
+  flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 6px 66px 6px 14px; overflow-x: auto;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--pink-soft) 55%, transparent);
+}
+.alarm-bar:empty { display: none; }
+.alarm-chip {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 7px;
+  background: var(--pink-soft); color: var(--pink-deep); border-radius: 999px;
+  padding: 6px 11px; font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.alarm-chip .ac-del { cursor: pointer; opacity: 0.55; font-weight: 700; }
+.alarm-chip .ac-del:hover { opacity: 1; }
+
+/* 달력 시간 선택 행(알람용) */
+.cal-time { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.cal-time input[type="time"] {
+  flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+  font-size: 14px; outline: none; font-family: inherit; color: var(--ink);
+}
+.cal-time input[type="time"]:focus { border-color: var(--pink); }
+
+/* 알람 울림 모달 */
+.alarm-ring { width: 260px; text-align: center; }
+.ar-icon { font-size: 40px; }
+.ar-title { font-size: 16px; font-weight: 800; color: var(--ink); margin: 6px 0 2px; }
+.ar-time { font-size: 13px; color: var(--ink-soft); margin-bottom: 14px; }
+
 /* ======================= 투두 뷰 ======================= */
 .todo-board {
   flex: 1;
@@ -244,9 +274,9 @@ body {
 .dday-empty { font-size: 14px; color: var(--ink-soft); padding: 16px 2px; text-align: center; }
 .dday-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .dday-badge {
-  flex-shrink: 0; min-width: 52px; text-align: center;
+  flex-shrink: 0; width: 58px; text-align: center; white-space: nowrap;
   font-size: 12.5px; font-weight: 800; color: #fff;
-  background: var(--pink-deep); border-radius: 999px; padding: 3px 9px;
+  background: var(--pink-deep); border-radius: 999px; padding: 3px 0;
 }
 .dday-badge.today { background: #e0664a; }
 .dday-badge.past { background: var(--ink-soft); }
@@ -301,12 +331,14 @@ body {
   font-size: 10px; line-height: 1; cursor: pointer; align-items: center; justify-content: center;
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
+/* 모든 편집 이미지는 블럭 폭을 넘지 않게(붙여넣기 등 포함) — 블럭은 세로로 늘어남 */
+.note-body img { max-width: 100%; height: auto; }
 /* 삽입 이미지 블록(한 줄 = 이미지 그룹 + 공통 캡션) */
-figure.note-img { display: block; margin: 8px 0; }
+figure.note-img { display: block; margin: 8px 0; max-width: 100%; }
 .img-row { display: block; font-size: 0; } /* 이미지들 사이 공백 제거 */
 .img-row img {
   display: inline-block; vertical-align: bottom; max-width: 100%; height: auto; margin: 0 4px 0 0;
-  -webkit-user-drag: none; user-select: none; /* 네이티브 드래그(복제 버그) 방지 */
+  cursor: grab; /* 드래그로 위치 이동 가능 */
 }
 figcaption.note-cap {
   font-size: 12px; color: var(--ink-soft); margin-top: 5px; outline: none; min-height: 1.1em;

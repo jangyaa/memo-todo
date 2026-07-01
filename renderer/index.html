@@ -24,6 +24,7 @@
     <!-- ===================== 할 일(투두) 뷰 ===================== -->
     <section class="view view-todo" id="view-todo">
       <div class="todo-board" id="todo-board"></div>
+      <div class="alarm-bar" id="alarm-bar-todo"></div>
       <div class="fab-wrap" id="fab-wrap-todo">
         <button class="fab-mini" data-act="stopwatch" style="--dy:-196px">스톱워치</button>
         <button class="fab-mini" data-act="alarm" style="--dy:-148px">알람 추가</button>
@@ -58,6 +59,7 @@
           <div class="memo-page" id="memo-page"></div>
         </div>
       </div>
+      <div class="alarm-bar" id="alarm-bar-memo"></div>
       <!-- +버튼 hover 시 주변으로 퍼지는 빠른 실행 메뉴 (기능은 추후, 지금은 UI만) -->
       <div class="fab-wrap" id="fab-wrap">
         <button class="fab-mini" data-act="stopwatch" style="--dy:-196px">스톱워치</button>
@@ -105,6 +107,20 @@
         <button class="cal-nav" id="cal-next">›</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-time" id="cal-time" style="display:none">
+        <input type="time" id="cal-time-input" />
+        <button class="btn-primary" id="cal-time-ok">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 알람 울림 모달 -->
+  <div class="modal-overlay" id="alarm-ring-overlay">
+    <div class="modal alarm-ring">
+      <div class="ar-icon">⏰</div>
+      <div class="ar-title" id="ar-title">알람</div>
+      <div class="ar-time" id="ar-time"></div>
+      <button class="btn-primary" id="ar-dismiss">확인</button>
     </div>
   </div>
 
