@@ -272,8 +272,25 @@ function handleMarkdownKey(e, body, persistCb) {
     const wantCheck = check || (li.parentElement && li.parentElement.classList.contains('md-check'));
     nestLi(li, wantCheck);
   } else {
-    document.execCommand(kind === 'ol' ? 'insertOrderedList' : 'insertUnorderedList');
-    if (check) { const ul = ulOf(); if (ul && ul.tagName === 'UL') ul.classList.add('md-check'); }
+    // execCommand의 목록 병합 버그(특히 숫자 목록이 이전 줄과 합쳐짐) 회피 → 현재 줄을 직접 목록으로 변환
+    const list = document.createElement(kind === 'ol' ? 'ol' : 'ul');
+    if (check) list.classList.add('md-check');
+    const newLi = document.createElement('li');
+    newLi.appendChild(document.createElement('br'));
+    list.appendChild(newLi);
+    // 현재 줄의 블록(요소)을 찾는다: body 바로 아래 자식까지 거슬러 올라감
+    let blockEl = node.nodeType === 1 ? node : node.parentElement;
+    while (blockEl && blockEl.parentElement && blockEl.parentElement !== body) blockEl = blockEl.parentElement;
+    if (blockEl && blockEl !== body && blockEl.parentElement === body && blockEl.nodeType === 1) {
+      body.replaceChild(list, blockEl); // 그 줄 블록만 목록으로 교체(이웃 줄과 병합 없음)
+    } else if (node.parentNode) {
+      node.parentNode.replaceChild(list, node); // 래퍼 없는 텍스트 줄
+    } else {
+      body.appendChild(list);
+    }
+    const rr = document.createRange();
+    rr.setStart(newLi, 0); rr.collapse(true);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(rr);
   }
   persist();
   return true;
@@ -636,23 +653,23 @@ function setupFormatToolbar(config) {
     persist();
     setTimeout(showForSelection, 0);
   }
-  // 선택 범위가 구분선(hr) 하나면 그 hr 요소 반환
-  function selectedHr() {
-    if (!savedRange) return null;
-    const sc = savedRange.startContainer;
-    if (sc && sc.nodeType === 1 && (savedRange.endOffset - savedRange.startOffset === 1)) {
-      const node = sc.childNodes[savedRange.startOffset];
-      if (node && node.tagName === 'HR') return node;
-    }
-    const anc = savedRange.commonAncestorContainer;
-    if (anc && anc.tagName === 'HR') return anc;
-    return null;
-  }
-  // 글자색 적용 — 구분선이 선택돼 있으면 구분선 색을 바꾼다
+  // 글자색 적용 — 구분선을 텍스트처럼 취급: 선택 범위에 걸친 hr 색도 함께 변경
   function applyFontColor(hex) {
-    const hr = selectedHr();
-    if (hr) { hr.style.borderTopColor = hex; hr.style.color = hex; if (savedBody) persist(); setTimeout(showForSelection, 0); return; }
-    run('foreColor', hex);
+    if (!restoreSelection() || !savedBody) return;
+    let hrTouched = false;
+    savedBody.querySelectorAll('hr').forEach((hr) => {
+      let hit = false;
+      try { hit = savedRange.intersectsNode(hr); }
+      catch (_) { const a = savedRange && savedRange.commonAncestorContainer; hit = !!(a && a.contains && a.contains(hr)); }
+      if (hit) { hr.style.borderTopColor = hex; hr.style.color = hex; hrTouched = true; }
+    });
+    // 구분선만 선택된 경우가 아니면 텍스트에도 색 적용
+    if (!(hrTouched && savedRange.toString().replace(/\s+/g, '') === '')) {
+      try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+      document.execCommand('foreColor', false, hex);
+    }
+    persist();
+    setTimeout(showForSelection, 0);
   }
 
   const imageFile = document.getElementById('ft-image-file');
@@ -677,7 +694,7 @@ function setupFormatToolbar(config) {
     const reader = new FileReader();
     reader.onload = () => {
       if (!restoreSelection() || !savedBody) return;
-      document.execCommand('insertHTML', false, `<img src="${reader.result}" style="max-width:100%"><br>`);
+      document.execCommand('insertHTML', false, imageFigureHTML(reader.result));
       persist();
       setTimeout(showForSelection, 0);
     };
@@ -772,29 +789,94 @@ function setupFormatToolbar(config) {
   return hide;
 }
 
-/* ----- 이미지 리사이즈 -----
- * contenteditable 안의 <img>를 클릭하면 우하단 핸들이 떠 드래그로 폭 조절. */
-function setupImageResize(persistCb) {
+/* 편집영역에 삽입할 이미지(피규어) HTML — 정렬/캡션 지원 */
+function imageFigureHTML(src) {
+  return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
+    '<img src="' + src + '" style="max-width:100%">' +
+    '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
+    '</figure><p><br></p>';
+}
+
+/* ----- 이미지 컨트롤 -----
+ * contenteditable 안의 <img>를 클릭하면 정렬 툴바(좌/가운데/우) + 삭제 X 배지 + 우하단 리사이즈 핸들이 뜬다. */
+function setupImageControls(persistCb) {
+  const AL = {
+    left: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg>',
+    center: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="3.5" y="7" width="9" height="2"/><rect x="2" y="12" width="12" height="2"/></svg>',
+    right: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="6" y="7" width="9" height="2"/><rect x="3" y="12" width="12" height="2"/></svg>'
+  };
+  const bar = document.createElement('div');
+  bar.className = 'img-toolbar';
+  bar.innerHTML =
+    '<button data-al="left" title="왼쪽">' + AL.left + '</button>' +
+    '<button data-al="center" title="가운데">' + AL.center + '</button>' +
+    '<button data-al="right" title="오른쪽">' + AL.right + '</button>';
+  bar.style.display = 'none';
+  document.body.appendChild(bar);
+
+  const del = document.createElement('button');
+  del.className = 'img-del'; del.textContent = '✕'; del.title = '이미지 삭제';
+  del.style.display = 'none';
+  document.body.appendChild(del);
+
   const handle = document.createElement('div');
   handle.className = 'img-resize-handle';
   handle.style.display = 'none';
   document.body.appendChild(handle);
+
   let target = null, dragging = false, startX = 0, startW = 0;
+  const figOf = (img) => (img && img.closest && img.closest('figure')) || img;
 
   function place() {
-    if (!target) { handle.style.display = 'none'; return; }
+    if (!target) { bar.style.display = 'none'; del.style.display = 'none'; handle.style.display = 'none'; return; }
     const r = target.getBoundingClientRect();
+    bar.style.display = 'flex';
+    bar.style.left = Math.max(6, r.left + r.width / 2 - bar.offsetWidth / 2) + 'px';
+    bar.style.top = Math.max(6, r.top - bar.offsetHeight - 8) + 'px';
+    del.style.display = 'flex';
+    del.style.left = (r.right - 10) + 'px';
+    del.style.top = (r.top - 10) + 'px';
     handle.style.display = 'block';
     handle.style.left = (r.right - 7) + 'px';
     handle.style.top = (r.bottom - 7) + 'px';
   }
+  function hide() { target = null; place(); }
+
   document.addEventListener('click', (e) => {
-    if (e.target === handle) return;
+    if (e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
-    if (img && img.closest('[contenteditable]')) {
-      target = img; place();
-    } else { target = null; handle.style.display = 'none'; }
+    if (img && img.closest('[contenteditable]')) { target = img; place(); return; }
+    // 캡션 편집 중에는 컨트롤 유지, 그 외 영역 클릭 시 숨김
+    if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
   });
+
+  // 정렬(좌/가운데/우)
+  bar.querySelectorAll('button[data-al]').forEach((b) => {
+    b.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (!target) return;
+      const fig = figOf(target);
+      const al = b.dataset.al;
+      if (fig.tagName === 'FIGURE') {
+        fig.style.textAlign = al;
+      } else {
+        fig.style.display = 'block';
+        fig.style.marginLeft = al === 'left' ? '0' : 'auto';
+        fig.style.marginRight = al === 'right' ? '0' : 'auto';
+      }
+      if (persistCb) persistCb();
+      place();
+    });
+  });
+  // 삭제
+  del.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    if (!target) return;
+    figOf(target).remove();
+    hide();
+    if (persistCb) persistCb();
+  });
+  // 리사이즈
   handle.addEventListener('pointerdown', (e) => {
     if (!target) return;
     e.preventDefault();
@@ -842,12 +924,12 @@ function setupBlogToolbar(menuEl, editableEl, persistCb, insertBarEl) {
     '<button data-c="justifyCenter" title="가운데">' + ALIGN.justifyCenter + '</button>' +
     '<button data-c="justifyRight" title="오른쪽">' + ALIGN.justifyRight + '</button>' +
     '</div>';
-  // 인용구/구분선/이미지는 하단 편집바로 분리(상단 메뉴 폭 축소)
+  // 인용구/구분선/이미지는 하단 편집바로 분리(상단바처럼 아이콘만)
   if (insertBarEl) {
     insertBarEl.innerHTML =
-      '<button data-c="quote" title="인용구">❝ <span>인용구</span></button>' +
-      '<button data-c="hr" title="구분선">― <span>구분선</span></button>' +
-      '<button data-ins="image" title="이미지">' + IMG + ' <span>이미지</span></button>';
+      '<button data-c="quote" title="인용구">❝</button>' +
+      '<button data-c="hr" title="구분선">―</button>' +
+      '<button data-ins="image" title="이미지">' + IMG + '</button>';
   }
 
   const saveR = () => {
@@ -944,7 +1026,7 @@ function setupBlogToolbar(menuEl, editableEl, persistCb, insertBarEl) {
     const f = imgInput.files[0]; imgInput.value = '';
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => { restore(); document.execCommand('insertHTML', false, `<img src="${reader.result}" style="max-width:100%"><br>`); done(); };
+    reader.onload = () => { restore(); document.execCommand('insertHTML', false, imageFigureHTML(reader.result)); done(); };
     reader.readAsDataURL(f);
   });
   if (insertBarEl) {

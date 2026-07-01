@@ -2158,7 +2158,7 @@ async function init() {
   });
   setupNumPrompt();
   setupCalendar();
-  setupImageResize(() => {
+  setupImageControls(() => {
     document.querySelectorAll('.note-body').forEach((b) => {
       const m = state.memos.find((x) => x.id === b.dataset.id);
       if (m) m.content = b.innerHTML;

@@ -62,21 +62,25 @@
       margin-top: 12px; padding-top: 9px; min-height: 0;
       border-top: 1px solid color-mix(in srgb, var(--ink) 26%, transparent);
     }
-    /* 하단 편집바 — 상단 편집창과 동일한 밝은 외형. 왼쪽 시간 · 오른쪽 삽입도구 */
+    /* 하단 편집바 — 상단과 동일하게 편집 시 슬라이드 인/아웃(오버레이). 왼쪽 시간 · 오른쪽 아이콘 */
     .ed-bottombar {
-      flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 7px 14px; background: color-mix(in srgb, var(--pink-soft) 92%, #fff);
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 7px 16px; background: color-mix(in srgb, var(--pink-soft) 92%, #fff);
       border-top: 1px solid var(--line);
+      transform: translateY(100%); opacity: 0; pointer-events: none;
+      transition: transform 0.18s ease, opacity 0.18s ease;
     }
-    .ed-times { font-size: 11px; color: var(--ink-soft); line-height: 1.5; white-space: nowrap; }
-    .ed-inserts { display: flex; align-items: center; gap: 4px; }
+    .ed-bottombar.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+    .ed-times { font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
+    .ed-inserts { display: flex; align-items: center; gap: 2px; }
     .ed-inserts button {
-      display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 11px;
-      border: none; border-radius: 8px; background: transparent; color: var(--ink);
-      font-size: 12.5px; cursor: pointer;
+      min-width: 32px; height: 30px; padding: 0 7px; border: none; border-radius: 8px;
+      background: transparent; color: var(--ink); font-size: 15px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
     }
     .ed-inserts button:hover { background: var(--pink-soft); color: var(--pink-deep); }
-    .ed-inserts button svg { width: 15px; height: 15px; fill: currentColor; }
+    .ed-inserts button svg { width: 16px; height: 16px; fill: currentColor; }
   </style>
 </head>
 <body>

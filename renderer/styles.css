@@ -283,6 +283,31 @@ body {
   background: var(--pink-deep, #cdb0bb); border: 2px solid #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); cursor: nwse-resize; z-index: 400;
 }
+/* 이미지 클릭 시: 정렬 툴바(좌/가운데/우) + 삭제 X 배지 */
+.img-toolbar {
+  position: fixed; z-index: 401; display: none; gap: 2px;
+  background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 4px;
+}
+.img-toolbar button {
+  width: 28px; height: 28px; border: none; background: transparent; border-radius: 7px;
+  cursor: pointer; color: var(--ink); display: inline-flex; align-items: center; justify-content: center;
+}
+.img-toolbar button:hover { background: var(--pink-soft); color: var(--pink-deep); }
+.img-toolbar button svg { width: 15px; height: 15px; fill: currentColor; }
+.img-del {
+  position: fixed; z-index: 402; display: none; width: 20px; height: 20px;
+  border: none; border-radius: 50%; background: var(--pink-deep); color: #fff;
+  font-size: 10px; line-height: 1; cursor: pointer; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+/* 삽입 이미지(피규어) + 캡션 */
+figure.note-img { margin: 8px 0; }
+figure.note-img img { display: inline-block; vertical-align: top; }
+figcaption.note-cap {
+  font-size: 12px; color: var(--ink-soft); margin-top: 5px; outline: none; min-height: 1.1em;
+}
+figcaption.note-cap:empty::before { content: attr(data-ph); color: var(--ink-soft); opacity: 0.55; }
 .dday-item:hover .item-del { opacity: 0.7; }
 
 /* 투두 블럭(반투명 흰색) */
@@ -695,6 +720,11 @@ body {
 .note-body ol ol > li { counter-increment: pcount; position: relative; }
 .note-body ol ol > li::before {
   content: "(" counter(pcount) ")"; position: absolute; left: -21px; color: var(--ink);
+}
+/* 가운데/우측 정렬 시 글머리 마커도 텍스트와 함께 정렬(좌측에 남지 않게) */
+.note-body li[style*="center"], .note-body [style*="center"] > li,
+.note-body li[style*="right"], .note-body [style*="right"] > li {
+  list-style-position: inside;
 }
 .note-body ul.md-check { list-style: none; padding-left: 4px; }
 .note-body ul.md-check > li { position: relative; padding-left: 22px; }

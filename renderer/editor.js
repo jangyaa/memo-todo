@@ -10,17 +10,17 @@ const timesEl = $('ed-times');
 const card = $('ed-card');
 let memo = null;
 
-// 하단바 시간 표시(생성 / 최근 편집)
-function fmtTime(ts) {
+// 하단바 시간 표시 — 한 줄 "YY.MM.DD - 'YY.MM.DD" (생성 - 편집)
+function fmtYMD(ts) {
   const d = new Date(ts || Date.now());
   const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${p(d.getFullYear() % 100)}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
 }
 function renderTimes() {
   if (!memo || !timesEl) return;
   const c = memo.createdAt || Date.now();
   const u = memo.updatedAt || c;
-  timesEl.innerHTML = `생성 ${fmtTime(c)}<br>편집 ${fmtTime(u)}`;
+  timesEl.textContent = `${fmtYMD(c)} - '${fmtYMD(u)}`;
 }
 
 const BLOCK_COLORS = ['var(--c0)', 'var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)'];
@@ -157,23 +157,26 @@ setupFormatToolbar({
   persist: () => save()
 });
 
-setupImageResize(() => save());
+setupImageControls(() => save());
 setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭제
 
-/* 편집창(블로그식 상단 전체 서식 메뉴) — 편집 시작 시 슬라이드, 바깥 클릭 시 닫힘 */
+/* 편집창(상단 서식 메뉴 + 하단 편집바) — 편집 시작 시 함께 슬라이드, 바깥 클릭 시 닫힘 */
 (function setupEditMenu() {
   const menu = $('ed-menu');
+  const bottom = $('ed-bottombar');
   setupBlogToolbar(menu, bodyEl, () => save(), $('ed-inserts'));
+  const openBars = () => { menu.classList.add('open'); bottom.classList.add('open'); };
+  const closeBars = () => { menu.classList.remove('open'); bottom.classList.remove('open'); };
   document.addEventListener('focusin', (e) => {
-    if (e.target.closest && e.target.closest('#ed-body, #ed-title')) menu.classList.add('open');
+    if (e.target.closest && e.target.closest('#ed-body, #ed-title, #ed-bottombar')) openBars();
   });
   document.addEventListener('mousedown', (e) => {
-    if (menu.contains(e.target)) return;
+    if (menu.contains(e.target) || bottom.contains(e.target)) return;
     if (e.target.closest && (e.target.closest('#ed-body, #ed-title') ||
         e.target.closest('#format-toolbar') || e.target.closest('.ft-hlpop') ||
         e.target.closest('.wheel-pop') || e.target.closest('.fontdd-list') ||
-        e.target.closest('.ft-divpop'))) return;
-    menu.classList.remove('open');
+        e.target.closest('.ft-divpop') || e.target.closest('.img-toolbar'))) return;
+    closeBars();
   });
 })();
 
