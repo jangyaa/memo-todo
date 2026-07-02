@@ -66,6 +66,7 @@ function setMeta(updatedAt) {
 }
 
 // config.json: 앱 폴더 우선, 없으면 userData 에서 읽는다.
+// 메모장 등이 붙이는 BOM/앞뒤 공백을 제거하고 파싱(BOM 때문에 JSON 파싱 실패하는 문제 방지).
 function loadConfig() {
   const candidates = [
     path.join(__dirname, 'config.json'),
@@ -73,8 +74,11 @@ function loadConfig() {
   ];
   for (const p of candidates) {
     try {
-      return JSON.parse(fs.readFileSync(p, 'utf-8'));
-    } catch (_) {}
+      const raw = fs.readFileSync(p, 'utf-8').replace(/^\uFEFF/, '').trim();
+      if (raw) return JSON.parse(raw);
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.error('config.json 파싱 실패:', p, err.message);
+    }
   }
   return null;
 }
