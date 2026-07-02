@@ -789,24 +789,39 @@ function setupFormatToolbar(config) {
   return hide;
 }
 
-/* 편집영역에 삽입할 이미지 블록 — 한 이미지 = 한 figure(자기 줄) + 자기 캡션 1개.
- * .img-wrap(인라인블록)이 이미지 폭에 맞춰져 캡션 폭도 이미지 폭을 따른다. */
+/* 편집영역에 삽입할 이미지 카드 — 한 이미지 = 인라인블록 span 하나 + 자기 캡션 1개.
+ * 인라인블록이라 폭이 이미지에 맞춰지고(캡션 폭도 따라감) 여러 장이 한 줄에 나란히 흐른다. */
 function imageFigureHTML(src) {
-  return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
-    '<span class="img-wrap">' +
-    '<img src="' + src + '" style="max-width:100%" draggable="false">' +
-    '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
-    '</span></figure>';
+  return '<span class="note-img" contenteditable="false">' +
+    '<img src="' + src + '" draggable="false">' +
+    '<span class="note-cap" contenteditable="true" data-ph="캡션 입력"></span>' +
+    '</span>';
 }
-// 이미지 삽입: 항상 새 줄(figure) + 뒤에 빈 문단(커서 이동/Enter 가능)
+// 이미지 삽입: execCommand 대신 Range로 직접 삽입(중첩 편집영역 깨짐/캡션 오배치 방지).
+// 인라인 카드라 커서 위치에 삽입 → 앞 이미지 바로 뒤에 넣으면 같은 줄에 나란히 배치됨.
 function insertNoteImage(editable, src, doneCb) {
-  document.execCommand('insertHTML', false, imageFigureHTML(src) + '<p><br></p>');
+  try { editable.focus({ preventScroll: true }); } catch (_) { editable.focus(); }
+  const sel = window.getSelection();
+  let range = (sel && sel.rangeCount && editable.contains(sel.anchorNode)) ? sel.getRangeAt(0) : null;
+  if (!range) { range = document.createRange(); range.selectNodeContents(editable); range.collapse(false); }
+  range.deleteContents();
+  const tmp = document.createElement('div');
+  tmp.innerHTML = imageFigureHTML(src);
+  const node = tmp.firstElementChild;
+  range.insertNode(node);
+  // 카드 뒤에 커서를 둘 자리(제로폭 공백) → 이어서 이미지 추가 시 같은 줄에 붙음
+  const zw = document.createTextNode('​');
+  if (node.parentNode) node.parentNode.insertBefore(zw, node.nextSibling);
+  try {
+    const r2 = document.createRange(); r2.setStartAfter(zw); r2.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r2);
+  } catch (_) {}
   if (doneCb) doneCb();
 }
 
 /* ----- 이미지 컨트롤 -----
  * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들 + 편집모드 진입.
- * 이미지는 각자 자기 줄이라 리사이즈/삭제/캡션이 서로 독립적이다. */
+ * 각 이미지 카드는 독립(리사이즈/삭제/캡션/이동 개별). 한 줄에 여러 장 배치 가능. */
 function setupImageControls(persistCb) {
   const AL = {
     left: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg>',
@@ -834,18 +849,40 @@ function setupImageControls(persistCb) {
 
   let target = null, resizing = false, startX = 0, startW = 0;
   let mv = null, mvStartX = 0, mvStartY = 0, mvOn = false, justMoved = false;
-  const figOf = (img) => (img && img.closest && img.closest('figure.note-img')) || null;
+  const figOf = (img) => (img && img.closest && img.closest('.note-img')) || null;
   function blockWidth(img) {
     const ed = img.closest('[contenteditable]');
     return (ed ? ed.clientWidth : 600) - 12;
   }
   function editableHostOf(node) {
     let el = node && (node.nodeType === 1 ? node : node.parentElement);
-    while (el && !el.isContentEditable) el = el.parentElement;
-    return el && el.isContentEditable ? el : null;
+    while (el) {
+      if (el.isContentEditable || (el.getAttribute && el.getAttribute('contenteditable') === 'true')) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+  // 편집영역 루트(contenteditable="true" 속성을 가진 최상위 요소)
+  function editableRootOf(node) {
+    let el = node && (node.nodeType === 1 ? node : node.parentElement), root = null;
+    while (el) {
+      if (el.getAttribute && el.getAttribute('contenteditable') === 'true') root = el;
+      el = el.parentElement;
+    }
+    return root;
+  }
+  // 정렬 대상 = 이미지 카드를 담은 블럭(줄). 편집영역 직속이면 감싸는 div를 만들어 확보.
+  function lineBlockOf(fig) {
+    const root = editableRootOf(fig);
+    const p = fig.parentElement;
+    if (p && p !== root) return p;
+    const div = document.createElement('div');
+    (root || p).insertBefore(div, fig);
+    div.appendChild(fig);
+    return div;
   }
   function markActive(img) {
-    document.querySelectorAll('figure.note-img.img-active').forEach((f) => f.classList.remove('img-active'));
+    document.querySelectorAll('.note-img.img-active').forEach((f) => f.classList.remove('img-active'));
     const fig = img && figOf(img);
     if (fig) fig.classList.add('img-active'); // 선택 이미지의 캡션 입력칸 표시
   }
@@ -896,15 +933,15 @@ function setupImageControls(persistCb) {
     if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
   }, true);
 
-  // 정렬(좌/가운데/우) — figure에 text-align 지정(캡션도 inherit로 따라감)
+  // 정렬(좌/가운데/우) — 이미지 카드가 든 줄(블럭)에 text-align 지정
   bar.querySelectorAll('button[data-al]').forEach((b) => {
     b.addEventListener('mousedown', (e) => {
       e.preventDefault();
       const fig = target && figOf(target);
-      if (fig) { fig.style.textAlign = b.dataset.al; if (persistCb) persistCb(); place(); }
+      if (fig) { lineBlockOf(fig).style.textAlign = b.dataset.al; if (persistCb) persistCb(); place(); }
     });
   });
-  // 삭제 — 이미지(figure) 제거
+  // 삭제 — 이미지 카드 제거
   del.addEventListener('mousedown', (e) => {
     e.preventDefault();
     if (!target) return;
@@ -969,8 +1006,9 @@ function setupImageControls(persistCb) {
       el.style.opacity = '';
       document.body.classList.remove('img-moving');
       const range = caretAt(e.clientX, e.clientY);
+      // insertNode는 이미 붙어있는 노드를 자동으로 옮김(먼저 remove하면 range 오프셋이 어긋나 이동 실패)
       if (range && !el.contains(range.startContainer) && editableHostOf(range.startContainer)) {
-        try { el.remove(); range.insertNode(el); if (persistCb) persistCb(); } catch (_) {}
+        try { range.insertNode(el); if (persistCb) persistCb(); } catch (_) {}
       }
       justMoved = true; // 뒤이어 올 click 억제
     }
