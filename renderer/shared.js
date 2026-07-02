@@ -806,7 +806,9 @@ function justifyImageRow(row) {
   const notReady = imgs.filter((im) => !im.naturalWidth);
   if (notReady.length) { notReady.forEach((im) => im.addEventListener('load', () => justifyImageRow(row), { once: true })); return; }
   if (imgs.length === 1) { imgs[0].style.height = ''; imgs[0].style.width = ''; return; }
-  const ed = row.closest('[contenteditable]');
+  // 편집영역(contenteditable=true) 폭 기준. figure(false)를 잡으면 폭이 계속 줄어드는 문제.
+  let ed = row.parentElement;
+  while (ed && !(ed.getAttribute && ed.getAttribute('contenteditable') === 'true') && !ed.isContentEditable) ed = ed.parentElement;
   const blockW = ((ed && ed.clientWidth) || 600) - 12;
   const gap = 6, totalGap = gap * (imgs.length - 1);
   const sumAspect = imgs.reduce((s, im) => s + im.naturalWidth / im.naturalHeight, 0);
@@ -894,8 +896,10 @@ function setupImageControls(persistCb) {
   const rowOf = (img) => { const f = figOf(img); return f && f.querySelector('.img-row'); };
   const isMultiRow = (img) => { const r = rowOf(img); return !!(r && r.querySelectorAll('img').length > 1); };
   function blockWidth(img) {
-    const ed = img.closest('[contenteditable]');
-    return (ed ? ed.clientWidth : 600) - 12;
+    // 반드시 편집영역(contenteditable=true) 폭 기준. figure는 contenteditable="false"라
+    // closest('[contenteditable]')로 잡으면 리사이즈 중 폭이 같이 줄어 최소치로 폭주함.
+    const ed = editableHostOf(img);
+    return ((ed && ed.clientWidth) || 600) - 12;
   }
   function editableHostOf(node) {
     let el = node && (node.nodeType === 1 ? node : node.parentElement);
