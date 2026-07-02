@@ -818,6 +818,13 @@ function justifyImageRow(row) {
     im.style.width = Math.round(h * im.naturalWidth / im.naturalHeight) + 'px';
   });
 }
+// 렌더/로드 후 여러 장 줄을 다시 정렬(같은 높이·하단 정렬). 단일 이미지는 저장된 수동 크기 유지.
+function justifyImageRowsIn(root) {
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('.img-row').forEach((r) => {
+    if (r.querySelectorAll('img').length > 1) justifyImageRow(r);
+  });
+}
 // 커서 위치가 기존 이미지 줄(figure) 안이거나 바로 뒤면 그 줄의 .img-row 반환(같은 줄에 추가하기 위함)
 function rowAdjacentToCaret(range, editable) {
   const n = range.startContainer;

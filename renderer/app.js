@@ -1018,6 +1018,7 @@ function buildMemoBlock(memo) {
   body.contentEditable = 'true';
   body.spellcheck = false;
   body.innerHTML = looksHtml(memo.content) ? memo.content : linkifyHtml(memo.content || '');
+  justifyImageRowsIn(body); // 저장된 여러 장 줄 재정렬(같은 높이·하단 정렬)
   body.addEventListener('input', () => {
     memo.content = body.innerHTML;
     touchMemo(memo);

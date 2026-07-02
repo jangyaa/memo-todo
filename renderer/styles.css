@@ -289,7 +289,8 @@ body.img-moving, body.img-moving * { cursor: grabbing !important; }
 /* 삽입 이미지 줄 = figure(블럭). 한 줄에 여러 장이면 같은 높이로 정렬되고 폭 합이 블럭을 채움 */
 figure.note-img { display: block; margin: 8px 0; max-width: 100%; }
 /* 이미지들을 한 줄로 담는 flex 행(figure의 text-align으로 좌/가운데/우 배치) */
-.img-row { display: inline-flex; gap: 6px; max-width: 100%; vertical-align: top; align-items: flex-start; }
+/* align-items:flex-end → 높이가 달라도 아래쪽(하단) 기준으로 정렬 */
+.img-row { display: inline-flex; gap: 6px; max-width: 100%; vertical-align: top; align-items: flex-end; }
 .img-row img { display: block; max-width: 100%; height: auto; border-radius: 8px; cursor: grab; }
 /* 캡션은 줄(figure)당 1개 — 이미지 바로 아래 표시, 정렬은 이미지 줄을 따름(inherit) */
 figcaption.note-cap {

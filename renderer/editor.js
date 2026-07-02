@@ -99,6 +99,7 @@ async function load() {
   if (!Array.isArray(memo.tags)) memo.tags = [];
   titleEl.innerHTML = memo.title || '';
   bodyEl.innerHTML = memo.content || '';
+  justifyImageRowsIn(bodyEl); // 저장된 여러 장 줄 재정렬(같은 높이·하단 정렬)
   renderTags();
   renderTimes();
 }
@@ -192,6 +193,7 @@ window.api.onDataChanged((d) => {
     if (!Array.isArray(memo.tags)) memo.tags = [];
     titleEl.innerHTML = m.title || '';
     bodyEl.innerHTML = m.content || '';
+    justifyImageRowsIn(bodyEl);
     renderTags();
     renderTimes();
     const t = plainTitle(m.title) || '메모';
