@@ -797,33 +797,35 @@ function imageFigureHTML(src) {
     '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
     '</figure>';
 }
-// 한 줄(.img-row) 이미지들을 같은 높이 + 폭 합이 블럭 폭을 채우게 정렬(저스티파이).
-// 이미지 1장이면 자연 크기(수동 리사이즈 허용). 2장 이상이면 자동 정렬.
-function justifyImageRow(row) {
+// 한 줄(.img-row)이 블럭 폭을 넘으면 각 이미지 비율을 유지한 채 함께 축소(모두 보이게).
+// 각 이미지 크기는 개별(수동 리사이즈) 유지. 넘칠 때만 같은 비율로 줄여 다 보이게 맞춘다.
+function editableWidthOf(node) {
+  let ed = node && (node.nodeType === 1 ? node : node.parentElement);
+  while (ed && !(ed.getAttribute && ed.getAttribute('contenteditable') === 'true') && !ed.isContentEditable) ed = ed.parentElement;
+  return ((ed && ed.clientWidth) || 600) - 12;
+}
+function fitImageRow(row) {
   if (!row) return;
   const imgs = Array.prototype.slice.call(row.querySelectorAll('img'));
-  if (!imgs.length) return;
+  if (imgs.length < 2) return; // 단일 이미지는 CSS(max-width:100%)로 처리
   const notReady = imgs.filter((im) => !im.naturalWidth);
-  if (notReady.length) { notReady.forEach((im) => im.addEventListener('load', () => justifyImageRow(row), { once: true })); return; }
-  if (imgs.length === 1) { imgs[0].style.height = ''; imgs[0].style.width = ''; return; }
-  // 편집영역(contenteditable=true) 폭 기준. figure(false)를 잡으면 폭이 계속 줄어드는 문제.
-  let ed = row.parentElement;
-  while (ed && !(ed.getAttribute && ed.getAttribute('contenteditable') === 'true') && !ed.isContentEditable) ed = ed.parentElement;
-  const blockW = ((ed && ed.clientWidth) || 600) - 12;
+  if (notReady.length) { notReady.forEach((im) => im.addEventListener('load', () => fitImageRow(row), { once: true })); return; }
+  const blockW = editableWidthOf(row);
   const gap = 6, totalGap = gap * (imgs.length - 1);
-  const sumAspect = imgs.reduce((s, im) => s + im.naturalWidth / im.naturalHeight, 0);
-  const h = (blockW - totalGap) / sumAspect; // 공통 높이 → 폭 합 = blockW
-  imgs.forEach((im) => {
-    im.style.height = Math.round(h) + 'px';
-    im.style.width = Math.round(h * im.naturalWidth / im.naturalHeight) + 'px';
+  // 각 이미지 목표 폭 = 수동 지정 폭(px) 또는 자연 폭
+  const want = imgs.map((im) => { const w = parseFloat(im.style.width); return (w && w > 0) ? w : im.naturalWidth; });
+  const sum = want.reduce((a, b) => a + b, 0);
+  const avail = blockW - totalGap;
+  const factor = sum > avail ? avail / sum : 1; // 넘칠 때만 비율 유지하며 축소
+  imgs.forEach((im, i) => {
+    im.style.width = Math.max(20, Math.round(want[i] * factor)) + 'px';
+    im.style.height = 'auto'; // 비율 유지
   });
 }
-// 렌더/로드 후 여러 장 줄을 다시 정렬(같은 높이·하단 정렬). 단일 이미지는 저장된 수동 크기 유지.
-function justifyImageRowsIn(root) {
+// 렌더/로드 후 여러 장 줄을 블럭 폭에 맞춰 축소(모두 보이게). 편집창↔본창 폭 차이도 여기서 보정.
+function fitImageRowsIn(root) {
   if (!root || !root.querySelectorAll) return;
-  root.querySelectorAll('.img-row').forEach((r) => {
-    if (r.querySelectorAll('img').length > 1) justifyImageRow(r);
-  });
+  root.querySelectorAll('.img-row').forEach((r) => fitImageRow(r));
 }
 // 커서 위치가 기존 이미지 줄(figure) 안이거나 바로 뒤면 그 줄의 .img-row 반환(같은 줄에 추가하기 위함)
 function rowAdjacentToCaret(range, editable) {
@@ -842,6 +844,7 @@ function rowAdjacentToCaret(range, editable) {
 // 이미지 삽입: 커서가 기존 이미지 줄에 붙어 있으면 그 줄에 추가(같은 라인), 아니면 새 줄(figure) 생성.
 function insertNoteImage(editable, src, doneCb) {
   try { editable.focus({ preventScroll: true }); } catch (_) { editable.focus(); }
+  if (editable._undoSnapshot) editable._undoSnapshot(); // 삽입 전 상태 저장(Ctrl+Z)
   const sel = window.getSelection();
   let range = (sel && sel.rangeCount && editable.contains(sel.anchorNode)) ? sel.getRangeAt(0) : null;
   const row = range ? rowAdjacentToCaret(range, editable) : null;
@@ -851,7 +854,7 @@ function insertNoteImage(editable, src, doneCb) {
     img.src = src; img.setAttribute('draggable', 'false');
     row.appendChild(img);
     fig = row.closest('.note-img');
-    justifyImageRow(row);
+    fitImageRow(row);
   } else {
     if (!range) { range = document.createRange(); range.selectNodeContents(editable); range.collapse(false); }
     range.deleteContents();
@@ -859,7 +862,7 @@ function insertNoteImage(editable, src, doneCb) {
     tmp.innerHTML = imageFigureHTML(src);
     fig = tmp.firstElementChild;
     range.insertNode(fig);
-    justifyImageRow(fig.querySelector('.img-row'));
+    fitImageRow(fig.querySelector('.img-row'));
   }
   // figure 뒤에 커서 자리 확보 → 이어서 삽입 시 같은 줄에 붙고, Enter 후 삽입하면 새 줄이 됨
   let after = fig.nextSibling;
@@ -868,9 +871,49 @@ function insertNoteImage(editable, src, doneCb) {
   if (doneCb) doneCb();
 }
 
+/* ----- 실행취소(Ctrl+Z)/다시실행(Ctrl+Shift+Z, Ctrl+Y) -----
+ * 이미지 삽입/리사이즈/삭제/이동은 execCommand가 아니라 직접 DOM 조작이라 브라우저 기본 undo가
+ * 안 먹는다. innerHTML 스냅샷 스택으로 편집영역 전체 undo/redo를 직접 구현.
+ * 이미지 조작 직전엔 editable._undoSnapshot()으로 상태를 미리 저장한다. */
+function setupUndo(editable, persistCb) {
+  if (!editable || editable._undoSnapshot) return; // 중복 설치 방지
+  const undo = [], redo = [];
+  let last = editable.innerHTML, t = null;
+  function commit() {
+    const cur = editable.innerHTML;
+    if (cur === last) return;
+    undo.push(last); if (undo.length > 120) undo.shift();
+    redo.length = 0; last = cur;
+  }
+  editable.addEventListener('input', () => { clearTimeout(t); t = setTimeout(commit, 350); });
+  editable._undoSnapshot = () => { clearTimeout(t); commit(); };
+  function restore(html) {
+    editable.innerHTML = html; last = html;
+    fitImageRowsIn(editable);
+    try { editable.focus({ preventScroll: true }); } catch (_) {}
+    if (persistCb) persistCb();
+  }
+  editable.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) {
+      clearTimeout(t); commit();
+      if (!undo.length) return;
+      e.preventDefault();
+      redo.push(editable.innerHTML);
+      restore(undo.pop());
+    } else if ((k === 'z' && e.shiftKey) || k === 'y') {
+      if (!redo.length) return;
+      e.preventDefault();
+      undo.push(editable.innerHTML);
+      restore(redo.pop());
+    }
+  });
+}
+
 /* ----- 이미지 컨트롤 -----
- * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들(단일 줄) + 편집모드 진입.
- * 한 줄(figure)에 여러 장이면 같은 높이로 자동 정렬(폭 합이 블럭 채움), 캡션은 줄당 1개.
+ * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들(안쪽 이미지도) + 편집모드 진입.
+ * 한 줄(figure)에 여러 장이면 하단(아래쪽) 정렬 + 블럭 초과 시 비율 유지 축소, 캡션은 줄당 1개.
  * 드래그로 줄 전체 이동, 삭제는 이미지 한 장씩. */
 function setupImageControls(persistCb) {
   const AL = {
@@ -901,7 +944,7 @@ function setupImageControls(persistCb) {
   let mv = null, mvStartX = 0, mvStartY = 0, mvOn = false, justMoved = false;
   const figOf = (img) => (img && img.closest && img.closest('.note-img')) || null;
   const rowOf = (img) => { const f = figOf(img); return f && f.querySelector('.img-row'); };
-  const isMultiRow = (img) => { const r = rowOf(img); return !!(r && r.querySelectorAll('img').length > 1); };
+  const snapUndo = (node) => { const h = editableHostOf(node); if (h && h._undoSnapshot) h._undoSnapshot(); };
   function blockWidth(img) {
     // 반드시 편집영역(contenteditable=true) 폭 기준. figure는 contenteditable="false"라
     // closest('[contenteditable]')로 잡으면 리사이즈 중 폭이 같이 줄어 최소치로 폭주함.
@@ -930,9 +973,8 @@ function setupImageControls(persistCb) {
     del.style.display = 'flex';
     del.style.left = (r.right - 10) + 'px';
     del.style.top = (r.top - 10) + 'px';
-    // 리사이즈 핸들은 단일 이미지 줄에서만(여러 장 줄은 자동 정렬이라 수동 리사이즈 없음)
-    if (isMultiRow(target)) { handle.style.display = 'none'; }
-    else {
+    // 리사이즈 핸들은 모든(안쪽 포함) 선택 이미지에 표시. 하단 정렬이라 우하단 코너에 둠.
+    {
       handle.style.display = 'block';
       handle.style.left = (r.right - 7) + 'px';
       handle.style.top = (r.bottom - 7) + 'px';
@@ -977,24 +1019,26 @@ function setupImageControls(persistCb) {
     b.addEventListener('mousedown', (e) => {
       e.preventDefault();
       const fig = target && figOf(target);
-      if (fig) { fig.style.textAlign = b.dataset.al; if (persistCb) persistCb(); place(); }
+      if (fig) { snapUndo(fig); fig.style.textAlign = b.dataset.al; if (persistCb) persistCb(); place(); }
     });
   });
   // 삭제 — 선택한 이미지 한 장만 제거. 줄이 비면 figure 제거, 남으면 재정렬.
   del.addEventListener('mousedown', (e) => {
     e.preventDefault();
     if (!target) return;
+    snapUndo(target);
     const fig = figOf(target), row = rowOf(target);
     target.remove();
-    if (row && row.querySelector('img')) justifyImageRow(row);
+    if (row && row.querySelector('img')) fitImageRow(row);
     else if (fig) fig.remove();
     hide();
     if (persistCb) persistCb();
   });
-  // 리사이즈 — 단일 이미지 폭 조정(블럭 폭 초과 금지)
+  // 리사이즈 — 선택 이미지 폭 조정. 여러 장 줄이면 남는 이미지들 폭 합만큼 상한을 낮춰 모두 보이게.
   handle.addEventListener('pointerdown', (e) => {
     if (!target) return;
     e.preventDefault();
+    snapUndo(target);
     resizing = true;
     startX = e.clientX;
     startW = target.getBoundingClientRect().width;
@@ -1002,7 +1046,16 @@ function setupImageControls(persistCb) {
   });
   document.addEventListener('pointermove', (e) => {
     if (!resizing || !target) return;
-    const w = Math.max(40, Math.min(blockWidth(target), Math.round(startW + (e.clientX - startX))));
+    let maxW = blockWidth(target);
+    const row = rowOf(target);
+    if (row) {
+      const all = Array.prototype.slice.call(row.querySelectorAll('img'));
+      const others = all.filter((im) => im !== target);
+      const gap = 6, totalGap = gap * (all.length - 1);
+      const othersW = others.reduce((s, im) => s + im.getBoundingClientRect().width, 0);
+      maxW = blockWidth(target) - othersW - totalGap; // 다른 이미지들이 잘리지 않게
+    }
+    const w = Math.max(40, Math.min(maxW, Math.round(startW + (e.clientX - startX))));
     target.style.width = w + 'px';
     target.style.height = 'auto';
     place();
@@ -1049,7 +1102,7 @@ function setupImageControls(persistCb) {
       const range = caretAt(e.clientX, e.clientY);
       // insertNode는 이미 붙어있는 노드를 자동으로 옮김(먼저 remove하면 range 오프셋이 어긋나 이동 실패)
       if (range && !el.contains(range.startContainer) && editableHostOf(range.startContainer)) {
-        try { range.insertNode(el); if (persistCb) persistCb(); } catch (_) {}
+        try { snapUndo(el); range.insertNode(el); if (persistCb) persistCb(); } catch (_) {}
       }
       justMoved = true; // 뒤이어 올 click 억제
     }
@@ -1057,11 +1110,9 @@ function setupImageControls(persistCb) {
   });
 
   window.addEventListener('scroll', () => { if (target) place(); }, true);
-  // 창 크기 변경 시 여러 장 줄은 폭에 맞춰 다시 정렬(같은 높이 유지 + 폭 합이 블럭 채움)
+  // 창 크기 변경 시 여러 장 줄은 폭에 맞춰 다시 축소(모두 보이게)
   window.addEventListener('resize', () => {
-    document.querySelectorAll('.note-img .img-row').forEach((r) => {
-      if (r.querySelectorAll('img').length > 1) justifyImageRow(r);
-    });
+    document.querySelectorAll('.note-img .img-row').forEach((r) => fitImageRow(r));
     if (target) place();
   });
 }

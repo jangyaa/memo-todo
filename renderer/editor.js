@@ -99,7 +99,7 @@ async function load() {
   if (!Array.isArray(memo.tags)) memo.tags = [];
   titleEl.innerHTML = memo.title || '';
   bodyEl.innerHTML = memo.content || '';
-  justifyImageRowsIn(bodyEl); // 저장된 여러 장 줄 재정렬(같은 높이·하단 정렬)
+  fitImageRowsIn(bodyEl); // 저장된 여러 장 줄을 블럭 폭에 맞춰 축소(모두 보이게)
   renderTags();
   renderTimes();
 }
@@ -157,6 +157,7 @@ setupFormatToolbar({
 });
 
 setupImageControls(() => save());
+setupUndo(bodyEl, () => save()); // Ctrl+Z 실행취소(이미지 삽입/리사이즈/삭제/이동 포함)
 setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭제
 
 /* 편집창(상단 서식 메뉴 + 하단 편집바) — 편집 시작 시 함께 슬라이드, 바깥 클릭 시 닫힘 */
@@ -193,7 +194,7 @@ window.api.onDataChanged((d) => {
     if (!Array.isArray(memo.tags)) memo.tags = [];
     titleEl.innerHTML = m.title || '';
     bodyEl.innerHTML = m.content || '';
-    justifyImageRowsIn(bodyEl);
+    fitImageRowsIn(bodyEl);
     renderTags();
     renderTimes();
     const t = plainTitle(m.title) || '메모';
