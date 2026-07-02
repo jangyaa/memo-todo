@@ -460,13 +460,15 @@ function buildFontDropdown(mountEl, opts) {
   function open() {
     if (opts.restore) opts.restore();
     const r = btn.getBoundingClientRect();
-    // 버튼과 확장 리스트의 가로폭을 동일하게 맞춤
-    list.style.width = r.width + 'px';
+    // 리스트는 버튼 폭 이상으로, 폰트명이 잘리거나 세로로 쪼개지지 않게 내용에 맞춰 늘어남
+    list.style.minWidth = r.width + 'px';
     list.classList.add('open');
     const lr = list.getBoundingClientRect();
     let top = r.bottom + 4;
     if (top + lr.height > window.innerHeight - 8) top = r.top - lr.height - 4;
-    list.style.left = r.left + 'px';
+    let left = r.left;
+    if (left + lr.width > window.innerWidth - 8) left = window.innerWidth - 8 - lr.width;
+    list.style.left = Math.max(8, left) + 'px';
     list.style.top = Math.max(8, top) + 'px';
   }
   btn.addEventListener('mousedown', (e) => {
@@ -787,41 +789,24 @@ function setupFormatToolbar(config) {
   return hide;
 }
 
-/* 편집영역에 삽입할 이미지 블록(피규어) HTML.
- * 한 줄(figure) = 이미지 그룹 + 공통 캡션 1개. 여러 이미지는 .img-row 안에 나란히. */
+/* 편집영역에 삽입할 이미지 블록 — 한 이미지 = 한 figure(자기 줄) + 자기 캡션 1개.
+ * .img-wrap(인라인블록)이 이미지 폭에 맞춰져 캡션 폭도 이미지 폭을 따른다. */
 function imageFigureHTML(src) {
-  // .img-wrap(인라인블록)이 이미지 폭에 맞춰지고, 그 안의 캡션도 이미지 폭을 따름
   return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
     '<span class="img-wrap">' +
-    '<span class="img-row"><img src="' + src + '" style="max-width:100%" draggable="false"></span>' +
+    '<img src="' + src + '" style="max-width:100%" draggable="false">' +
     '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
     '</span></figure>';
 }
-// 현재 선택된 이미지(같은 줄에 추가 삽입 판단용) — 창 전역
-let ACTIVE_NOTE_IMG = null;
-function activeNoteImage() { return (ACTIVE_NOTE_IMG && ACTIVE_NOTE_IMG.isConnected) ? ACTIVE_NOTE_IMG : null; }
-// 이미지 삽입: 활성 이미지가 있으면 그 줄(figure)에 추가, 없으면 새 줄(블록) + 다음 빈 줄
+// 이미지 삽입: 항상 새 줄(figure) + 뒤에 빈 문단(커서 이동/Enter 가능)
 function insertNoteImage(editable, src, doneCb) {
-  const active = activeNoteImage();
-  if (active && editable.contains(active)) {
-    const fig = active.closest('figure.note-img');
-    const row = fig && fig.querySelector('.img-row');
-    if (row) {
-      const im = document.createElement('img');
-      im.src = src; im.style.maxWidth = '100%';
-      row.appendChild(im);
-      if (doneCb) doneCb();
-      return;
-    }
-  }
-  // 새 이미지 줄 + 뒤에 빈 문단(커서를 아래로 옮겨 이어서 입력/Enter 가능)
   document.execCommand('insertHTML', false, imageFigureHTML(src) + '<p><br></p>');
   if (doneCb) doneCb();
 }
 
 /* ----- 이미지 컨트롤 -----
- * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들.
- * 한 줄(figure) 안의 이미지들은 그룹: 높이를 맞추고, 리사이즈 시 함께 조정되며 블럭을 넘지 않는다. */
+ * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들 + 편집모드 진입.
+ * 이미지는 각자 자기 줄이라 리사이즈/삭제/캡션이 서로 독립적이다. */
 function setupImageControls(persistCb) {
   const AL = {
     left: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg>',
@@ -847,28 +832,23 @@ function setupImageControls(persistCb) {
   handle.style.display = 'none';
   document.body.appendChild(handle);
 
-  let target = null, dragging = false, startX = 0, startW = 0, startH = 0, dragGroup = [];
+  let target = null, resizing = false, startX = 0, startW = 0;
+  let mv = null, mvStartX = 0, mvStartY = 0, mvOn = false, justMoved = false;
   const figOf = (img) => (img && img.closest && img.closest('figure.note-img')) || null;
-  // 한 줄(figure) 안의 이미지 그룹
-  const rowImgs = (img) => {
-    const fig = figOf(img); if (!fig) return [img];
-    return Array.from(fig.querySelectorAll('.img-row img'));
-  };
   function blockWidth(img) {
     const ed = img.closest('[contenteditable]');
     return (ed ? ed.clientWidth : 600) - 12;
   }
-  // 한 줄 이미지 폭 합이 블럭을 넘으면 높이를 줄여 맞춤(블럭 넘어가지 않게)
-  function clampGroup(imgs) {
-    if (!imgs.length) return;
-    const maxW = blockWidth(imgs[0]);
-    let sum = 0; imgs.forEach((im) => { sum += im.getBoundingClientRect().width; });
-    if (sum > maxW && sum > 0) {
-      const f = maxW / sum;
-      imgs.forEach((im) => { const h = im.getBoundingClientRect().height * f; im.style.height = Math.round(h) + 'px'; im.style.width = 'auto'; });
-    }
+  function editableHostOf(node) {
+    let el = node && (node.nodeType === 1 ? node : node.parentElement);
+    while (el && !el.isContentEditable) el = el.parentElement;
+    return el && el.isContentEditable ? el : null;
   }
-
+  function markActive(img) {
+    document.querySelectorAll('figure.note-img.img-active').forEach((f) => f.classList.remove('img-active'));
+    const fig = img && figOf(img);
+    if (fig) fig.classList.add('img-active'); // 선택 이미지의 캡션 입력칸 표시
+  }
   function place() {
     if (!target) { bar.style.display = 'none'; del.style.display = 'none'; handle.style.display = 'none'; return; }
     const r = target.getBoundingClientRect();
@@ -882,35 +862,7 @@ function setupImageControls(persistCb) {
     handle.style.left = (r.right - 7) + 'px';
     handle.style.top = (r.bottom - 7) + 'px';
   }
-  function markActive(img) {
-    document.querySelectorAll('figure.note-img.img-active').forEach((f) => f.classList.remove('img-active'));
-    const fig = img && figOf(img);
-    if (fig) fig.classList.add('img-active'); // 선택된 이미지의 캡션 입력칸 표시
-  }
-  function hide() { target = null; ACTIVE_NOTE_IMG = null; markActive(null); place(); }
-
-  // 삽입 직후 이미지 로드 시: 같은 줄의 기존 이미지 높이에 맞춤(load는 버블 안 됨 → capture)
-  document.addEventListener('load', (e) => {
-    const img = e.target;
-    if (!img || img.tagName !== 'IMG' || !(img.closest && img.closest('.img-row'))) return;
-    if (img.style.height) return; // 이미 크기 지정(저장)된 이미지는 그대로
-    const imgs = rowImgs(img);
-    const others = imgs.filter((x) => x !== img && x.getBoundingClientRect().height > 0);
-    if (others.length) {
-      const h = others[0].getBoundingClientRect().height; // 기존 이미지 세로에 맞춤
-      if (h > 0) { img.style.height = Math.round(h) + 'px'; img.style.width = 'auto'; }
-      clampGroup(imgs);
-      if (persistCb) persistCb();
-    }
-  }, true);
-
-  // 편집 호스트(contenteditable=true) 찾기
-  function editableHostOf(node) {
-    let el = node && (node.nodeType === 1 ? node : node.parentElement);
-    while (el && !el.isContentEditable) el = el.parentElement;
-    return el && el.isContentEditable ? el : null;
-  }
-  // 이미지를 텍스트처럼: 클릭하면 편집 모드 진입(포커스 → 상/하단 편집바) + 커서를 이미지 뒤에
+  function hide() { target = null; markActive(null); place(); }
   function enterEditAtImage(img) {
     const host = editableHostOf(img);
     if (!host) return;
@@ -924,71 +876,63 @@ function setupImageControls(persistCb) {
       } catch (_) {}
     }
   }
+  function caretAt(x, y) {
+    if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+    if (document.caretPositionFromPoint) {
+      const p = document.caretPositionFromPoint(x, y);
+      if (p) { const r = document.createRange(); r.setStart(p.offsetNode, p.offset); return r; }
+    }
+    return null;
+  }
 
   document.addEventListener('click', (e) => {
+    if (justMoved) { justMoved = false; e.stopImmediatePropagation(); e.preventDefault(); return; }
     if (e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
-    // 편집 영역 안 이미지: 컨트롤 + 캡션 표시 + 편집 모드 진입(상/하단 바)
     if (img && img.closest('[contenteditable]')) {
-      target = img; ACTIVE_NOTE_IMG = img; markActive(img); enterEditAtImage(img); place();
+      target = img; markActive(img); enterEditAtImage(img); place();
       return;
     }
     if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
-  });
+  }, true);
 
-  // 정렬(좌/가운데/우) — figure(줄)이면 text-align, 단독 이미지면 여백으로 정렬
+  // 정렬(좌/가운데/우) — figure에 text-align 지정(캡션도 inherit로 따라감)
   bar.querySelectorAll('button[data-al]').forEach((b) => {
     b.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      if (!target) return;
-      const fig = figOf(target);
-      const al = b.dataset.al;
-      if (fig) {
-        fig.style.textAlign = al;
-      } else {
-        target.style.display = 'block';
-        target.style.marginLeft = al === 'left' ? '0' : 'auto';
-        target.style.marginRight = al === 'right' ? '0' : 'auto';
-      }
-      if (persistCb) persistCb();
-      place();
+      const fig = target && figOf(target);
+      if (fig) { fig.style.textAlign = b.dataset.al; if (persistCb) persistCb(); place(); }
     });
   });
-  // 삭제 — 선택 이미지만 제거(그룹 중 하나). 줄에 이미지가 없어지면 figure 전체 제거
+  // 삭제 — 이미지(figure) 제거
   del.addEventListener('mousedown', (e) => {
     e.preventDefault();
     if (!target) return;
     const fig = figOf(target);
-    target.remove();
-    if (fig && !fig.querySelector('.img-row img')) fig.remove();
+    if (fig) fig.remove(); else target.remove();
     hide();
     if (persistCb) persistCb();
   });
-  // 리사이즈 — 같은 줄 이미지 높이를 함께 조정, 블럭 넘지 않게 클램프
+  // 리사이즈 — 단일 이미지 폭 조정(블럭 폭 초과 금지)
   handle.addEventListener('pointerdown', (e) => {
     if (!target) return;
     e.preventDefault();
-    dragging = true;
+    resizing = true;
     startX = e.clientX;
-    const r = target.getBoundingClientRect();
-    startW = r.width; startH = r.height;
-    dragGroup = rowImgs(target);
+    startW = target.getBoundingClientRect().width;
     try { handle.setPointerCapture(e.pointerId); } catch (_) {}
   });
   document.addEventListener('pointermove', (e) => {
-    if (!dragging || !target) return;
-    const newW = Math.max(40, startW + (e.clientX - startX));
-    const ratio = startW ? newW / startW : 1;
-    const newH = Math.max(30, Math.round(startH * ratio));
-    const grp = dragGroup.length ? dragGroup : [target];
-    grp.forEach((im) => { im.style.height = newH + 'px'; im.style.width = 'auto'; });
-    clampGroup(grp);
+    if (!resizing || !target) return;
+    const w = Math.max(40, Math.min(blockWidth(target), Math.round(startW + (e.clientX - startX))));
+    target.style.width = w + 'px';
+    target.style.height = 'auto';
     place();
   });
   document.addEventListener('pointerup', () => {
-    if (dragging) { dragging = false; if (persistCb) persistCb(); }
+    if (resizing) { resizing = false; if (persistCb) persistCb(); }
   });
-  // 캡션에서 Ctrl/Cmd+A → 캡션 내용만 선택(메모 본문 전체 선택 방지)
+  // 캡션에서 Ctrl/Cmd+A → 캡션 내용만 선택(본문 전체 선택 방지)
   document.addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'a') return;
     const a = document.activeElement;
@@ -999,24 +943,18 @@ function setupImageControls(persistCb) {
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
   });
 
-  // 이미지 위치 이동 — 포인터 드래그(네이티브 드래그 대신, 복제 없이 확실히 이동)
-  let mv = null, mvStartX = 0, mvStartY = 0, mvOn = false, justMoved = false;
-  function caretAt(x, y) {
-    if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
-    if (document.caretPositionFromPoint) {
-      const p = document.caretPositionFromPoint(x, y);
-      if (p) { const r = document.createRange(); r.setStart(p.offsetNode, p.offset); return r; }
-    }
-    return null;
-  }
+  // 이미지 위치 이동 — 포인터 드래그(복제 없이 이동)
   document.addEventListener('pointerdown', (e) => {
-    if (dragging || e.target === handle || e.target === del || bar.contains(e.target)) return;
+    if (resizing || e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
-    if (img && img.closest('[contenteditable]')) { mv = img; mvStartX = e.clientX; mvStartY = e.clientY; mvOn = false; }
+    if (img && img.closest('[contenteditable]')) {
+      mv = img; mvStartX = e.clientX; mvStartY = e.clientY; mvOn = false;
+      try { img.setPointerCapture(e.pointerId); } catch (_) {}
+    }
   });
   document.addEventListener('pointermove', (e) => {
     if (!mv) return;
-    if (!mvOn && Math.hypot(e.clientX - mvStartX, e.clientY - mvStartY) > 6) {
+    if (!mvOn && Math.hypot(e.clientX - mvStartX, e.clientY - mvStartY) > 5) {
       mvOn = true;
       (figOf(mv) || mv).style.opacity = '0.45';
       document.body.classList.add('img-moving');
@@ -1034,17 +972,14 @@ function setupImageControls(persistCb) {
       if (range && !el.contains(range.startContainer) && editableHostOf(range.startContainer)) {
         try { el.remove(); range.insertNode(el); if (persistCb) persistCb(); } catch (_) {}
       }
-      justMoved = true; // 뒤이어 발생할 click(선택/편집진입) 억제
+      justMoved = true; // 뒤이어 올 click 억제
     }
     mv = null; mvOn = false;
   });
-  // 이동 직후의 click은 무시(위치만 옮긴 것)
-  document.addEventListener('click', (e) => {
-    if (justMoved) { justMoved = false; e.stopImmediatePropagation(); e.preventDefault(); }
-  }, true);
 
   window.addEventListener('scroll', () => { if (target) place(); }, true);
 }
+
 
 /* 블로그식 가로 편집 툴바 (상세창 상단 슬라이드 메뉴) — 서식창의 모든 기능 포함.
  * menuEl 안에 버튼들을 만들고, editableEl의 커서/선택에 명령 적용. persistCb로 저장. */

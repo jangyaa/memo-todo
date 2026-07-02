@@ -284,17 +284,13 @@ body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 /* 모든 편집 이미지는 블럭 폭을 넘지 않게(붙여넣기 등 포함) — 블럭은 세로로 늘어남 */
-.note-body img { max-width: 100%; height: auto; -webkit-user-drag: none; cursor: grab; }
+.note-body img { max-width: 100%; height: auto; border-radius: 8px; -webkit-user-drag: none; cursor: grab; }
 body.img-moving, body.img-moving * { cursor: grabbing !important; }
 /* 삽입 이미지 블록(한 줄 = 이미지 그룹 + 공통 캡션) */
 figure.note-img { display: block; margin: 8px 0; max-width: 100%; }
 /* 이미지+캡션을 감싸는 인라인블록 → 캡션 폭이 이미지 폭을 따라감(리사이즈 시 함께) */
 .img-wrap { display: inline-block; max-width: 100%; vertical-align: top; }
-.img-row { display: block; font-size: 0; } /* 이미지들 사이 공백 제거 */
-.img-row img {
-  display: inline-block; vertical-align: bottom; max-width: 100%; height: auto; margin: 0 4px 0 0;
-  cursor: grab; /* 드래그로 위치 이동 가능 */
-}
+.img-wrap img { display: block; max-width: 100%; height: auto; cursor: grab; }
 figcaption.note-cap {
   font-size: 12px; color: var(--ink-soft); margin-top: 5px; outline: none; min-height: 1.1em;
   text-align: inherit; /* 캡션 정렬 = 이미지(줄) 정렬 */
@@ -704,7 +700,6 @@ figcaption.note-cap:empty::before { content: attr(data-ph); color: var(--ink-sof
 }
 
 .note-body hr { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
-.note-body img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; display: block; }
 
 /* 글머리(리스트) */
 .note-body ul, .note-body ol { margin: 4px 0; padding-left: 22px; }
@@ -1107,12 +1102,12 @@ figcaption.note-cap:empty::before { content: attr(data-ph); color: var(--ink-sof
 .ft-fontdd, .bt-font { display: inline-flex; }
 .fontdd-btn {
   display: inline-flex; align-items: center; justify-content: space-between; gap: 6px;
-  height: 28px; min-width: 96px;
+  height: 28px; min-width: 124px;
   border: 1px solid var(--line); border-radius: 8px; background: #fff;
-  font-size: 12px; padding: 0 9px; cursor: pointer; color: var(--ink);
+  font-size: 12px; padding: 0 10px; cursor: pointer; color: var(--ink);
 }
-.fontdd-lbl { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fontdd-car { font-size: 15px; line-height: 1; color: var(--ink-soft); }
+.fontdd-lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.fontdd-car { font-size: 15px; line-height: 1; color: var(--ink-soft); flex-shrink: 0; }
 .fontdd-list {
   display: none; position: fixed; z-index: 340; background: #fff;
   border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
@@ -1122,6 +1117,7 @@ figcaption.note-cap:empty::before { content: attr(data-ph); color: var(--ink-sof
 .fontdd-item {
   display: block; width: 100%; text-align: left; border: none; background: transparent;
   border-radius: 7px; padding: 7px 10px; font-size: 14px; cursor: pointer; color: var(--ink);
+  white-space: nowrap; /* 폰트 이름이 한 글자씩 세로로 쪼개지지 않게 */
 }
 .fontdd-item:hover { background: var(--pink-soft); color: var(--pink-deep); }
 
@@ -1233,7 +1229,7 @@ body.ft-open .memo-index:hover .folder-children { display: none; }
 
 /* 서식 적용 결과 (형광펜 등) */
 .note-body mark, .note-body [style*="background"] { border-radius: 2px; }
-.note-body blockquote {
+.note-body blockquote, .memo-title blockquote, #ed-title blockquote {
   margin: 4px 0; padding-left: 10px; border-left: 3px solid var(--line); color: var(--ink-soft);
 }
 
