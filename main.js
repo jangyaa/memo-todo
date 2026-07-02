@@ -190,6 +190,19 @@ async function reconcile() {
 async function startSync() {
   const config = loadConfig();
   sync.init(app.getPath('userData'), config);
+  // 진단 파일: 왜 동기화가 설정/미설정인지 userData에 기록(사용자가 열어볼 수 있게)
+  try {
+    fs.writeFileSync(path.join(app.getPath('userData'), 'sync-debug.txt'),
+      [
+        '시각: ' + new Date().toLocaleString(),
+        '라이브러리 로드(@supabase): ' + sync.hasLib(),
+        'config 읽음: ' + !!config,
+        'supabaseUrl 있음: ' + !!(config && config.supabaseUrl),
+        'anonKey 있음: ' + !!(config && config.supabaseAnonKey),
+        '설정됨(configured): ' + sync.isConfigured(),
+        '사유: ' + sync.reason()
+      ].join('\n'), 'utf-8');
+  } catch (_) {}
   notifyStatus();
   if (!sync.isConfigured()) return;
 

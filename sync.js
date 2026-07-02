@@ -42,17 +42,23 @@ class Sync {
   constructor() {
     this.client = null;
     this.configured = false;
+    this.libLoaded = !!createClient; // @supabase/supabase-js 로드 성공 여부(진단용)
+    this.lastReason = 'init-안됨';    // 마지막 init 결과 사유(진단용)
     this.user = null;
     this.lastPushedAt = 0;     // 우리가 마지막으로 올린 시각(에코 무시용)
     this.onRemoteChange = null; // (data) => void  다른 기기 변경 콜백
   }
 
+  hasLib() { return this.libLoaded; }
+  reason() { return this.lastReason; }
+
   /* configDir: userData 경로. config: { supabaseUrl, supabaseAnonKey } */
   init(configDir, config) {
-    if (!createClient) return;
-    if (!config || !config.supabaseUrl || !config.supabaseAnonKey) return;
+    if (!createClient) { this.lastReason = '라이브러리 미로드(@supabase/supabase-js)'; return; }
+    if (!config) { this.lastReason = 'config.json 없음/못읽음'; return; }
+    if (!config.supabaseUrl || !config.supabaseAnonKey) { this.lastReason = 'supabaseUrl/anonKey 키 누락'; return; }
     if (config.supabaseUrl.includes('여기에') ||
-        config.supabaseAnonKey.includes('여기에')) return; // 예시값 그대로면 무시
+        config.supabaseAnonKey.includes('여기에')) { this.lastReason = '예시값 그대로'; return; } // 예시값 그대로면 무시
 
     const storage = new FileStorage(path.join(configDir, 'session.json'));
     this.client = createClient(config.supabaseUrl, config.supabaseAnonKey, {
@@ -64,6 +70,7 @@ class Sync {
       }
     });
     this.configured = true;
+    this.lastReason = 'ok';
   }
 
   isConfigured() { return this.configured; }
