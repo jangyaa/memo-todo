@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const sync = require('./sync');
@@ -30,6 +30,26 @@ function saveData(data) {
     console.error('데이터 저장 실패:', err);
     return false;
   }
+}
+
+// 메인 창 위치·크기 저장(껐다 켜도 같은 자리에 뜨도록) — 스티커 메모처럼
+function winStateFilePath() {
+  return path.join(app.getPath('userData'), 'memo-todo-window.json');
+}
+function loadWinState() {
+  try { return JSON.parse(fs.readFileSync(winStateFilePath(), 'utf-8')); } catch (_) { return null; }
+}
+function saveWinState(bounds) {
+  try { fs.writeFileSync(winStateFilePath(), JSON.stringify(bounds), 'utf-8'); } catch (_) {}
+}
+// 저장된 창 위치가 현재 모니터 안에 보이는지(모니터 분리/해상도 변경 대비)
+function boundsVisible(b) {
+  if (!b || !Number.isFinite(b.x) || !Number.isFinite(b.y)) return false;
+  return screen.getAllDisplays().some((d) => {
+    const w = d.workArea;
+    return b.x < w.x + w.width && b.x + (b.width || 0) > w.x &&
+           b.y < w.y + w.height && b.y + (b.height || 0) > w.y;
+  });
 }
 
 function loadMeta() {
@@ -76,8 +96,8 @@ function orderViews(views) {
   return ['todo', 'memo'].filter((v) => views.includes(v));
 }
 
-function createWindow(views) {
-  const win = new BrowserWindow({
+function createWindow(views, isMain) {
+  const opts = {
     width: 420, height: 640, minWidth: 300, minHeight: 340,
     frame: false, transparent: true, backgroundColor: '#00000000',
     title: 'Memo Todo',
@@ -85,11 +105,28 @@ function createWindow(views) {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false
     }
-  });
+  };
+  // 메인 창: 지난번 위치·크기 복원(화면 밖이면 무시하고 기본값)
+  const st = isMain ? loadWinState() : null;
+  if (st && boundsVisible(st)) {
+    opts.x = st.x; opts.y = st.y;
+    if (Number.isFinite(st.width)) opts.width = st.width;
+    if (Number.isFinite(st.height)) opts.height = st.height;
+  }
+  const win = new BrowserWindow(opts);
   winViews.set(win.id, orderViews(views));
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'),
     { query: { views: orderViews(views).join(',') } });
   win.on('closed', () => { winViews.delete(win.id); });
+  // 메인 창의 이동/크기 변경을 저장 → 다음 실행 때 같은 자리
+  if (isMain) {
+    const persist = () => {
+      if (win.isDestroyed() || win.isMinimized() || win.isMaximized()) return;
+      saveWinState(win.getBounds());
+    };
+    win.on('resize', persist);
+    win.on('move', persist);
+  }
   return win;
 }
 
@@ -290,17 +327,41 @@ ipcMain.handle('sync:now', async () => {
   return { ok: true };
 });
 
+// 부팅 시 자동 실행(스티커 메모처럼) — 설정에서 끄지 않았으면 켬. 패키징된 앱에서만 등록.
+function applyAutoLaunch() {
+  if (!app.isPackaged) return;
+  const data = loadData();
+  const enabled = !(data && data.settings && data.settings.autoLaunch === false);
+  try {
+    app.setLoginItemSettings({ openAtLogin: enabled, args: [] });
+  } catch (_) {}
+}
+
 // ---------------------------------------------------------------------------
-app.whenReady().then(() => {
-  firstWindow = createWindow(['todo', 'memo']);
-  firstWindow.webContents.once('did-finish-load', () => { startSync(); });
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      firstWindow = createWindow(['todo', 'memo']);
+// 단일 인스턴스: 자동 실행/재실행 시 창이 중복으로 뜨지 않고 기존 창을 앞으로
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (firstWindow && !firstWindow.isDestroyed()) {
+      if (firstWindow.isMinimized()) firstWindow.restore();
+      firstWindow.focus();
     }
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.whenReady().then(() => {
+    applyAutoLaunch();
+    firstWindow = createWindow(['todo', 'memo'], true);
+    firstWindow.webContents.once('did-finish-load', () => { startSync(); });
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        firstWindow = createWindow(['todo', 'memo'], true);
+      }
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}

@@ -27,6 +27,10 @@ Electron 기반이라 Windows / macOS / Linux 어디서나 동작합니다.
 - 프레임 없는 커스텀 창, **📌 항상 위 고정**, 최소화/닫기 버튼.
 - 데이터는 사용자 폴더(`userData/memo-todo-data.json`)에 자동 저장됩니다.
 - 여러 창을 띄워도 변경 사항이 서로 동기화됩니다.
+- **부팅 시 자동 실행** — 설치본에서는 컴퓨터를 켜면 앱이 자동으로 뜹니다(스티커 메모처럼).
+  끄고 싶으면 데이터 설정의 `autoLaunch`를 `false`로 두면 됩니다.
+- **창 위치·크기 기억** — 창을 옮기거나 크기를 바꾸면 그 자리를 기억했다가 다음에 그대로 띄웁니다.
+- **단일 실행** — 이미 떠 있으면 새 창이 중복으로 뜨지 않고 기존 창을 앞으로 가져옵니다.
 
 ## 🚀 실행 (비전공자용, 윈도우 기준)
 
@@ -50,21 +54,36 @@ npm start       # 앱 실행
 다른 컴퓨터에서도 같은 할 일/메모를 보고 싶다면 **[SYNC-SETUP.md](SYNC-SETUP.md)** 를
 따라 Supabase(무료)를 한 번 연결하세요. 설정 안 하면 그냥 내 컴퓨터에만 저장됩니다.
 
-## 📦 빌드(설치 파일)
+## 📦 빌드(설치 파일 .exe)
+
+윈도우 설치 파일(`.exe`)을 만들려면 **윈도우 PC에서** 아래를 실행하세요.
 
 ```bash
-npm run dist    # 현재 OS용 설치 파일 생성 (electron-builder)
+npm install       # 부품 다운로드 (처음 한 번)
+npm run dist:win  # Windows 설치 파일 생성 (electron-builder, NSIS)
 ```
+
+- 완료되면 `dist\Memo Todo Setup 0.1.0.exe` 가 생성됩니다. 그 파일을 더블클릭해 설치하면 됩니다.
+- 설치 시 **설치 경로 선택 + 바탕화면/시작메뉴 바로가기**가 만들어지고, 설치 후 실행하면
+  **부팅 시 자동 실행**이 켜집니다(위 "공통" 참고).
+- `npm run dist` 는 실행 중인 OS용(맥=dmg, 리눅스=AppImage) 설치본을 만듭니다.
+
+> 참고: 이 저장소를 클라우드/리눅스 CI에서 빌드하면 Electron 바이너리 다운로드가
+> 사내 정책으로 막혀 실패할 수 있습니다. 윈도우 실물 PC에서 빌드하는 것을 권장합니다.
 
 ## 🗂 구조
 
 ```
-main.js              Electron 메인 프로세스 (창 생성, 데이터 저장 IPC)
+main.js              Electron 메인 프로세스 (창 생성/위치기억/자동실행, 데이터 저장 IPC)
 preload.js           안전한 IPC 브리지 (contextBridge)
+sync.js              Supabase 동기화(선택)
 renderer/
-  index.html         레이아웃
+  index.html         메인 창 레이아웃
+  editor.html        메모 상세편집 창
   styles.css         파스텔 핑크 테마
+  shared.js          두 창 공용 로직(서식 툴바/이미지/색상 등)
   app.js             투두/메모/검색 렌더러 로직
+  editor.js          상세편집 창 로직
 ```
 
 ## 📝 데이터 모델

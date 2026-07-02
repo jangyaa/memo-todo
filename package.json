@@ -7,7 +7,8 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win"
   },
   "build": {
     "appId": "com.nagi.memotodo",
@@ -15,10 +16,19 @@
     "files": [
       "main.js",
       "preload.js",
+      "sync.js",
       "renderer/**/*"
     ],
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Memo Todo"
     },
     "mac": {
       "target": "dmg"
