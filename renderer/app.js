@@ -1663,6 +1663,23 @@ function showSyncPane(status) {
   Object.entries(panes).forEach(([id, on]) =>
     document.getElementById(id).classList.toggle('active', on));
   document.getElementById('btn-sync').classList.toggle('active', status.signedIn);
+  // 미설정이면 원인 진단(버전/찾아본 경로/사유)을 화면에 그대로 표시
+  const diag = document.getElementById('sync-diag');
+  if (diag) {
+    const d = status.debug;
+    if (!status.configured && d) {
+      diag.style.display = 'block';
+      diag.textContent = [
+        '버전 ' + (d.version || '?') + (d.packaged ? ' (설치본)' : ' (개발 실행)'),
+        '라이브러리: ' + (d.libLoaded ? 'OK' : '미로드'),
+        '사유: ' + (d.reason || '?'),
+        '찾아본 경로:',
+        ...(d.configTried || []).map((t) => ' · ' + t)
+      ].join('\n');
+    } else {
+      diag.style.display = 'none';
+    }
+  }
   if (status.signedIn) {
     document.getElementById('sync-who').textContent = status.email || '';
     const last = status.lastSyncAt

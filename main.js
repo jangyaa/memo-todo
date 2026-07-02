@@ -65,18 +65,32 @@ function setMeta(updatedAt) {
   } catch (_) {}
 }
 
-// config.json: 앱 폴더 우선, 없으면 userData 에서 읽는다.
+// config.json 탐색: 앱 폴더 → userData → appData의 memo-todo/Memo Todo 폴더 순.
+// (개발 실행은 name 'memo-todo', 설치본은 productName 'Memo Todo' 폴더를 userData로 쓰는
+//  Electron 특성 때문에 두 폴더 모두 확인한다.)
 // 메모장 등이 붙이는 BOM/앞뒤 공백을 제거하고 파싱(BOM 때문에 JSON 파싱 실패하는 문제 방지).
+let configDebug = { tried: [], loadedFrom: null }; // 진단용(어디를 찾아봤는지)
 function loadConfig() {
-  const candidates = [
+  const appData = app.getPath('appData');
+  const candidates = [...new Set([
     path.join(__dirname, 'config.json'),
-    path.join(app.getPath('userData'), 'config.json')
-  ];
+    path.join(app.getPath('userData'), 'config.json'),
+    path.join(appData, 'memo-todo', 'config.json'),
+    path.join(appData, 'Memo Todo', 'config.json')
+  ])];
+  configDebug = { tried: [], loadedFrom: null };
   for (const p of candidates) {
     try {
       const raw = fs.readFileSync(p, 'utf-8').replace(/^\uFEFF/, '').trim();
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const cfg = JSON.parse(raw);
+        configDebug.tried.push(p + ' → 읽음');
+        configDebug.loadedFrom = p;
+        return cfg;
+      }
+      configDebug.tried.push(p + ' → 빈 파일');
     } catch (err) {
+      configDebug.tried.push(p + ' → ' + (err.code === 'ENOENT' ? '없음' : '파싱실패: ' + err.message));
       if (err.code !== 'ENOENT') console.error('config.json 파싱 실패:', p, err.message);
     }
   }
@@ -154,14 +168,27 @@ function schedulePush() {
   }, 1200);
 }
 
-function notifyStatus() {
+// 동기화 상태 + 진단 정보(미설정일 때 화면에 원인을 그대로 보여주기 위함)
+function syncStatusPayload() {
   const meta = loadMeta();
-  broadcast('sync:status', {
+  return {
     configured: sync.isConfigured(),
     signedIn: !!sync.user,
     email: sync.user ? sync.user.email : null,
-    lastSyncAt: meta.updatedAt || 0
-  });
+    lastSyncAt: meta.updatedAt || 0,
+    debug: {
+      version: app.getVersion(),
+      packaged: app.isPackaged,
+      libLoaded: sync.hasLib(),
+      reason: sync.reason(),
+      userData: app.getPath('userData'),
+      configLoadedFrom: configDebug.loadedFrom,
+      configTried: configDebug.tried
+    }
+  };
+}
+function notifyStatus() {
+  broadcast('sync:status', syncStatusPayload());
 }
 
 // 시작 시 / 로그인 후: 원격과 로컬을 맞춘다.
@@ -195,8 +222,12 @@ async function startSync() {
     fs.writeFileSync(path.join(app.getPath('userData'), 'sync-debug.txt'),
       [
         '시각: ' + new Date().toLocaleString(),
+        '버전: ' + app.getVersion() + (app.isPackaged ? ' (설치본)' : ' (개발 실행)'),
+        'userData: ' + app.getPath('userData'),
         '라이브러리 로드(@supabase): ' + sync.hasLib(),
-        'config 읽음: ' + !!config,
+        'config 읽음: ' + !!config + (configDebug.loadedFrom ? ' ← ' + configDebug.loadedFrom : ''),
+        '찾아본 경로:',
+        ...configDebug.tried.map((t) => '  - ' + t),
         'supabaseUrl 있음: ' + !!(config && config.supabaseUrl),
         'anonKey 있음: ' + !!(config && config.supabaseAnonKey),
         '설정됨(configured): ' + sync.isConfigured(),
@@ -300,15 +331,7 @@ ipcMain.handle('window:requestClose', (event) => {
 });
 
 // --- 동기화 IPC ---
-ipcMain.handle('sync:status', () => {
-  const meta = loadMeta();
-  return {
-    configured: sync.isConfigured(),
-    signedIn: !!sync.user,
-    email: sync.user ? sync.user.email : null,
-    lastSyncAt: meta.updatedAt || 0
-  };
-});
+ipcMain.handle('sync:status', () => syncStatusPayload());
 
 ipcMain.handle('sync:signIn', async (_e, { email, password }) => {
   await sync.signIn(email, password);
@@ -357,8 +380,11 @@ function applyAutoLaunch() {
 }
 
 // ---------------------------------------------------------------------------
-// 단일 인스턴스: 자동 실행/재실행 시 창이 중복으로 뜨지 않고 기존 창을 앞으로
-const gotLock = app.requestSingleInstanceLock();
+// 단일 인스턴스: 자동 실행/재실행 시 창이 중복으로 뜨지 않고 기존 창을 앞으로.
+// 개발 실행(npm start)은 락을 걸지 않음 — 설치본이 떠 있어도 개발 창이 항상 새로 뜨게
+// (락이 겹치면 npm start가 조용히 종료되고 설치본 창만 앞으로 와서, 새 코드를 테스트한다고
+//  착각하게 되는 문제 방지).
+const gotLock = app.isPackaged ? app.requestSingleInstanceLock() : true;
 if (!gotLock) {
   app.quit();
 } else {
