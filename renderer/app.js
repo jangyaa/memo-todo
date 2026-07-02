@@ -1018,6 +1018,7 @@ function buildMemoBlock(memo) {
   body.contentEditable = 'true';
   body.spellcheck = false;
   body.innerHTML = looksHtml(memo.content) ? memo.content : linkifyHtml(memo.content || '');
+  if (normalizeNoteImages(body)) memo.content = body.innerHTML; // 옛 캡션/행 구조 정리
   setupUndo(body, () => { memo.content = body.innerHTML; touchMemo(memo); }); // Ctrl+Z
   body.addEventListener('input', () => {
     memo.content = body.innerHTML;

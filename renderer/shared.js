@@ -794,6 +794,28 @@ function imageFigureHTML(src) {
   return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
     '<img src="' + src + '" draggable="false"></figure>';
 }
+/* 옛 저장 콘텐츠 정리 — 예전 캡션(figcaption/.note-cap)·행(.img-row/.img-wrap) 구조를 제거하고
+ * figure는 이미지 1장만 담게 재구성(여러 장이면 각자 자기 줄로 분리). 변경되면 true 반환. */
+function normalizeNoteImages(root) {
+  if (!root || !root.querySelectorAll) return false;
+  let changed = false;
+  root.querySelectorAll('figure.note-img').forEach((fig) => {
+    if (!fig.querySelector('figcaption, .note-cap, .img-row, .img-wrap')) return; // 이미 새 구조면 손대지 않음
+    const imgs = Array.prototype.slice.call(fig.querySelectorAll('img'));
+    imgs.forEach((im) => im.removeAttribute('style')); // 옛 폭/높이 초기화(자연 크기 + CSS 제한)
+    fig.innerHTML = '';
+    if (imgs[0]) fig.appendChild(imgs[0]);
+    let ref = fig;
+    for (let i = 1; i < imgs.length; i++) { // 한 줄 여러 장 → 각자 자기 줄로 분리
+      const nf = document.createElement('figure');
+      nf.className = 'note-img'; nf.setAttribute('contenteditable', 'false'); nf.style.textAlign = 'center';
+      nf.appendChild(imgs[i]);
+      ref.parentNode.insertBefore(nf, ref.nextSibling); ref = nf;
+    }
+    changed = true;
+  });
+  return changed;
+}
 // 이미지 삽입: 커서 위치에 figure 1개(항상 자기 줄) + 뒤에 커서 자리(제로폭 공백).
 function insertNoteImage(editable, src, doneCb) {
   try { editable.focus({ preventScroll: true }); } catch (_) { editable.focus(); }

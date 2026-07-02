@@ -99,6 +99,7 @@ async function load() {
   if (!Array.isArray(memo.tags)) memo.tags = [];
   titleEl.innerHTML = memo.title || '';
   bodyEl.innerHTML = memo.content || '';
+  if (normalizeNoteImages(bodyEl)) save(); // 옛 캡션/행 구조 정리 후 저장
   renderTags();
   renderTimes();
 }
@@ -193,6 +194,7 @@ window.api.onDataChanged((d) => {
     if (!Array.isArray(memo.tags)) memo.tags = [];
     titleEl.innerHTML = m.title || '';
     bodyEl.innerHTML = m.content || '';
+    normalizeNoteImages(bodyEl); // 옛 캡션/행 구조 정리
     renderTags();
     renderTimes();
     const t = plainTitle(m.title) || '메모';
