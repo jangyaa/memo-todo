@@ -24,14 +24,7 @@
     <!-- ===================== 할 일(투두) 뷰 ===================== -->
     <section class="view view-todo" id="view-todo">
       <div class="todo-board" id="todo-board"></div>
-      <div class="alarm-bar" id="alarm-bar-todo"></div>
-      <div class="fab-wrap" id="fab-wrap-todo">
-        <button class="fab-mini" data-act="stopwatch" style="--dy:-196px">스톱워치</button>
-        <button class="fab-mini" data-act="alarm" style="--dy:-148px">알람 추가</button>
-        <button class="fab-mini" data-act="todo" style="--dy:-100px">할 일 추가</button>
-        <button class="fab-mini" data-act="sticker" style="--dy:-52px">스티커 편집</button>
-        <button class="fab" id="btn-add-todo" title="빠른 실행">＋</button>
-      </div>
+      <button class="fab" id="btn-add-todo" title="할 일 추가">＋</button>
     </section>
 
     <!-- ===================== 메모 뷰 ===================== -->
@@ -59,15 +52,7 @@
           <div class="memo-page" id="memo-page"></div>
         </div>
       </div>
-      <div class="alarm-bar" id="alarm-bar-memo"></div>
-      <!-- +버튼 hover 시 주변으로 퍼지는 빠른 실행 메뉴 (기능은 추후, 지금은 UI만) -->
-      <div class="fab-wrap" id="fab-wrap">
-        <button class="fab-mini" data-act="stopwatch" style="--dy:-196px">스톱워치</button>
-        <button class="fab-mini" data-act="alarm" style="--dy:-148px">알람 추가</button>
-        <button class="fab-mini" data-act="memo" style="--dy:-100px">메모 추가</button>
-        <button class="fab-mini" data-act="sticker" style="--dy:-52px">스티커 편집</button>
-        <button class="fab" id="btn-add-memo" title="빠른 실행">＋</button>
-      </div>
+      <button class="fab" id="btn-add-memo" title="메모 추가">＋</button>
     </section>
   </div>
 
@@ -101,36 +86,14 @@
   <!-- D-DAY 날짜 선택 달력 모달 -->
   <div class="modal-overlay" id="cal-overlay">
     <div class="modal cal-modal">
-      <input type="text" id="cal-alarm-label" class="cal-label" placeholder="알람 제목 (선택)" maxlength="40" style="display:none" />
       <div class="cal-head">
         <button class="cal-nav" id="cal-prev">‹</button>
         <span class="cal-title" id="cal-title"></span>
         <button class="cal-nav" id="cal-next">›</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
-      <div class="cal-time" id="cal-time" style="display:none">
-        <div class="cal-time-row">
-          <select id="cal-hour" class="cal-sel"></select>
-          <span class="cal-colon">:</span>
-          <select id="cal-min" class="cal-sel"></select>
-          <button class="btn-primary" id="cal-time-ok">확인</button>
-        </div>
-      </div>
     </div>
   </div>
-
-  <!-- 알람 울림 모달 -->
-  <div class="modal-overlay" id="alarm-ring-overlay">
-    <div class="modal alarm-ring">
-      <div class="ar-icon">⏰</div>
-      <div class="ar-title" id="ar-title">알람</div>
-      <div class="ar-time" id="ar-time"></div>
-      <button class="btn-primary" id="ar-dismiss">확인</button>
-    </div>
-  </div>
-
-  <!-- 알람 목록 확장 팝오버 -->
-  <div class="alarm-pop" id="alarm-pop"></div>
 
   <!-- 테마 컬러 피커 -->
   <div class="modal-overlay" id="color-picker-overlay">

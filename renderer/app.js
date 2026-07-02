@@ -50,7 +50,6 @@ let state = {
   todos: [], // { id, title, color, items, pinned, pinnedAt }
   memos: [], // { id, content, tags, color, folderId, pinned, pinnedAt }
   folders: [], // { id, name, collapsed }
-  alarms: [], // { id, datetime: 'YYYY-MM-DDTHH:MM', label, fired }
   settings: { theme: 'default', profileImage: null }
 };
 
@@ -192,7 +191,6 @@ async function load() {
     state.todos = Array.isArray(data.todos) ? data.todos : [];
     state.memos = Array.isArray(data.memos) ? data.memos.map(normalizeMemo) : [];
     state.folders = Array.isArray(data.folders) ? data.folders : [];
-    state.alarms = Array.isArray(data.alarms) ? data.alarms : [];
     state.settings = normalizeSettings(data.settings);
   }
   pruneDdays(); // 지난 디데이 정리
@@ -212,12 +210,10 @@ window.api.onDataChanged((data) => {
   state.todos = data.todos || [];
   state.memos = (data.memos || []).map(normalizeMemo);
   state.folders = data.folders || [];
-  state.alarms = Array.isArray(data.alarms) ? data.alarms : [];
   state.settings = normalizeSettings(data.settings);
   applySettings();
   renderTodos();
   renderMemos();
-  renderAlarms();
 });
 
 /* =========================================================================
@@ -448,29 +444,9 @@ function buildDdayItem(d) {
 }
 
 /* 커스텀 달력 모달 (예쁜 흰색 둥근 창) */
-let calCb = null, calY = 0, calM = 0, calSel = '', calTime = false, editingAlarmId = null;
+let calCb = null, calY = 0, calM = 0, calSel = '';
 const isoOf = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-// 알람 추가/수정 창(날짜+시간+제목) — existing 있으면 수정 모드
-function openAlarmPicker(existing) {
-  calTime = true;
-  editingAlarmId = existing ? existing.id : null;
-  const base = existing && existing.datetime ? new Date(existing.datetime) : new Date();
-  const d = isNaN(base.getTime()) ? new Date() : base;
-  calSel = isoOf(d.getFullYear(), d.getMonth(), d.getDate());
-  calY = d.getFullYear(); calM = d.getMonth();
-  document.getElementById('cal-hour').value = String(d.getHours());
-  document.getElementById('cal-min').value = String(existing ? d.getMinutes() : (d.getMinutes() + 5) % 60);
-  const lbl = document.getElementById('cal-alarm-label');
-  lbl.value = existing ? (existing.label || '') : '';
-  lbl.style.display = 'block'; // 제목(맨 위)
-  document.getElementById('cal-time').style.display = 'block'; // 시간(맨 아래)
-  renderCalendar();
-  document.getElementById('cal-overlay').classList.add('open');
-}
 function pickDate(initial, cb) {
-  calTime = false;
-  document.getElementById('cal-time').style.display = 'none';
-  document.getElementById('cal-alarm-label').style.display = 'none';
   calCb = cb;
   calSel = initial || '';
   const base = initial ? new Date(initial + 'T00:00:00') : new Date();
@@ -501,7 +477,6 @@ function renderCalendar() {
     b.className = 'cal-day' + (iso === todayStr ? ' today' : '') + (iso === calSel ? ' sel' : '');
     b.textContent = day;
     b.addEventListener('click', () => {
-      if (calTime) { calSel = iso; renderCalendar(); return; } // 시간 모드: 날짜만 선택(확인 버튼으로 확정)
       const cb = calCb; calCb = null;
       document.getElementById('cal-overlay').classList.remove('open');
       if (cb) cb(iso);
@@ -517,148 +492,8 @@ function setupCalendar() {
   document.getElementById('cal-next').addEventListener('click', () => {
     calM++; if (calM > 11) { calM = 0; calY++; } renderCalendar();
   });
-  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.classList.remove('open'); calCb = null; calTime = false; document.getElementById('cal-time').style.display = 'none'; document.getElementById('cal-alarm-label').style.display = 'none'; } });
-  // 시/분 드롭다운 채우기
-  const hourSel = document.getElementById('cal-hour');
-  for (let h = 0; h < 24; h++) { const o = document.createElement('option'); o.value = h; o.textContent = String(h).padStart(2, '0'); hourSel.appendChild(o); }
-  const minSel = document.getElementById('cal-min');
-  for (let m = 0; m < 60; m++) { const o = document.createElement('option'); o.value = m; o.textContent = String(m).padStart(2, '0'); minSel.appendChild(o); }
-  // 알람 확정(추가/수정)
-  document.getElementById('cal-time-ok').addEventListener('click', () => {
-    if (!calSel) return;
-    const h = String(hourSel.value).padStart(2, '0');
-    const m = String(minSel.value).padStart(2, '0');
-    const label = document.getElementById('cal-alarm-label').value.trim();
-    const datetime = `${calSel}T${h}:${m}`;
-    ov.classList.remove('open');
-    document.getElementById('cal-time').style.display = 'none';
-    document.getElementById('cal-alarm-label').style.display = 'none';
-    calTime = false;
-    if (editingAlarmId) { updateAlarm(editingAlarmId, datetime, label); editingAlarmId = null; }
-    else addAlarm(datetime, label);
-  });
+  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.classList.remove('open'); calCb = null; } });
 }
-
-/* =========================================================================
- * 알람 — 투두·메모 하단 바에 표시, 지정 시각에 울림
- * ========================================================================= */
-function fmtAlarm(dt) {
-  const d = new Date(dt);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-function alarmsSorted() {
-  return (state.alarms || []).slice().sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
-}
-const BELL_SVG = '<svg viewBox="0 0 16 16"><path d="M8 1.6a2.9 2.9 0 0 0-2.9 2.9v2.1c0 .6-.2 1.1-.6 1.6L3.4 11h9.2l-1.1-2.8c-.4-.5-.6-1-.6-1.6V4.5A2.9 2.9 0 0 0 8 1.6zM6.4 12a1.6 1.6 0 0 0 3.2 0z"/></svg>';
-function buildAlarmChip(al, total) {
-  const chip = document.createElement('span');
-  chip.className = 'alarm-chip';
-  chip.title = '더블클릭하여 수정';
-  const dt = new Date(al.datetime); const p = (n) => String(n).padStart(2, '0');
-  const date = `${p(dt.getMonth() + 1)}.${p(dt.getDate())}`;
-  const time = `${p(dt.getHours())}:${p(dt.getMinutes())}`;
-  chip.innerHTML =
-    '<span class="ac-bell">' + BELL_SVG + '</span>' +
-    `<span class="ac-date">${date}</span>` +
-    `<span class="ac-time">${time}</span>` +
-    (al.label ? `<span class="ac-title">${escapeHtml(al.label)}</span>` : '') +
-    (total > 1 ? '<button class="ac-more" title="설정된 알람 전체 보기">▲</button>' : '') +
-    '<b class="ac-del" title="삭제">✕</b>';
-  chip.querySelector('.ac-del').addEventListener('click', (e) => { e.stopPropagation(); deleteAlarm(al.id); });
-  const more = chip.querySelector('.ac-more');
-  if (more) more.addEventListener('click', (e) => { e.stopPropagation(); toggleAlarmPop(more); });
-  chip.addEventListener('dblclick', () => openAlarmPicker(al));
-  return chip;
-}
-// 알람 바: 가장 가까운 알람 1개(여러 개면 칩 안에 확장 삼각형)
-function renderAlarms() {
-  const list = alarmsSorted();
-  ['alarm-bar-todo', 'alarm-bar-memo'].forEach((id) => {
-    const bar = document.getElementById(id);
-    if (!bar) return;
-    bar.innerHTML = '';
-    if (!list.length) return;
-    bar.appendChild(buildAlarmChip(list[0], list.length));
-  });
-  const pop = document.getElementById('alarm-pop');
-  if (pop && pop.classList.contains('open')) fillAlarmPop();
-}
-function fillAlarmPop() {
-  const pop = document.getElementById('alarm-pop');
-  pop.innerHTML = '';
-  alarmsSorted().forEach((al) => {
-    const row = document.createElement('div');
-    row.className = 'alarm-row';
-    row.title = '더블클릭하여 수정';
-    row.innerHTML = `<span class="ar-when">⏰ ${fmtAlarm(al.datetime)}</span><span class="ar-label">${al.label ? escapeHtml(al.label) : '(제목 없음)'}</span><b class="ac-del" title="삭제">✕</b>`;
-    row.querySelector('.ac-del').addEventListener('click', (e) => { e.stopPropagation(); deleteAlarm(al.id); });
-    row.addEventListener('dblclick', () => { closeAlarmPop(); openAlarmPicker(al); });
-    pop.appendChild(row);
-  });
-}
-function toggleAlarmPop(anchor) {
-  const pop = document.getElementById('alarm-pop');
-  if (pop.classList.contains('open')) { closeAlarmPop(); return; }
-  fillAlarmPop();
-  pop.classList.add('open');
-  const r = anchor.getBoundingClientRect();
-  const pr = pop.getBoundingClientRect();
-  pop.style.left = Math.max(8, r.right - pr.width) + 'px';
-  pop.style.top = Math.max(8, r.top - pr.height - 6) + 'px';
-}
-function closeAlarmPop() { const p = document.getElementById('alarm-pop'); if (p) p.classList.remove('open'); }
-function addAlarm(datetime, label) {
-  if (window.Notification && Notification.permission === 'default') {
-    try { Notification.requestPermission(); } catch (_) {}
-  }
-  state.alarms.push({ id: uid(), datetime, label: label || '' });
-  save();
-  renderAlarms();
-}
-function updateAlarm(id, datetime, label) {
-  const al = (state.alarms || []).find((a) => a.id === id);
-  if (!al) return;
-  al.datetime = datetime; al.label = label || '';
-  save();
-  renderAlarms();
-}
-function deleteAlarm(id) {
-  state.alarms = state.alarms.filter((a) => a.id !== id);
-  save();
-  renderAlarms();
-}
-// 지정 시각이 지난 알람은 울린 뒤 자동 삭제
-function checkAlarms() {
-  const now = Date.now();
-  const due = alarmsSorted().filter((al) => new Date(al.datetime).getTime() <= now);
-  if (!due.length) return;
-  state.alarms = (state.alarms || []).filter((al) => new Date(al.datetime).getTime() > now);
-  save();
-  renderAlarms();
-  ringAlarm(due[0], due.length);
-}
-function ringAlarm(al, count) {
-  const ov = document.getElementById('alarm-ring-overlay');
-  document.getElementById('ar-title').textContent = al.label || '알람';
-  document.getElementById('ar-time').textContent = fmtAlarm(al.datetime) + (count > 1 ? ` 외 ${count - 1}건` : '');
-  ov.classList.add('open');
-  try { alarmBeep(); } catch (_) {}
-  if (window.Notification && Notification.permission === 'granted') {
-    try { new Notification('⏰ ' + (al.label || '알람'), { body: fmtAlarm(al.datetime) }); } catch (_) {}
-  }
-}
-function alarmBeep() {
-  const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) return;
-  const ctx = new AC();
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
-  g.gain.setValueAtTime(0.15, ctx.currentTime);
-  o.start(); o.stop(ctx.currentTime + 0.5);
-  setTimeout(() => { try { ctx.close(); } catch (_) {} }, 800);
-}
-setInterval(checkAlarms, 15000);
 
 function buildBlock(todo) {
   const block = document.createElement('div');
@@ -1875,7 +1710,6 @@ async function reloadFromLocal() {
   await load();
   renderTodos();
   renderMemos();
-  renderAlarms();
 }
 
 /* =========================================================================
@@ -2336,17 +2170,6 @@ async function init() {
   });
   setupNumPrompt();
   setupCalendar();
-  document.getElementById('ar-dismiss').addEventListener('click',
-    () => document.getElementById('alarm-ring-overlay').classList.remove('open'));
-  document.getElementById('alarm-ring-overlay').addEventListener('click', (e) => {
-    if (e.target.id === 'alarm-ring-overlay') e.currentTarget.classList.remove('open');
-  });
-  // 알람 확장 팝오버 바깥 클릭 시 닫기
-  document.addEventListener('mousedown', (e) => {
-    const pop = document.getElementById('alarm-pop');
-    if (pop && pop.classList.contains('open') && !pop.contains(e.target) &&
-        !(e.target.closest && e.target.closest('.alarm-toggle'))) closeAlarmPop();
-  });
   setupImageControls(() => {
     document.querySelectorAll('.note-body').forEach((b) => {
       const m = state.memos.find((x) => x.id === b.dataset.id);
@@ -2357,36 +2180,9 @@ async function init() {
   setupHrClickSelect(memoPage); // 구분선 클릭 선택 → Backspace 삭제
 
   document.getElementById('btn-add-folder').addEventListener('click', addFolder);
-  // +버튼 빠른 실행 메뉴(투두·메모 공통): hover로 펼침, +클릭 시 고정, 바깥 클릭 시 닫힘.
-  // (+버튼 자체는 더 이상 바로 추가하지 않음 — 실제 추가는 메뉴 항목으로)
-  document.querySelectorAll('.fab-wrap').forEach((fabWrap) => {
-    let closeTimer = null, pinned = false;
-    const openFab = () => { clearTimeout(closeTimer); fabWrap.classList.add('fab-open'); };
-    const closeFab = () => { if (pinned) return; closeTimer = setTimeout(() => fabWrap.classList.remove('fab-open'), 280); };
-    const fab = fabWrap.querySelector('.fab');
-    [fab, ...fabWrap.querySelectorAll('.fab-mini')].forEach((el) => {
-      if (!el) return;
-      el.addEventListener('mouseenter', openFab);
-      el.addEventListener('mouseleave', closeFab);
-    });
-    if (fab) fab.addEventListener('click', (e) => {
-      e.stopPropagation();
-      pinned = !pinned;
-      if (pinned) openFab(); else fabWrap.classList.remove('fab-open');
-    });
-    fabWrap.querySelectorAll('.fab-mini').forEach((b) => {
-      b.addEventListener('click', () => {
-        pinned = false; fabWrap.classList.remove('fab-open');
-        if (b.dataset.act === 'memo') { setView('memo'); addMemo(); }
-        else if (b.dataset.act === 'todo') { setView('todo'); addTodo(); }
-        else if (b.dataset.act === 'alarm') { openAlarmPicker(null); }
-        // sticker / stopwatch: UI만 — 기능 추후 추가
-      });
-    });
-    document.addEventListener('mousedown', (e) => {
-      if (!fabWrap.contains(e.target)) { pinned = false; fabWrap.classList.remove('fab-open'); }
-    });
-  });
+  // +버튼: 누르면 바로 추가(투두/메모)
+  document.getElementById('btn-add-todo').addEventListener('click', addTodo);
+  document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
 
   renderTabs();
   applyView();
@@ -2394,8 +2190,6 @@ async function init() {
   await load();
   renderTodos();
   renderMemos();
-  renderAlarms();
-  checkAlarms();
 }
 
 init();

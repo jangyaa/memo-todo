@@ -790,10 +790,12 @@ function setupFormatToolbar(config) {
 /* 편집영역에 삽입할 이미지 블록(피규어) HTML.
  * 한 줄(figure) = 이미지 그룹 + 공통 캡션 1개. 여러 이미지는 .img-row 안에 나란히. */
 function imageFigureHTML(src) {
+  // .img-wrap(인라인블록)이 이미지 폭에 맞춰지고, 그 안의 캡션도 이미지 폭을 따름
   return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
+    '<span class="img-wrap">' +
     '<span class="img-row"><img src="' + src + '" style="max-width:100%" draggable="false"></span>' +
     '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
-    '</figure>';
+    '</span></figure>';
 }
 // 현재 선택된 이미지(같은 줄에 추가 삽입 판단용) — 창 전역
 let ACTIVE_NOTE_IMG = null;
@@ -912,7 +914,7 @@ function setupImageControls(persistCb) {
   function enterEditAtImage(img) {
     const host = editableHostOf(img);
     if (!host) return;
-    host.focus();
+    try { host.focus({ preventScroll: true }); } catch (_) { host.focus(); }
     const fig = figOf(img) || img;
     if (fig.parentNode) {
       try {
