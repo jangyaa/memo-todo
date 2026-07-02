@@ -791,7 +791,7 @@ function setupFormatToolbar(config) {
  * 한 줄(figure) = 이미지 그룹 + 공통 캡션 1개. 여러 이미지는 .img-row 안에 나란히. */
 function imageFigureHTML(src) {
   return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
-    '<span class="img-row"><img src="' + src + '" style="max-width:100%" draggable="true"></span>' +
+    '<span class="img-row"><img src="' + src + '" style="max-width:100%" draggable="false"></span>' +
     '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
     '</figure>';
 }
@@ -902,11 +902,35 @@ function setupImageControls(persistCb) {
     }
   }, true);
 
+  // 편집 호스트(contenteditable=true) 찾기
+  function editableHostOf(node) {
+    let el = node && (node.nodeType === 1 ? node : node.parentElement);
+    while (el && !el.isContentEditable) el = el.parentElement;
+    return el && el.isContentEditable ? el : null;
+  }
+  // 이미지를 텍스트처럼: 클릭하면 편집 모드 진입(포커스 → 상/하단 편집바) + 커서를 이미지 뒤에
+  function enterEditAtImage(img) {
+    const host = editableHostOf(img);
+    if (!host) return;
+    host.focus();
+    const fig = figOf(img) || img;
+    if (fig.parentNode) {
+      try {
+        const r = document.createRange();
+        r.setStartAfter(fig); r.collapse(true);
+        const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      } catch (_) {}
+    }
+  }
+
   document.addEventListener('click', (e) => {
     if (e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
-    // 편집 영역 안의 모든 이미지(피규어/붙여넣기 등)에 컨트롤 표시 + 캡션 입력칸 노출
-    if (img && img.closest('[contenteditable]')) { target = img; ACTIVE_NOTE_IMG = img; markActive(img); place(); return; }
+    // 편집 영역 안 이미지: 컨트롤 + 캡션 표시 + 편집 모드 진입(상/하단 바)
+    if (img && img.closest('[contenteditable]')) {
+      target = img; ACTIVE_NOTE_IMG = img; markActive(img); enterEditAtImage(img); place();
+      return;
+    }
     if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
   });
 
@@ -973,38 +997,49 @@ function setupImageControls(persistCb) {
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
   });
 
-  // 이미지 위치 이동(드래그) — 네이티브 복제 없이 직접 이동
-  let dragMove = null;
-  document.addEventListener('dragstart', (e) => {
+  // 이미지 위치 이동 — 포인터 드래그(네이티브 드래그 대신, 복제 없이 확실히 이동)
+  let mv = null, mvStartX = 0, mvStartY = 0, mvOn = false, justMoved = false;
+  function caretAt(x, y) {
+    if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+    if (document.caretPositionFromPoint) {
+      const p = document.caretPositionFromPoint(x, y);
+      if (p) { const r = document.createRange(); r.setStart(p.offsetNode, p.offset); return r; }
+    }
+    return null;
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (dragging || e.target === handle || e.target === del || bar.contains(e.target)) return;
     const img = e.target.closest && e.target.closest('img');
-    if (img && img.closest('[contenteditable]')) {
-      dragMove = img.closest('figure.note-img') || img; // 그룹이면 줄 전체, 아니면 이미지
-      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); } catch (_) {}
+    if (img && img.closest('[contenteditable]')) { mv = img; mvStartX = e.clientX; mvStartY = e.clientY; mvOn = false; }
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!mv) return;
+    if (!mvOn && Math.hypot(e.clientX - mvStartX, e.clientY - mvStartY) > 6) {
+      mvOn = true;
+      (figOf(mv) || mv).style.opacity = '0.45';
+      document.body.classList.add('img-moving');
       hide();
     }
+    if (mvOn) e.preventDefault();
   });
-  document.addEventListener('dragover', (e) => {
-    if (dragMove && e.target.closest && e.target.closest('[contenteditable]')) e.preventDefault();
-  });
-  document.addEventListener('drop', (e) => {
-    if (!dragMove) return;
-    const ed = e.target.closest && e.target.closest('[contenteditable]');
-    if (!ed) { dragMove = null; return; }
-    e.preventDefault(); // 네이티브 삽입(복제) 방지
-    let range = null;
-    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
-    else if (document.caretPositionFromPoint) {
-      const p = document.caretPositionFromPoint(e.clientX, e.clientY);
-      if (p) { range = document.createRange(); range.setStart(p.offsetNode, p.offset); }
+  document.addEventListener('pointerup', (e) => {
+    if (!mv) return;
+    const el = figOf(mv) || mv;
+    if (mvOn) {
+      el.style.opacity = '';
+      document.body.classList.remove('img-moving');
+      const range = caretAt(e.clientX, e.clientY);
+      if (range && !el.contains(range.startContainer) && editableHostOf(range.startContainer)) {
+        try { el.remove(); range.insertNode(el); if (persistCb) persistCb(); } catch (_) {}
+      }
+      justMoved = true; // 뒤이어 발생할 click(선택/편집진입) 억제
     }
-    if (range && !dragMove.contains(range.startContainer)) {
-      dragMove.remove();
-      range.insertNode(dragMove); // 이동(복제 아님)
-    }
-    dragMove = null;
-    if (persistCb) persistCb();
+    mv = null; mvOn = false;
   });
-  document.addEventListener('dragend', () => { dragMove = null; });
+  // 이동 직후의 click은 무시(위치만 옮긴 것)
+  document.addEventListener('click', (e) => {
+    if (justMoved) { justMoved = false; e.stopImmediatePropagation(); e.preventDefault(); }
+  }, true);
 
   window.addEventListener('scroll', () => { if (target) place(); }, true);
 }

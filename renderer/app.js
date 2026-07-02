@@ -460,14 +460,17 @@ function openAlarmPicker(existing) {
   calY = d.getFullYear(); calM = d.getMonth();
   document.getElementById('cal-hour').value = String(d.getHours());
   document.getElementById('cal-min').value = String(existing ? d.getMinutes() : (d.getMinutes() + 5) % 60);
-  document.getElementById('cal-alarm-label').value = existing ? (existing.label || '') : '';
-  document.getElementById('cal-time').style.display = 'block';
+  const lbl = document.getElementById('cal-alarm-label');
+  lbl.value = existing ? (existing.label || '') : '';
+  lbl.style.display = 'block'; // 제목(맨 위)
+  document.getElementById('cal-time').style.display = 'block'; // 시간(맨 아래)
   renderCalendar();
   document.getElementById('cal-overlay').classList.add('open');
 }
 function pickDate(initial, cb) {
   calTime = false;
   document.getElementById('cal-time').style.display = 'none';
+  document.getElementById('cal-alarm-label').style.display = 'none';
   calCb = cb;
   calSel = initial || '';
   const base = initial ? new Date(initial + 'T00:00:00') : new Date();
@@ -514,7 +517,7 @@ function setupCalendar() {
   document.getElementById('cal-next').addEventListener('click', () => {
     calM++; if (calM > 11) { calM = 0; calY++; } renderCalendar();
   });
-  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.classList.remove('open'); calCb = null; calTime = false; document.getElementById('cal-time').style.display = 'none'; } });
+  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.classList.remove('open'); calCb = null; calTime = false; document.getElementById('cal-time').style.display = 'none'; document.getElementById('cal-alarm-label').style.display = 'none'; } });
   // 시/분 드롭다운 채우기
   const hourSel = document.getElementById('cal-hour');
   for (let h = 0; h < 24; h++) { const o = document.createElement('option'); o.value = h; o.textContent = String(h).padStart(2, '0'); hourSel.appendChild(o); }
@@ -529,6 +532,7 @@ function setupCalendar() {
     const datetime = `${calSel}T${h}:${m}`;
     ov.classList.remove('open');
     document.getElementById('cal-time').style.display = 'none';
+    document.getElementById('cal-alarm-label').style.display = 'none';
     calTime = false;
     if (editingAlarmId) { updateAlarm(editingAlarmId, datetime, label); editingAlarmId = null; }
     else addAlarm(datetime, label);
@@ -546,16 +550,28 @@ function fmtAlarm(dt) {
 function alarmsSorted() {
   return (state.alarms || []).slice().sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
 }
-function buildAlarmChip(al) {
+const BELL_SVG = '<svg viewBox="0 0 16 16"><path d="M8 1.6a2.9 2.9 0 0 0-2.9 2.9v2.1c0 .6-.2 1.1-.6 1.6L3.4 11h9.2l-1.1-2.8c-.4-.5-.6-1-.6-1.6V4.5A2.9 2.9 0 0 0 8 1.6zM6.4 12a1.6 1.6 0 0 0 3.2 0z"/></svg>';
+function buildAlarmChip(al, total) {
   const chip = document.createElement('span');
   chip.className = 'alarm-chip';
   chip.title = '더블클릭하여 수정';
-  chip.innerHTML = `⏰ <span class="ac-txt">${al.label ? escapeHtml(al.label) + ' · ' : ''}${fmtAlarm(al.datetime)}</span> <b class="ac-del" title="삭제">✕</b>`;
+  const dt = new Date(al.datetime); const p = (n) => String(n).padStart(2, '0');
+  const date = `${p(dt.getMonth() + 1)}.${p(dt.getDate())}`;
+  const time = `${p(dt.getHours())}:${p(dt.getMinutes())}`;
+  chip.innerHTML =
+    '<span class="ac-bell">' + BELL_SVG + '</span>' +
+    `<span class="ac-date">${date}</span>` +
+    `<span class="ac-time">${time}</span>` +
+    (al.label ? `<span class="ac-title">${escapeHtml(al.label)}</span>` : '') +
+    (total > 1 ? '<button class="ac-more" title="설정된 알람 전체 보기">▲</button>' : '') +
+    '<b class="ac-del" title="삭제">✕</b>';
   chip.querySelector('.ac-del').addEventListener('click', (e) => { e.stopPropagation(); deleteAlarm(al.id); });
+  const more = chip.querySelector('.ac-more');
+  if (more) more.addEventListener('click', (e) => { e.stopPropagation(); toggleAlarmPop(more); });
   chip.addEventListener('dblclick', () => openAlarmPicker(al));
   return chip;
 }
-// 알람 바: 가장 가까운 알람 1개 + (여러 개면) 확장 삼각형
+// 알람 바: 가장 가까운 알람 1개(여러 개면 칩 안에 확장 삼각형)
 function renderAlarms() {
   const list = alarmsSorted();
   ['alarm-bar-todo', 'alarm-bar-memo'].forEach((id) => {
@@ -563,13 +579,7 @@ function renderAlarms() {
     if (!bar) return;
     bar.innerHTML = '';
     if (!list.length) return;
-    bar.appendChild(buildAlarmChip(list[0]));
-    if (list.length > 1) {
-      const tg = document.createElement('button');
-      tg.className = 'alarm-toggle'; tg.textContent = '▲'; tg.title = `설정된 알람 ${list.length}개`;
-      tg.addEventListener('click', (e) => { e.stopPropagation(); toggleAlarmPop(tg); });
-      bar.appendChild(tg);
-    }
+    bar.appendChild(buildAlarmChip(list[0], list.length));
   });
   const pop = document.getElementById('alarm-pop');
   if (pop && pop.classList.contains('open')) fillAlarmPop();
@@ -2346,28 +2356,35 @@ async function init() {
   });
   setupHrClickSelect(memoPage); // 구분선 클릭 선택 → Backspace 삭제
 
-  document.getElementById('btn-add-todo').addEventListener('click', addTodo);
-  document.getElementById('btn-add-memo').addEventListener('click', () => addMemo());
   document.getElementById('btn-add-folder').addEventListener('click', addFolder);
-  // +버튼 주변 빠른 실행 버튼(투두·메모 뷰 공통) — 현재는 메모추가만 동작(나머지는 추후 기능)
-  // hover 후 버튼으로 마우스 이동 시 사라지지 않도록 열림/닫힘을 지연 제어(사이 빈틈 보정)
+  // +버튼 빠른 실행 메뉴(투두·메모 공통): hover로 펼침, +클릭 시 고정, 바깥 클릭 시 닫힘.
+  // (+버튼 자체는 더 이상 바로 추가하지 않음 — 실제 추가는 메뉴 항목으로)
   document.querySelectorAll('.fab-wrap').forEach((fabWrap) => {
-    let fabCloseTimer = null;
-    const openFab = () => { clearTimeout(fabCloseTimer); fabWrap.classList.add('fab-open'); };
-    const closeFab = () => { fabCloseTimer = setTimeout(() => fabWrap.classList.remove('fab-open'), 280); };
-    const fabHot = [fabWrap.querySelector('.fab'), ...fabWrap.querySelectorAll('.fab-mini')];
-    fabHot.forEach((el) => {
+    let closeTimer = null, pinned = false;
+    const openFab = () => { clearTimeout(closeTimer); fabWrap.classList.add('fab-open'); };
+    const closeFab = () => { if (pinned) return; closeTimer = setTimeout(() => fabWrap.classList.remove('fab-open'), 280); };
+    const fab = fabWrap.querySelector('.fab');
+    [fab, ...fabWrap.querySelectorAll('.fab-mini')].forEach((el) => {
       if (!el) return;
       el.addEventListener('mouseenter', openFab);
       el.addEventListener('mouseleave', closeFab);
     });
+    if (fab) fab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pinned = !pinned;
+      if (pinned) openFab(); else fabWrap.classList.remove('fab-open');
+    });
     fabWrap.querySelectorAll('.fab-mini').forEach((b) => {
       b.addEventListener('click', () => {
-        fabWrap.classList.remove('fab-open');
+        pinned = false; fabWrap.classList.remove('fab-open');
         if (b.dataset.act === 'memo') { setView('memo'); addMemo(); }
+        else if (b.dataset.act === 'todo') { setView('todo'); addTodo(); }
         else if (b.dataset.act === 'alarm') { openAlarmPicker(null); }
         // sticker / stopwatch: UI만 — 기능 추후 추가
       });
+    });
+    document.addEventListener('mousedown', (e) => {
+      if (!fabWrap.contains(e.target)) { pinned = false; fabWrap.classList.remove('fab-open'); }
     });
   });
 

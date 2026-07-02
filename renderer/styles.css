@@ -220,28 +220,36 @@ body {
 }
 .fab-mini:hover { background: color-mix(in srgb, var(--pink-deep) 82%, #000); }
 
-/* 알람 바 — +아이콘과 같은 y높이에 떠 있음(가장 가까운 알람 1개 + 확장 삼각형) */
+/* 알람 바 — +아이콘과 같은 y높이에 떠 있음, 콘텐츠 크기에 맞춤(창 크기에 따라 최대폭 조정) */
 .alarm-bar {
-  position: absolute; left: 14px; right: 72px; bottom: 16px; height: 44px; z-index: 20;
-  display: flex; align-items: center; gap: 7px;
+  position: absolute; left: 14px; bottom: 16px; height: 44px; z-index: 20;
+  width: auto; max-width: calc(100% - 90px);
+  display: flex; align-items: center;
 }
 .alarm-bar:empty { display: none; }
 .alarm-chip {
-  flex-shrink: 1; min-width: 0; display: inline-flex; align-items: center; gap: 7px;
-  background: var(--pink-soft); color: var(--pink-deep); border-radius: 999px;
-  padding: 7px 12px; font-size: 12px; font-weight: 600; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; cursor: pointer;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--pink-deep) 14%, transparent);
+  min-width: 0; max-width: 100%; height: 44px; box-sizing: border-box;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: color-mix(in srgb, var(--pink-soft) 60%, #fff); border-radius: 22px;
+  padding: 0 14px; font-size: 12px; cursor: pointer;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--pink-deep) 16%, transparent);
 }
-.alarm-chip .ac-txt { overflow: hidden; text-overflow: ellipsis; }
-.alarm-chip .ac-del { cursor: pointer; opacity: 0.55; font-weight: 700; flex-shrink: 0; }
+.alarm-chip .ac-bell { display: inline-flex; flex-shrink: 0; color: var(--pink-deep); }
+.alarm-chip .ac-bell svg { width: 16px; height: 16px; fill: currentColor; }
+.alarm-chip .ac-date, .alarm-chip .ac-time {
+  flex-shrink: 0; background: var(--pink-soft); color: var(--pink-deep);
+  border-radius: 999px; padding: 4px 10px; font-weight: 800; font-size: 12px;
+}
+.alarm-chip .ac-title {
+  min-width: 0; color: var(--ink); font-weight: 600; font-size: 13px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 2px;
+}
+.alarm-chip .ac-more {
+  flex-shrink: 0; border: none; background: transparent; color: var(--pink-deep);
+  cursor: pointer; font-size: 10px; padding: 2px 2px; margin-left: 2px;
+}
+.alarm-chip .ac-del { cursor: pointer; opacity: 0.5; font-weight: 700; flex-shrink: 0; color: var(--ink-soft); }
 .alarm-chip .ac-del:hover { opacity: 1; }
-.alarm-toggle {
-  flex-shrink: 0; width: 26px; height: 26px; border: none; border-radius: 50%;
-  background: var(--pink-soft); color: var(--pink-deep); cursor: pointer; font-size: 10px;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.alarm-toggle:hover { background: var(--pink); }
 /* 확장 팝오버(설정된 알람 전체) */
 .alarm-pop {
   display: none; position: fixed; z-index: 340; background: #fff;
@@ -256,13 +264,13 @@ body {
 .alarm-row .ac-del { cursor: pointer; opacity: 0.5; font-weight: 700; flex-shrink: 0; }
 .alarm-row .ac-del:hover { opacity: 1; }
 
-/* 달력 시간 선택 행(알람용) */
-.cal-time { margin-top: 10px; }
-.cal-time #cal-alarm-label {
-  width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
-  font-size: 14px; outline: none; font-family: inherit; color: var(--ink); margin-bottom: 8px;
+/* 알람 추가창: 제목(맨 위) → 날짜(달력) → 시간(맨 아래) */
+.cal-label {
+  width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 11px; font-size: 14px; outline: none; font-family: inherit; color: var(--ink); margin-bottom: 10px;
 }
-.cal-time #cal-alarm-label:focus { border-color: var(--pink); }
+.cal-label:focus { border-color: var(--pink); }
+.cal-time { margin-top: 10px; }
 .cal-time-row { display: flex; gap: 6px; align-items: center; }
 .cal-sel {
   flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px;
@@ -360,7 +368,8 @@ body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 /* 모든 편집 이미지는 블럭 폭을 넘지 않게(붙여넣기 등 포함) — 블럭은 세로로 늘어남 */
-.note-body img { max-width: 100%; height: auto; }
+.note-body img { max-width: 100%; height: auto; -webkit-user-drag: none; cursor: grab; }
+body.img-moving, body.img-moving * { cursor: grabbing !important; }
 /* 삽입 이미지 블록(한 줄 = 이미지 그룹 + 공통 캡션) */
 figure.note-img { display: block; margin: 8px 0; max-width: 100%; }
 .img-row { display: block; font-size: 0; } /* 이미지들 사이 공백 제거 */

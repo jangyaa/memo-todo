@@ -28,9 +28,9 @@
       <div class="fab-wrap" id="fab-wrap-todo">
         <button class="fab-mini" data-act="stopwatch" style="--dy:-196px">스톱워치</button>
         <button class="fab-mini" data-act="alarm" style="--dy:-148px">알람 추가</button>
-        <button class="fab-mini" data-act="memo" style="--dy:-100px">메모 추가</button>
+        <button class="fab-mini" data-act="todo" style="--dy:-100px">할 일 추가</button>
         <button class="fab-mini" data-act="sticker" style="--dy:-52px">스티커 편집</button>
-        <button class="fab" id="btn-add-todo" title="할 일 추가">＋</button>
+        <button class="fab" id="btn-add-todo" title="빠른 실행">＋</button>
       </div>
     </section>
 
@@ -66,7 +66,7 @@
         <button class="fab-mini" data-act="alarm" style="--dy:-148px">알람 추가</button>
         <button class="fab-mini" data-act="memo" style="--dy:-100px">메모 추가</button>
         <button class="fab-mini" data-act="sticker" style="--dy:-52px">스티커 편집</button>
-        <button class="fab" id="btn-add-memo" title="메모 추가">＋</button>
+        <button class="fab" id="btn-add-memo" title="빠른 실행">＋</button>
       </div>
     </section>
   </div>
@@ -101,6 +101,7 @@
   <!-- D-DAY 날짜 선택 달력 모달 -->
   <div class="modal-overlay" id="cal-overlay">
     <div class="modal cal-modal">
+      <input type="text" id="cal-alarm-label" class="cal-label" placeholder="알람 제목 (선택)" maxlength="40" style="display:none" />
       <div class="cal-head">
         <button class="cal-nav" id="cal-prev">‹</button>
         <span class="cal-title" id="cal-title"></span>
@@ -108,7 +109,6 @@
       </div>
       <div class="cal-grid" id="cal-grid"></div>
       <div class="cal-time" id="cal-time" style="display:none">
-        <input type="text" id="cal-alarm-label" placeholder="알람 제목 (선택)" maxlength="40" />
         <div class="cal-time-row">
           <select id="cal-hour" class="cal-sel"></select>
           <span class="cal-colon">:</span>
