@@ -286,19 +286,21 @@ body {
 /* 모든 편집 이미지는 블럭 폭을 넘지 않게(붙여넣기 등 포함) */
 .note-body img { max-width: 100%; height: auto; border-radius: 8px; -webkit-user-drag: none; cursor: grab; }
 body.img-moving, body.img-moving * { cursor: grabbing !important; }
-/* 삽입 이미지 = 인라인블록 카드(이미지 + 자기 캡션). 한 줄에 여러 장 나란히 배치 가능 */
-.note-img { display: inline-block; vertical-align: top; max-width: 100%; margin: 4px 6px 4px 0; }
-.note-img img { display: block; max-width: 100%; height: auto; border-radius: 8px; cursor: grab; }
-/* 캡션은 카드(=이미지) 폭을 따라감 → 리사이즈 시 함께 조정, 자기 이미지 바로 아래 표시 */
-.note-cap {
-  display: block; font-size: 12px; color: var(--ink-soft); margin-top: 4px; outline: none;
-  min-height: 1.1em; text-align: center;
+/* 삽입 이미지 줄 = figure(블럭). 한 줄에 여러 장이면 같은 높이로 정렬되고 폭 합이 블럭을 채움 */
+figure.note-img { display: block; margin: 8px 0; max-width: 100%; }
+/* 이미지들을 한 줄로 담는 flex 행(figure의 text-align으로 좌/가운데/우 배치) */
+.img-row { display: inline-flex; gap: 6px; max-width: 100%; vertical-align: top; align-items: flex-start; }
+.img-row img { display: block; max-width: 100%; height: auto; border-radius: 8px; cursor: grab; }
+/* 캡션은 줄(figure)당 1개 — 이미지 바로 아래 표시, 정렬은 이미지 줄을 따름(inherit) */
+figcaption.note-cap {
+  font-size: 12px; color: var(--ink-soft); margin-top: 5px; outline: none; min-height: 1.1em;
+  text-align: inherit;
 }
 /* 캡션 입력칸: 내용 없으면 숨기고, 이미지 선택/포커스 시에만 표시(hover 토글은 진동 유발로 제외) */
-.note-cap:empty { display: none; }
-.note-img.img-active .note-cap:empty,
-.note-cap:focus { display: block; }
-.note-cap:empty::before { content: attr(data-ph); color: var(--ink-soft); opacity: 0.55; }
+figcaption.note-cap:empty { display: none; }
+figure.note-img.img-active figcaption.note-cap:empty,
+figcaption.note-cap:focus { display: block; }
+figcaption.note-cap:empty::before { content: attr(data-ph); color: var(--ink-soft); opacity: 0.55; }
 .dday-item:hover .item-del { opacity: 0.7; }
 
 /* 투두 블럭(반투명 흰색) */

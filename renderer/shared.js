@@ -789,39 +789,80 @@ function setupFormatToolbar(config) {
   return hide;
 }
 
-/* 편집영역에 삽입할 이미지 카드 — 한 이미지 = 인라인블록 span 하나 + 자기 캡션 1개.
- * 인라인블록이라 폭이 이미지에 맞춰지고(캡션 폭도 따라감) 여러 장이 한 줄에 나란히 흐른다. */
+/* 편집영역에 삽입할 이미지 줄 = figure(블럭). 안에 이미지 여러 장이 든 .img-row + 캡션 1개.
+ * 한 줄에 여러 장이면 같은 높이로 맞추고 폭 합이 블럭 폭을 채우도록 정렬된다(캡션은 줄당 1개). */
 function imageFigureHTML(src) {
-  return '<span class="note-img" contenteditable="false">' +
-    '<img src="' + src + '" draggable="false">' +
-    '<span class="note-cap" contenteditable="true" data-ph="캡션 입력"></span>' +
-    '</span>';
+  return '<figure class="note-img" contenteditable="false" style="text-align:center">' +
+    '<span class="img-row"><img src="' + src + '" draggable="false"></span>' +
+    '<figcaption class="note-cap" contenteditable="true" data-ph="캡션 입력"></figcaption>' +
+    '</figure>';
 }
-// 이미지 삽입: execCommand 대신 Range로 직접 삽입(중첩 편집영역 깨짐/캡션 오배치 방지).
-// 인라인 카드라 커서 위치에 삽입 → 앞 이미지 바로 뒤에 넣으면 같은 줄에 나란히 배치됨.
+// 한 줄(.img-row) 이미지들을 같은 높이 + 폭 합이 블럭 폭을 채우게 정렬(저스티파이).
+// 이미지 1장이면 자연 크기(수동 리사이즈 허용). 2장 이상이면 자동 정렬.
+function justifyImageRow(row) {
+  if (!row) return;
+  const imgs = Array.prototype.slice.call(row.querySelectorAll('img'));
+  if (!imgs.length) return;
+  const notReady = imgs.filter((im) => !im.naturalWidth);
+  if (notReady.length) { notReady.forEach((im) => im.addEventListener('load', () => justifyImageRow(row), { once: true })); return; }
+  if (imgs.length === 1) { imgs[0].style.height = ''; imgs[0].style.width = ''; return; }
+  const ed = row.closest('[contenteditable]');
+  const blockW = ((ed && ed.clientWidth) || 600) - 12;
+  const gap = 6, totalGap = gap * (imgs.length - 1);
+  const sumAspect = imgs.reduce((s, im) => s + im.naturalWidth / im.naturalHeight, 0);
+  const h = (blockW - totalGap) / sumAspect; // 공통 높이 → 폭 합 = blockW
+  imgs.forEach((im) => {
+    im.style.height = Math.round(h) + 'px';
+    im.style.width = Math.round(h * im.naturalWidth / im.naturalHeight) + 'px';
+  });
+}
+// 커서 위치가 기존 이미지 줄(figure) 안이거나 바로 뒤면 그 줄의 .img-row 반환(같은 줄에 추가하기 위함)
+function rowAdjacentToCaret(range, editable) {
+  const n = range.startContainer;
+  const el = n.nodeType === 1 ? n : n.parentElement;
+  const inFig = el && el.closest && el.closest('.note-img');
+  if (inFig && editable.contains(inFig)) return inFig.querySelector('.img-row');
+  let before = null;
+  if (n.nodeType === 1) before = n.childNodes[range.startOffset - 1];
+  else if (n.nodeType === 3 && range.startOffset === 0) before = n.previousSibling;
+  while (before && before.nodeType === 3 && /^[​\s]*$/.test(before.textContent || '')) before = before.previousSibling;
+  if (before && before.nodeType === 1 && before.classList && before.classList.contains('note-img') && editable.contains(before))
+    return before.querySelector('.img-row');
+  return null;
+}
+// 이미지 삽입: 커서가 기존 이미지 줄에 붙어 있으면 그 줄에 추가(같은 라인), 아니면 새 줄(figure) 생성.
 function insertNoteImage(editable, src, doneCb) {
   try { editable.focus({ preventScroll: true }); } catch (_) { editable.focus(); }
   const sel = window.getSelection();
   let range = (sel && sel.rangeCount && editable.contains(sel.anchorNode)) ? sel.getRangeAt(0) : null;
-  if (!range) { range = document.createRange(); range.selectNodeContents(editable); range.collapse(false); }
-  range.deleteContents();
-  const tmp = document.createElement('div');
-  tmp.innerHTML = imageFigureHTML(src);
-  const node = tmp.firstElementChild;
-  range.insertNode(node);
-  // 카드 뒤에 커서를 둘 자리(제로폭 공백) → 이어서 이미지 추가 시 같은 줄에 붙음
-  const zw = document.createTextNode('​');
-  if (node.parentNode) node.parentNode.insertBefore(zw, node.nextSibling);
-  try {
-    const r2 = document.createRange(); r2.setStartAfter(zw); r2.collapse(true);
-    sel.removeAllRanges(); sel.addRange(r2);
-  } catch (_) {}
+  const row = range ? rowAdjacentToCaret(range, editable) : null;
+  let fig;
+  if (row) {
+    const img = document.createElement('img');
+    img.src = src; img.setAttribute('draggable', 'false');
+    row.appendChild(img);
+    fig = row.closest('.note-img');
+    justifyImageRow(row);
+  } else {
+    if (!range) { range = document.createRange(); range.selectNodeContents(editable); range.collapse(false); }
+    range.deleteContents();
+    const tmp = document.createElement('div');
+    tmp.innerHTML = imageFigureHTML(src);
+    fig = tmp.firstElementChild;
+    range.insertNode(fig);
+    justifyImageRow(fig.querySelector('.img-row'));
+  }
+  // figure 뒤에 커서 자리 확보 → 이어서 삽입 시 같은 줄에 붙고, Enter 후 삽입하면 새 줄이 됨
+  let after = fig.nextSibling;
+  if (!after || after.nodeType !== 3) { after = document.createTextNode('​'); fig.parentNode.insertBefore(after, fig.nextSibling); }
+  try { const r2 = document.createRange(); r2.setStart(after, 0); r2.collapse(true); sel.removeAllRanges(); sel.addRange(r2); } catch (_) {}
   if (doneCb) doneCb();
 }
 
 /* ----- 이미지 컨트롤 -----
- * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들 + 편집모드 진입.
- * 각 이미지 카드는 독립(리사이즈/삭제/캡션/이동 개별). 한 줄에 여러 장 배치 가능. */
+ * <img> 클릭 시 정렬 툴바(좌/가운데/우) + 삭제 X + 리사이즈 핸들(단일 줄) + 편집모드 진입.
+ * 한 줄(figure)에 여러 장이면 같은 높이로 자동 정렬(폭 합이 블럭 채움), 캡션은 줄당 1개.
+ * 드래그로 줄 전체 이동, 삭제는 이미지 한 장씩. */
 function setupImageControls(persistCb) {
   const AL = {
     left: '<svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="9" height="2"/><rect x="1" y="12" width="12" height="2"/></svg>',
@@ -850,6 +891,8 @@ function setupImageControls(persistCb) {
   let target = null, resizing = false, startX = 0, startW = 0;
   let mv = null, mvStartX = 0, mvStartY = 0, mvOn = false, justMoved = false;
   const figOf = (img) => (img && img.closest && img.closest('.note-img')) || null;
+  const rowOf = (img) => { const f = figOf(img); return f && f.querySelector('.img-row'); };
+  const isMultiRow = (img) => { const r = rowOf(img); return !!(r && r.querySelectorAll('img').length > 1); };
   function blockWidth(img) {
     const ed = img.closest('[contenteditable]');
     return (ed ? ed.clientWidth : 600) - 12;
@@ -861,25 +904,6 @@ function setupImageControls(persistCb) {
       el = el.parentElement;
     }
     return null;
-  }
-  // 편집영역 루트(contenteditable="true" 속성을 가진 최상위 요소)
-  function editableRootOf(node) {
-    let el = node && (node.nodeType === 1 ? node : node.parentElement), root = null;
-    while (el) {
-      if (el.getAttribute && el.getAttribute('contenteditable') === 'true') root = el;
-      el = el.parentElement;
-    }
-    return root;
-  }
-  // 정렬 대상 = 이미지 카드를 담은 블럭(줄). 편집영역 직속이면 감싸는 div를 만들어 확보.
-  function lineBlockOf(fig) {
-    const root = editableRootOf(fig);
-    const p = fig.parentElement;
-    if (p && p !== root) return p;
-    const div = document.createElement('div');
-    (root || p).insertBefore(div, fig);
-    div.appendChild(fig);
-    return div;
   }
   function markActive(img) {
     document.querySelectorAll('.note-img.img-active').forEach((f) => f.classList.remove('img-active'));
@@ -895,9 +919,13 @@ function setupImageControls(persistCb) {
     del.style.display = 'flex';
     del.style.left = (r.right - 10) + 'px';
     del.style.top = (r.top - 10) + 'px';
-    handle.style.display = 'block';
-    handle.style.left = (r.right - 7) + 'px';
-    handle.style.top = (r.bottom - 7) + 'px';
+    // 리사이즈 핸들은 단일 이미지 줄에서만(여러 장 줄은 자동 정렬이라 수동 리사이즈 없음)
+    if (isMultiRow(target)) { handle.style.display = 'none'; }
+    else {
+      handle.style.display = 'block';
+      handle.style.left = (r.right - 7) + 'px';
+      handle.style.top = (r.bottom - 7) + 'px';
+    }
   }
   function hide() { target = null; markActive(null); place(); }
   function enterEditAtImage(img) {
@@ -933,20 +961,22 @@ function setupImageControls(persistCb) {
     if (!(e.target.closest && e.target.closest('.note-cap'))) hide();
   }, true);
 
-  // 정렬(좌/가운데/우) — 이미지 카드가 든 줄(블럭)에 text-align 지정
+  // 정렬(좌/가운데/우) — 이미지 줄(figure)에 text-align 지정(캡션도 inherit로 따라감)
   bar.querySelectorAll('button[data-al]').forEach((b) => {
     b.addEventListener('mousedown', (e) => {
       e.preventDefault();
       const fig = target && figOf(target);
-      if (fig) { lineBlockOf(fig).style.textAlign = b.dataset.al; if (persistCb) persistCb(); place(); }
+      if (fig) { fig.style.textAlign = b.dataset.al; if (persistCb) persistCb(); place(); }
     });
   });
-  // 삭제 — 이미지 카드 제거
+  // 삭제 — 선택한 이미지 한 장만 제거. 줄이 비면 figure 제거, 남으면 재정렬.
   del.addEventListener('mousedown', (e) => {
     e.preventDefault();
     if (!target) return;
-    const fig = figOf(target);
-    if (fig) fig.remove(); else target.remove();
+    const fig = figOf(target), row = rowOf(target);
+    target.remove();
+    if (row && row.querySelector('img')) justifyImageRow(row);
+    else if (fig) fig.remove();
     hide();
     if (persistCb) persistCb();
   });
@@ -1016,6 +1046,13 @@ function setupImageControls(persistCb) {
   });
 
   window.addEventListener('scroll', () => { if (target) place(); }, true);
+  // 창 크기 변경 시 여러 장 줄은 폭에 맞춰 다시 정렬(같은 높이 유지 + 폭 합이 블럭 채움)
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('.note-img .img-row').forEach((r) => {
+      if (r.querySelectorAll('img').length > 1) justifyImageRow(r);
+    });
+    if (target) place();
+  });
 }
 
 
