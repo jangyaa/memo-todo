@@ -57,6 +57,9 @@
     .ed-card { width: 100%; max-width: 720px; border-radius: 16px; padding: 22px 26px 26px; display: flex; flex-direction: column; }
     .ed-card .memo-title { font-size: 24px; margin-bottom: 14px; }
     .ed-card .note-body { font-size: 16px; line-height: 1.9; min-height: 340px; }
+    /* 상세편집창 이미지: %가 아닌 고정 px 상한(카드 최대 콘텐츠폭=720-패딩52=668) →
+       창을 줄이거나 늘려도 이미지 크기가 변하지 않고, 창이 이미지보다 작아져도 그대로 유지 */
+    #ed-body img, #ed-body figure.note-img img { max-width: 668px; }
     /* 태그: 카드 안쪽 하단, 한 줄 높이로 컴팩트 + 본문 구분선 진하게 */
     .ed-card .note-tags {
       margin-top: 12px; padding-top: 9px; min-height: 0;
