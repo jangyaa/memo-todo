@@ -1846,7 +1846,7 @@ function setupDnd() {
     } else if (blockDrag.kind === 'folder') {
       reorderList(state.folders, blockDrag.id, dropBeforeId);
       save();
-      renderMemoIndex();
+      renderMemos(); // 본 창 메모 순서도 폴더 순서를 따르도록 함께 갱신
     }
   });
 
