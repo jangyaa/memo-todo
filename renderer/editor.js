@@ -99,7 +99,6 @@ async function load() {
   if (!Array.isArray(memo.tags)) memo.tags = [];
   titleEl.innerHTML = memo.title || '';
   bodyEl.innerHTML = memo.content || '';
-  fitImageRowsIn(bodyEl); // 저장된 여러 장 줄을 블럭 폭에 맞춰 축소(모두 보이게)
   renderTags();
   renderTimes();
 }
@@ -194,7 +193,6 @@ window.api.onDataChanged((d) => {
     if (!Array.isArray(memo.tags)) memo.tags = [];
     titleEl.innerHTML = m.title || '';
     bodyEl.innerHTML = m.content || '';
-    fitImageRowsIn(bodyEl);
     renderTags();
     renderTimes();
     const t = plainTitle(m.title) || '메모';

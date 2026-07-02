@@ -1018,7 +1018,6 @@ function buildMemoBlock(memo) {
   body.contentEditable = 'true';
   body.spellcheck = false;
   body.innerHTML = looksHtml(memo.content) ? memo.content : linkifyHtml(memo.content || '');
-  fitImageRowsIn(body); // 저장된 여러 장 줄을 블럭 폭에 맞춰 축소(모두 보이게)
   setupUndo(body, () => { memo.content = body.innerHTML; touchMemo(memo); }); // Ctrl+Z
   body.addEventListener('input', () => {
     memo.content = body.innerHTML;
