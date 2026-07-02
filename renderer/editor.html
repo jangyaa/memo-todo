@@ -55,14 +55,15 @@
     /* align-items:flex-start → 카드가 세로로 늘어남(긴 이미지가 카드를 뚫지 않음) */
     .ed-scroll { flex: 1; overflow-y: auto; padding: 56px 16px 40px; display: flex; justify-content: center; align-items: flex-start; }
     .ed-card { width: 100%; max-width: 720px; border-radius: 16px; padding: 22px 26px 26px; display: flex; flex-direction: column; }
-    .ed-card .memo-title { font-size: 24px; margin-bottom: 14px; }
+    /* 제목-본문, 본문-태그 사이 엔터 한 줄 정도 여백 */
+    .ed-card .memo-title { font-size: 24px; margin-bottom: 28px; }
     .ed-card .note-body { font-size: 16px; line-height: 1.9; min-height: 340px; }
     /* 상세편집창 이미지: %가 아닌 고정 px 상한(카드 최대 콘텐츠폭=720-패딩52=668) →
        창을 줄이거나 늘려도 이미지 크기가 변하지 않고, 창이 이미지보다 작아져도 그대로 유지 */
     #ed-body img, #ed-body figure.note-img img { max-width: 668px; }
     /* 태그: 카드 안쪽 하단, 한 줄 높이로 컴팩트 + 본문 구분선 진하게 */
     .ed-card .note-tags {
-      margin-top: 12px; padding-top: 9px; min-height: 0;
+      margin-top: 28px; padding-top: 9px; min-height: 0;
       border-top: 1px solid color-mix(in srgb, var(--ink) 26%, transparent);
     }
     /* 하단 편집바 — 상단과 동일하게 편집 시 슬라이드 인/아웃(오버레이). 왼쪽 시간 · 오른쪽 아이콘 */

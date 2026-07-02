@@ -874,10 +874,16 @@ function visibleMemos() {
   return arr;
 }
 
-function addMemo() {
+// folderId 지정 시 그 폴더 소속으로 생성(폴더 최하단). 없으면 폴더 미소속(인덱스 최하단).
+function addMemo(folderId) {
   const now = Date.now();
-  const memo = { id: uid(), title: '', content: '', tags: [], color: nextMemoColor(), createdAt: now, updatedAt: now };
-  state.memos.push(memo);
+  const memo = { id: uid(), title: '', content: '', tags: [], color: nextMemoColor(),
+    folderId: folderId || null, createdAt: now, updatedAt: now };
+  state.memos.push(memo); // 배열 끝 → 같은 그룹 내 최하단
+  if (folderId) { // 접힌 폴더면 펼쳐서 새 메모가 보이도록
+    const f = state.folders.find((x) => x.id === folderId);
+    if (f) f.collapsed = false;
+  }
   save();
   renderMemos();
   focusMemoTitle(memo.id);
@@ -1184,11 +1190,15 @@ function renderMemoIndex() {
   indexList.innerHTML = '';
   const vis = visibleMemos();
   // 폴더에 속하지 않은 메모
-  const ungrouped = pinnedFirst(vis.filter((m) =>
-    !m.folderId || !state.folders.some((f) => f.id === m.folderId)));
-  ungrouped.forEach((m) => indexList.appendChild(buildIndexChip(m)));
-  // 폴더 (폴더 순서대로)
+  const ungrouped = vis.filter((m) =>
+    !m.folderId || !state.folders.some((f) => f.id === m.folderId));
+  // 고정 메모는 최상단, 폴더, 그다음 일반(미고정) 메모 → 새 메모는 폴더 포함 최하단에 생성됨
+  const pinned = ungrouped.filter((m) => m.pinned)
+    .sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0));
+  const loose = ungrouped.filter((m) => !m.pinned);
+  pinned.forEach((m) => indexList.appendChild(buildIndexChip(m)));
   state.folders.forEach((folder) => indexList.appendChild(buildFolderEl(folder, vis)));
+  loose.forEach((m) => indexList.appendChild(buildIndexChip(m)));
 }
 
 function buildIndexChip(memo) {
@@ -1459,7 +1469,7 @@ function openColorPop(x, y, item, block) {
   placeMenu(colorPop, x, y, false);
 }
 
-// 폴더 우클릭: 이름 변경 / 폴더 삭제
+// 폴더 우클릭: 이름 변경 / 메모 추가(폴더 최하단) / 폴더 삭제
 function openFolderCtx(x, y, folder) {
   ctxMenu.innerHTML = '';
   const rename = document.createElement('button');
@@ -1471,6 +1481,10 @@ function openFolderCtx(x, y, folder) {
     const nameEl = head && head.querySelector('.folder-name');
     if (nameEl) startFolderRename(head, nameEl, folder);
   });
+  const addM = document.createElement('button');
+  addM.className = 'ctx-item';
+  addM.textContent = '메모 추가';
+  addM.addEventListener('click', () => { hideMenus(); addMemo(folder.id); });
   const del = document.createElement('button');
   del.className = 'ctx-item ctx-del';
   del.textContent = '폴더 삭제 (메모는 유지)';
@@ -1480,6 +1494,7 @@ function openFolderCtx(x, y, folder) {
     save(); renderMemos(); hideMenus();
   });
   ctxMenu.appendChild(rename);
+  ctxMenu.appendChild(addM);
   ctxMenu.appendChild(del);
   placeMenu(ctxMenu, x, y);
 }
