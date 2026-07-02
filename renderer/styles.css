@@ -476,6 +476,8 @@ figure.note-img img { max-width: 100%; height: auto; border-radius: 8px; cursor:
 }
 .memo-index:hover,
 .memo-index.pinned { width: 172px; }
+/* 본문 텍스트 선택(드래그) 중엔 인덱스가 hover로 열리지 않게 */
+body.selecting .memo-index:not(.pinned) { width: 50px; }
 
 .index-toolbar {
   display: flex;
@@ -543,7 +545,7 @@ figure.note-img img { max-width: 100%; height: auto; border-radius: 8px; cursor:
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;
-  margin-top: 8px;
+  margin-top: 24px; /* 본문-태그 사이 엔터 한 줄 정도 여백 */
   min-height: 22px;
   cursor: text;
 }
@@ -676,7 +678,7 @@ figure.note-img img { max-width: 100%; height: auto; border-radius: 8px; cursor:
   font-weight: 700;
   color: var(--ink);
   outline: none;
-  margin-bottom: 4px;
+  margin-bottom: 24px; /* 제목-본문 사이 엔터 한 줄 정도 여백 */
   cursor: text;
   word-break: break-word;
   -webkit-app-region: no-drag;

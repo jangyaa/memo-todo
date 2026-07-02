@@ -261,11 +261,10 @@ function handleMarkdownKey(e, body, persistCb) {
   else if (before === 'ㅁ' || before === '[]') { kind = 'ul'; check = true; }
   else if (/^\d+\.$/.test(before)) kind = 'ol';
   if (!kind) return false;
-  // 마커 뒤에 이미 텍스트가 있으면 변환하지 않음(줄 병합/이동 방지)
-  if (after.trim() !== '') return false;
+  // 마커 뒤에 텍스트가 있어도 변환(그 텍스트가 글머리 내용이 됨). 커서 앞으로 옮겨 입력한 경우 대응.
 
   e.preventDefault();
-  node.deleteData(0, before.length);
+  node.deleteData(0, before.length); // 마커 제거 → node는 줄 내용(after)만 남음
   const li = liOf();
   if (li) {
     // 이미 목록 안에서 글머리 단축 → 한 단계 깊게 중첩
@@ -276,20 +275,25 @@ function handleMarkdownKey(e, body, persistCb) {
     const list = document.createElement(kind === 'ol' ? 'ol' : 'ul');
     if (check) list.classList.add('md-check');
     const newLi = document.createElement('li');
-    newLi.appendChild(document.createElement('br'));
     list.appendChild(newLi);
     // 현재 줄의 블록(요소)을 찾는다: body 바로 아래 자식까지 거슬러 올라감
     let blockEl = node.nodeType === 1 ? node : node.parentElement;
     while (blockEl && blockEl.parentElement && blockEl.parentElement !== body) blockEl = blockEl.parentElement;
     if (blockEl && blockEl !== body && blockEl.parentElement === body && blockEl.nodeType === 1) {
-      body.replaceChild(list, blockEl); // 그 줄 블록만 목록으로 교체(이웃 줄과 병합 없음)
+      while (blockEl.firstChild) newLi.appendChild(blockEl.firstChild); // 줄 내용(텍스트) 유지
+      body.replaceChild(list, blockEl);
     } else if (node.parentNode) {
-      node.parentNode.replaceChild(list, node); // 래퍼 없는 텍스트 줄
+      node.parentNode.insertBefore(list, node); // 래퍼 없는 텍스트 줄
+      newLi.appendChild(node);
     } else {
       body.appendChild(list);
     }
+    if (!newLi.firstChild) newLi.appendChild(document.createElement('br'));
+    // 커서를 글머리 내용 맨 앞에 둠(뒤 텍스트가 있으면 그 앞)
     const rr = document.createRange();
-    rr.setStart(newLi, 0); rr.collapse(true);
+    if (node.parentNode && newLi.contains(node)) rr.setStart(node, 0);
+    else { const f = newLi.firstChild; if (f && f.nodeType === 3) rr.setStart(f, 0); else rr.setStart(newLi, 0); }
+    rr.collapse(true);
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(rr);
   }
   persist();

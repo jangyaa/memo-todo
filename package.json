@@ -17,11 +17,13 @@
       "main.js",
       "preload.js",
       "sync.js",
+      "build/icon.ico",
+      "build/icon.png",
       "renderer/**/*"
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -29,7 +31,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Memo Todo"
+      "shortcutName": "Memo Todo",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     },
     "mac": {
       "target": "dmg"

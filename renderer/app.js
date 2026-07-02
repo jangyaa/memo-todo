@@ -922,12 +922,28 @@ function renderTagbar() {
 }
 
 /* --- 메모 블록들 --- */
+// 인덱스와 동일한 순서로 메모를 나열: 고정(상단) → 폴더순(각 폴더 메모) → 미고정 루즈(하단)
+function memosInIndexOrder() {
+  const vis = visibleMemos();
+  const ungrouped = vis.filter((m) =>
+    !m.folderId || !state.folders.some((f) => f.id === m.folderId));
+  const pinned = ungrouped.filter((m) => m.pinned)
+    .sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0));
+  const loose = ungrouped.filter((m) => !m.pinned);
+  const out = [...pinned];
+  state.folders.forEach((f) => {
+    pinnedFirst(vis.filter((m) => m.folderId === f.id)).forEach((m) => out.push(m));
+  });
+  loose.forEach((m) => out.push(m));
+  return out;
+}
+
 function renderMemoPage() {
   memoPage.innerHTML = '';
   if (state.memos.length === 0) {
     state.memos.push({ id: uid(), title: '', content: '', tags: [], color: nextMemoColor() });
   }
-  const list = pinnedFirst(visibleMemos());
+  const list = memosInIndexOrder(); // 인덱스(폴더 순서)와 동일하게 정렬
   if (list.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
@@ -1049,18 +1065,7 @@ function buildMemoBlock(memo) {
   });
   body.addEventListener('keydown', (e) => {
     if (handleMarkdownKey(e, body, () => { memo.content = body.innerHTML; save(); })) return;
-    // Shift+Enter: 현재 메모 다음에 새 메모 블록 (전역 핸들러와 중복 방지)
-    if (e.shiftKey && e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      memo.content = body.innerHTML;
-      const idx = state.memos.findIndex((m) => m.id === memo.id);
-      const nm = { id: uid(), title: '', content: '', tags: [], color: nextMemoColor() };
-      state.memos.splice(idx + 1, 0, nm);
-      save();
-      renderMemos();
-      focusMemoTitle(nm.id);
-    } else if (e.key === 'Backspace' && caretAtStart(body)) {
+    if (e.key === 'Backspace' && caretAtStart(body)) {
       // 제목이 있으면 본문이 비어도 메모를 지우지 않음
       if (plainText(memo.title).trim()) return;
       const idx = state.memos.findIndex((m) => m.id === memo.id);
@@ -1527,6 +1532,11 @@ function setupCtxMenu() {
   document.addEventListener('click', (e) => {
     if (!ctxMenu.contains(e.target) && !colorPop.contains(e.target)) hideMenus();
   });
+  // 본문에서 드래그로 텍스트 선택하는 동안엔 body.selecting → 인덱스 hover 확장 차단
+  document.addEventListener('mousedown', (e) => {
+    if (e.target.closest && e.target.closest('.note-body')) document.body.classList.add('selecting');
+  });
+  document.addEventListener('mouseup', () => document.body.classList.remove('selecting'));
   // 인덱스 빈 영역 우클릭
   indexList.addEventListener('contextmenu', (e) => {
     if (e.target.closest('.index-chip') || e.target.closest('.folder-head')) return;
@@ -1849,20 +1859,6 @@ function setupDnd() {
   });
 }
 
-/* 메모 뷰에서 본문 밖이어도 Shift+Enter로 메모 추가 */
-function setupGlobalKeys() {
-  document.addEventListener('keydown', (e) => {
-    if (e.shiftKey && e.key === 'Enter' &&
-        document.getElementById('view-memo').classList.contains('active')) {
-      const t = e.target;
-      // 본문/태그입력 안에서는 각자의 핸들러가 처리
-      if (t && (t.classList.contains('note-body') || t.classList.contains('tag-add'))) return;
-      e.preventDefault();
-      addMemo();
-    }
-  });
-}
-
 /* =========================================================================
  * 프로필 / 테마
  * ========================================================================= */
@@ -2165,7 +2161,6 @@ async function init() {
   setupSync();
   setupCtxMenu();
   setupDnd();
-  setupGlobalKeys();
   setupProfileTheme();
   setupColorPicker();
   setupCropper();

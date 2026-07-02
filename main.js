@@ -101,6 +101,7 @@ function createWindow(views, isMain) {
     width: 420, height: 640, minWidth: 300, minHeight: 340,
     frame: false, transparent: true, backgroundColor: '#00000000',
     title: 'Memo Todo',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false
@@ -240,6 +241,7 @@ ipcMain.handle('memo:openEditor', (_e, id) => {
     width: 560, height: 680, minWidth: 360, minHeight: 360,
     frame: false, transparent: true, backgroundColor: '#00000000',
     title: '메모',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false
