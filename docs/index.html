@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>Memo Todo</title>
+<!-- 아이폰 '홈 화면에 추가' 시 앱처럼 열리게 -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Memo Todo" />
+<link rel="apple-touch-icon" href="icon.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<style>
+  :root {
+    --bg:#faf8f9; --ink:#555055; --ink-soft:#9e989d; --line:#f0eaed;
+    --pink:#edd9e0; --pink-deep:#cdb0bb; --pink-soft:#f7f2f4;
+    --titlebar:linear-gradient(180deg,#cdb6c0,#c4abb6);
+    --c0:#f8f1f4; --c1:#f4f0f7; --c2:#eff5ef; --c3:#eff4f9; --c4:#f8f3ec; --c5:#f8f1f1;
+    --a0:#d3a9b6; --a1:#b3a6cd; --a2:#a1c2a1; --a3:#a0bace; --a4:#cfba93; --a5:#d3a9a9;
+  }
+  * { box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body {
+    font-family:'Apple SD Gothic Neo','Pretendard','Malgun Gothic',sans-serif;
+    background:var(--bg); color:var(--ink); font-size:15px;
+    padding-top:env(safe-area-inset-top);
+  }
+  .hidden { display:none !important; }
+
+  /* ── 상단바 ── */
+  .top {
+    position:sticky; top:0; z-index:10; background:var(--titlebar); color:#fff;
+    display:flex; align-items:center; gap:8px; padding:10px 14px;
+    padding-top:calc(10px + env(safe-area-inset-top)); margin-top:calc(-1 * env(safe-area-inset-top));
+  }
+  .top b { font-size:16px; letter-spacing:-0.01em; }
+  .top .sp { flex:1; }
+  .top button {
+    border:none; background:rgba(255,255,255,0.18); color:#fff; border-radius:9px;
+    min-width:34px; height:32px; font-size:15px; padding:0 10px;
+  }
+  .tabs { display:flex; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:52px; z-index:9; }
+  .tabs button {
+    flex:1; border:none; background:transparent; padding:11px 0; font-size:14px; font-weight:700;
+    color:var(--ink-soft); border-bottom:2px solid transparent;
+  }
+  .tabs button.on { color:var(--pink-deep); border-bottom-color:var(--pink-deep); }
+
+  .wrap { padding:12px 12px 90px; max-width:560px; margin:0 auto; }
+
+  /* ── 카드 공통 ── */
+  .card {
+    background:#fff; border-radius:14px; padding:14px 14px 12px; margin-bottom:12px;
+    box-shadow:0 2px 8px rgba(180,150,165,0.12);
+  }
+  .card h3 { font-size:15px; margin-bottom:8px; word-break:break-word; }
+  .pin { color:var(--pink-deep); font-size:12px; margin-right:4px; }
+
+  /* ── 투두 ── */
+  .item { display:flex; align-items:flex-start; gap:9px; padding:6px 0; }
+  .item input[type=checkbox] {
+    width:19px; height:19px; margin-top:1px; accent-color:var(--pink-deep); flex-shrink:0;
+  }
+  .item .txt { flex:1; border:none; background:transparent; font-size:14px; color:var(--ink);
+    outline:none; word-break:break-word; min-height:20px; }
+  .item.done .txt { color:var(--ink-soft); text-decoration:line-through; }
+  .item .prog { font-size:11px; color:var(--ink-soft); flex-shrink:0; margin-top:3px; }
+  .add-line { border:none; background:transparent; color:var(--ink-soft); font-size:13px; padding:6px 0 0; }
+
+  /* ── 메모 목록 ── */
+  .memo-row { display:flex; align-items:center; gap:10px; }
+  .memo-row .sq { width:14px; height:14px; border-radius:5px; flex-shrink:0; }
+  .memo-row .m-title { font-weight:700; font-size:14px; flex:1; word-break:break-word; }
+  .memo-prev { font-size:12.5px; color:var(--ink-soft); margin-top:6px;
+    overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .m-tags { margin-top:8px; display:flex; flex-wrap:wrap; gap:5px; }
+  .m-tags span { font-size:11px; color:var(--ink-soft); background:var(--pink-soft);
+    border-radius:20px; padding:2px 9px; }
+  .folder-label { font-size:12px; color:var(--ink-soft); margin:14px 4px 8px; font-weight:700; }
+
+  /* ── 메모 상세 ── */
+  .sheet {
+    position:fixed; inset:0; z-index:30; background:var(--bg); overflow-y:auto;
+    padding-bottom:70px; -webkit-overflow-scrolling:touch;
+  }
+  .sheet .top button.save { background:#fff; color:var(--pink-deep); font-weight:700; }
+  .sheet-body { max-width:560px; margin:0 auto; padding:16px 16px 40px; }
+  #dv-title, #dv-content { outline:none; }
+  #dv-title { font-size:20px; font-weight:700; margin-bottom:20px; min-height:28px; word-break:break-word; }
+  #dv-title:empty::before { content:'제목'; color:var(--ink-soft); opacity:0.6; }
+  #dv-content { font-size:15px; line-height:1.85; min-height:200px; word-break:break-word; white-space:pre-wrap; }
+  #dv-content img { max-width:100%; height:auto; border-radius:8px; }
+  #dv-content hr { border:none; border-top:1px solid var(--line); margin:8px 0; }
+  #dv-content blockquote { margin:4px 0; padding-left:10px; border-left:3px solid var(--line); color:var(--ink-soft); }
+  #dv-content ul, #dv-content ol { margin:4px 0; padding-left:22px; }
+  #dv-content ul.md-check { list-style:none; padding-left:4px; }
+  #dv-content ul.md-check > li { position:relative; padding-left:26px; margin:2px 0; }
+  #dv-content ul.md-check > li::before {
+    content:''; position:absolute; left:0; top:3px; width:16px; height:16px;
+    border:1.6px solid var(--pink-deep); border-radius:5px; background:#fff;
+  }
+  #dv-content ul.md-check > li.done::before { background:var(--pink-deep); }
+  #dv-content ul.md-check > li.done { color:var(--ink-soft); text-decoration:line-through; }
+  #dv-content .link { color:var(--pink-deep); text-decoration:underline; word-break:break-all; }
+  .editing #dv-title, .editing #dv-content {
+    background:#fff; border-radius:10px; padding:10px; box-shadow:inset 0 0 0 1px var(--line);
+  }
+  .dv-tags { margin-top:22px; padding-top:10px; border-top:1px solid var(--line); }
+
+  /* ── 로그인/설정 ── */
+  .auth { max-width:400px; margin:0 auto; padding:46px 24px; }
+  .auth h1 { font-size:20px; color:var(--pink-deep); margin-bottom:6px; }
+  .auth p { font-size:13px; color:var(--ink-soft); line-height:1.6; margin-bottom:18px; }
+  .auth input, .auth textarea {
+    width:100%; border:1px solid var(--line); border-radius:10px; background:#fff;
+    padding:12px; font-size:14px; margin-bottom:10px; outline:none; font-family:inherit;
+  }
+  .auth textarea { height:88px; resize:none; }
+  .auth button {
+    width:100%; border:none; border-radius:10px; padding:13px; font-size:15px; font-weight:700;
+    background:var(--pink-deep); color:#fff; margin-top:4px;
+  }
+  .auth .ghost { background:transparent; color:var(--ink-soft); font-weight:400; font-size:13px; }
+  .err { color:#c66; font-size:13px; margin-top:10px; white-space:pre-wrap; }
+
+  .fab {
+    position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom)); z-index:20;
+    width:52px; height:52px; border:none; border-radius:50%; background:var(--pink-deep);
+    color:#fff; font-size:26px; box-shadow:0 4px 14px rgba(170,140,155,0.4);
+  }
+  .toast {
+    position:fixed; left:50%; transform:translateX(-50%); bottom:calc(80px + env(safe-area-inset-bottom));
+    background:rgba(85,80,85,0.92); color:#fff; font-size:13px; border-radius:20px;
+    padding:8px 16px; z-index:40; opacity:0; transition:opacity 0.25s; pointer-events:none;
+  }
+  .toast.on { opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- 1) 최초 설정: Supabase 연결 정보 -->
+<div id="pane-config" class="auth hidden">
+  <h1>🤍 Memo Todo</h1>
+  <p>처음 한 번만 PC 앱에 넣었던 <b>config.json</b>과 같은 값을 넣어주세요.</p>
+  <input id="cf-url" placeholder="supabaseUrl (https://xxxx.supabase.co)" autocapitalize="off" autocorrect="off" />
+  <textarea id="cf-key" placeholder="supabaseAnonKey (anon public 키 전체)" autocapitalize="off" autocorrect="off"></textarea>
+  <button id="cf-save">저장하고 시작</button>
+  <p class="err" id="cf-err"></p>
+</div>
+
+<!-- 2) 로그인 -->
+<div id="pane-login" class="auth hidden">
+  <h1>🤍 Memo Todo</h1>
+  <p>PC 앱에서 쓰는 동기화 계정으로 로그인하세요.</p>
+  <input id="lg-email" type="email" placeholder="이메일" autocapitalize="off" />
+  <input id="lg-pw" type="password" placeholder="비밀번호" />
+  <button id="lg-btn">로그인</button>
+  <button class="ghost" id="lg-reset">연결 정보 다시 입력</button>
+  <p class="err" id="lg-err"></p>
+</div>
+
+<!-- 3) 메인 -->
+<div id="pane-main" class="hidden">
+  <div class="top">
+    <b>Memo Todo</b><span class="sp"></span>
+    <button id="bt-refresh" title="새로고침">↻</button>
+    <button id="bt-logout" title="로그아웃">⎋</button>
+  </div>
+  <div class="tabs">
+    <button id="tab-todo" class="on">투두 리스트</button>
+    <button id="tab-memo">메모</button>
+  </div>
+  <div class="wrap">
+    <div id="list-todo"></div>
+    <div id="list-memo" class="hidden"></div>
+  </div>
+  <button class="fab" id="bt-add">＋</button>
+</div>
+
+<!-- 4) 메모 상세/편집 -->
+<div id="sheet" class="sheet hidden">
+  <div class="top">
+    <button id="dv-back">‹</button><span class="sp"></span>
+    <button id="dv-edit">편집</button>
+    <button id="dv-save" class="save hidden">저장</button>
+  </div>
+  <div class="sheet-body" id="sheet-body">
+    <div id="dv-title"></div>
+    <div id="dv-content"></div>
+    <div class="dv-tags m-tags" id="dv-tags"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+/* Memo Todo 모바일 웹앱 — PC 앱과 같은 Supabase(app_state 한 행)를 읽고 씀.
+ * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델. */
+const $ = (id) => document.getElementById(id);
+let client = null, user = null, state = null, remoteTs = 0, lastPushedAt = 0;
+let curMemoId = null, editing = false, pushTimer = null;
+
+/* ── 화면 전환 ── */
+function show(pane) {
+  ['pane-config', 'pane-login', 'pane-main'].forEach((p) =>
+    $(p).classList.toggle('hidden', p !== pane));
+}
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 1800);
+}
+
+/* ── 연결 설정 ── */
+function getConfig() {
+  try { return JSON.parse(localStorage.getItem('mt-config')); } catch (_) { return null; }
+}
+$('cf-save').addEventListener('click', () => {
+  const url = $('cf-url').value.trim().replace(/\/+$/, '');
+  const key = $('cf-key').value.replace(/\s+/g, '');
+  if (!/^https:\/\/.+/.test(url) || key.length < 20) {
+    $('cf-err').textContent = 'URL 또는 키 형식이 올바르지 않아요.'; return;
+  }
+  localStorage.setItem('mt-config', JSON.stringify({ supabaseUrl: url, supabaseAnonKey: key }));
+  location.reload();
+});
+$('lg-reset').addEventListener('click', () => {
+  localStorage.removeItem('mt-config'); location.reload();
+});
+
+/* ── 로그인 ── */
+$('lg-btn').addEventListener('click', async () => {
+  $('lg-err').textContent = '';
+  try {
+    const { data, error } = await client.auth.signInWithPassword({
+      email: $('lg-email').value.trim(), password: $('lg-pw').value
+    });
+    if (error) throw error;
+    user = data.user;
+    await start();
+  } catch (e) { $('lg-err').textContent = '로그인 실패: ' + (e.message || e); }
+});
+$('bt-logout').addEventListener('click', async () => {
+  await client.auth.signOut(); location.reload();
+});
+
+/* ── 데이터 pull/push (PC의 sync.js와 동일 규약) ── */
+async function pull() {
+  const { data, error } = await client.from('app_state')
+    .select('data, updated_at').eq('user_id', user.id).maybeSingle();
+  if (error) throw error;
+  if (data) { state = data.data; remoteTs = new Date(data.updated_at).getTime(); }
+  else state = { todos: [], memos: [], folders: [], ddays: [], settings: {} };
+}
+function schedulePush() {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(async () => {
+    try {
+      const now = new Date();
+      const { error } = await client.from('app_state').upsert({
+        user_id: user.id, data: state, updated_at: now.toISOString()
+      });
+      if (error) throw error;
+      lastPushedAt = now.getTime();
+      toast('저장됨 ✓');
+    } catch (e) { toast('저장 실패: ' + (e.message || e)); }
+  }, 700);
+}
+function subscribe() {
+  client.channel('app_state_' + user.id)
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'app_state', filter: 'user_id=eq.' + user.id },
+      (payload) => {
+        const row = payload.new;
+        if (!row || !row.updated_at) return;
+        const ts = new Date(row.updated_at).getTime();
+        if (Math.abs(ts - lastPushedAt) < 1500) return; // 내가 올린 변경 에코 무시
+        if (editing) return;                             // 편집 중엔 덮어쓰지 않음
+        state = row.data; remoteTs = ts;
+        renderAll(); if (curMemoId) openMemo(curMemoId, false);
+        toast('다른 기기 변경 반영됨');
+      })
+    .subscribe();
+}
+
+/* ── 유틸 ── */
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const plain = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent || ''; };
+const accent = (m) => 'var(--a' + (String(m.color || '').match(/\d/) ? String(m.color).match(/\d/)[0] : 0) + ')';
+const blockBg = (m) => 'var(--c' + (String(m.color || '').match(/\d/) ? String(m.color).match(/\d/)[0] : 0) + ')';
+// PC 본 창과 같은 나열 순서: 고정 → 폴더순 → 루즈
+function memosInOrder() {
+  const folders = state.folders || [], memos = state.memos || [];
+  const inFolder = (m) => m.folderId && folders.some((f) => f.id === m.folderId);
+  const pinned = memos.filter((m) => m.pinned).sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0));
+  const out = pinned.map((m) => ({ m, label: null }));
+  folders.forEach((f) => memos.filter((m) => m.folderId === f.id && !m.pinned)
+    .forEach((m) => out.push({ m, label: f.name || '폴더' })));
+  memos.filter((m) => !m.pinned && !inFolder(m)).forEach((m) => out.push({ m, label: null }));
+  return out;
+}
+
+/* ── 투두 렌더 ── */
+function renderTodos() {
+  const root = $('list-todo'); root.innerHTML = '';
+  const todos = [
+    ...(state.todos || []).filter((t) => t.pinned),
+    ...(state.todos || []).filter((t) => !t.pinned)
+  ];
+  if (!todos.length) { root.innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:40px 0">할 일이 없어요</p>'; return; }
+  todos.forEach((todo) => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.style.background = blockBg(todo);
+    const h = document.createElement('h3');
+    if (todo.pinned) h.innerHTML = '<span class="pin">📌</span>';
+    h.appendChild(document.createTextNode(todo.title || 'To-do'));
+    card.appendChild(h);
+    (todo.items || []).forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'item' + (item.done ? ' done' : '');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = !!item.done;
+      cb.addEventListener('change', () => { item.done = cb.checked; schedulePush(); renderTodos(); });
+      const txt = document.createElement('div');
+      txt.className = 'txt'; txt.contentEditable = 'true'; txt.textContent = item.text || '';
+      txt.addEventListener('blur', () => {
+        if (txt.innerText !== (item.text || '')) { item.text = txt.innerText; schedulePush(); }
+      });
+      row.appendChild(cb); row.appendChild(txt);
+      if (item.progress && item.progress.total) {
+        const p = document.createElement('span');
+        p.className = 'prog'; p.textContent = (item.progress.done || 0) + '/' + item.progress.total;
+        row.appendChild(p);
+      }
+      card.appendChild(row);
+    });
+    const add = document.createElement('button');
+    add.className = 'add-line'; add.textContent = '＋ 세부항목';
+    add.addEventListener('click', () => {
+      (todo.items = todo.items || []).push({ id: uid(), text: '', done: false });
+      schedulePush(); renderTodos();
+    });
+    card.appendChild(add);
+    root.appendChild(card);
+  });
+}
+
+/* ── 메모 렌더 ── */
+function renderMemos() {
+  const root = $('list-memo'); root.innerHTML = '';
+  const rows = memosInOrder();
+  if (!rows.length) { root.innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:40px 0">메모가 없어요</p>'; return; }
+  let lastLabel = null;
+  rows.forEach(({ m, label }) => {
+    if (label !== lastLabel && label) {
+      const fl = document.createElement('div');
+      fl.className = 'folder-label'; fl.textContent = '📁 ' + label;
+      root.appendChild(fl);
+    }
+    lastLabel = label;
+    const card = document.createElement('div');
+    card.className = 'card'; card.style.background = blockBg(m);
+    const row = document.createElement('div'); row.className = 'memo-row';
+    const sq = document.createElement('span'); sq.className = 'sq'; sq.style.background = accent(m);
+    const ti = document.createElement('div'); ti.className = 'm-title';
+    ti.textContent = (m.pinned ? '📌 ' : '') + (plain(m.title).trim() || '제목 없음');
+    row.appendChild(sq); row.appendChild(ti);
+    card.appendChild(row);
+    const prev = plain(m.content).trim();
+    if (prev) {
+      const pv = document.createElement('div'); pv.className = 'memo-prev'; pv.textContent = prev;
+      card.appendChild(pv);
+    }
+    if ((m.tags || []).length) {
+      const tg = document.createElement('div'); tg.className = 'm-tags';
+      m.tags.forEach((t) => { const s = document.createElement('span'); s.textContent = '#' + t; tg.appendChild(s); });
+      card.appendChild(tg);
+    }
+    card.addEventListener('click', () => openMemo(m.id, true));
+    root.appendChild(card);
+  });
+}
+function renderAll() { renderTodos(); renderMemos(); }
+
+/* ── 메모 상세/편집 ── */
+function openMemo(id, showSheet) {
+  const m = (state.memos || []).find((x) => x.id === id);
+  if (!m) { $('sheet').classList.add('hidden'); curMemoId = null; return; }
+  curMemoId = id;
+  $('dv-title').innerHTML = m.title || '';
+  $('dv-content').innerHTML = m.content || '';
+  const tg = $('dv-tags'); tg.innerHTML = '';
+  (m.tags || []).forEach((t) => { const s = document.createElement('span'); s.textContent = '#' + t; tg.appendChild(s); });
+  setEditing(false);
+  if (showSheet) $('sheet').classList.remove('hidden');
+}
+function setEditing(on) {
+  editing = on;
+  $('sheet-body').classList.toggle('editing', on);
+  $('dv-title').setAttribute('contenteditable', on ? 'true' : 'false');
+  $('dv-content').setAttribute('contenteditable', on ? 'true' : 'false');
+  $('dv-edit').classList.toggle('hidden', on);
+  $('dv-save').classList.toggle('hidden', !on);
+}
+$('dv-back').addEventListener('click', () => {
+  if (editing) saveMemo();
+  $('sheet').classList.add('hidden'); curMemoId = null;
+});
+$('dv-edit').addEventListener('click', () => setEditing(true));
+$('dv-save').addEventListener('click', () => { saveMemo(); setEditing(false); });
+function saveMemo() {
+  const m = (state.memos || []).find((x) => x.id === curMemoId);
+  if (!m) return;
+  m.title = $('dv-title').innerHTML;
+  m.content = $('dv-content').innerHTML;
+  m.updatedAt = Date.now();
+  schedulePush(); renderMemos();
+}
+// 보기 모드에서 체크리스트(li) 탭 → 완료 토글 / 링크 탭 → 새 탭
+$('dv-content').addEventListener('click', (e) => {
+  if (editing) return;
+  const a = e.target.closest && e.target.closest('.link');
+  if (a) { window.open(a.dataset.href || a.textContent.trim(), '_blank'); return; }
+  const li = e.target.closest && e.target.closest('ul.md-check > li');
+  if (li) {
+    li.classList.toggle('done');
+    const m = (state.memos || []).find((x) => x.id === curMemoId);
+    if (m) { m.content = $('dv-content').innerHTML; m.updatedAt = Date.now(); schedulePush(); renderMemos(); }
+  }
+});
+
+/* ── 탭/추가/새로고침 ── */
+let curTab = 'todo';
+function setTab(t) {
+  curTab = t;
+  $('tab-todo').classList.toggle('on', t === 'todo');
+  $('tab-memo').classList.toggle('on', t === 'memo');
+  $('list-todo').classList.toggle('hidden', t !== 'todo');
+  $('list-memo').classList.toggle('hidden', t !== 'memo');
+}
+$('tab-todo').addEventListener('click', () => setTab('todo'));
+$('tab-memo').addEventListener('click', () => setTab('memo'));
+$('bt-add').addEventListener('click', () => {
+  if (curTab === 'todo') {
+    (state.todos = state.todos || []).push({ id: uid(), title: '', color: 'var(--c0)', items: [{ id: uid(), text: '', done: false }] });
+    schedulePush(); renderTodos();
+  } else {
+    const m = { id: uid(), title: '', content: '', tags: [], color: 'var(--c0)', folderId: null,
+      pinned: false, pinnedAt: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    (state.memos = state.memos || []).push(m);
+    schedulePush(); renderMemos(); openMemo(m.id, true); setEditing(true);
+  }
+});
+$('bt-refresh').addEventListener('click', async () => {
+  try { await pull(); renderAll(); toast('새로고침 ✓'); } catch (e) { toast('불러오기 실패'); }
+});
+document.addEventListener('visibilitychange', async () => {
+  // 앱으로 돌아올 때 자동 새로고침(편집 중이면 보류)
+  if (document.visibilityState === 'visible' && user && !editing) {
+    try { await pull(); renderAll(); } catch (_) {}
+  }
+});
+
+/* ── 시작 ── */
+async function start() {
+  await pull();
+  renderAll(); setTab('todo');
+  show('pane-main');
+  subscribe();
+}
+(async function init() {
+  const cfg = getConfig();
+  if (!cfg) { show('pane-config'); return; }
+  client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const { data } = await client.auth.getUser().catch(() => ({ data: null }));
+  user = data && data.user;
+  if (!user) { show('pane-login'); return; }
+  try { await start(); } catch (e) {
+    show('pane-login'); $('lg-err').textContent = '불러오기 실패: ' + (e.message || e);
+  }
+})();
+</script>
+</body>
+</html>

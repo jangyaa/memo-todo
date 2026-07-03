@@ -1,0 +1,11 @@
+{
+  "name": "Memo Todo",
+  "short_name": "Memo Todo",
+  "display": "standalone",
+  "start_url": ".",
+  "background_color": "#faf8f9",
+  "theme_color": "#cdb6c0",
+  "icons": [
+    { "src": "icon.png", "sizes": "256x256", "type": "image/png" }
+  ]
+}
