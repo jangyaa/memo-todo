@@ -1,6 +1,6 @@
 {
   "name": "memo-todo",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "스티커 메모 스타일의 투두리스트 + 메모 결합 데스크톱 앱",
   "main": "main.js",
   "author": "",
@@ -48,6 +48,7 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.108.2"
+    "@supabase/supabase-js": "^2.108.2",
+    "ws": "^8.18.0"
   }
 }

@@ -12,6 +12,13 @@
 const fs = require('fs');
 const path = require('path');
 
+// Electron 메인 프로세스(Node 20)에는 전역 WebSocket이 없어 supabase 클라이언트 생성이
+// 실패한다(최신 realtime 라이브러리가 내장 WebSocket을 참조). Node 22+에선 내장.
+// 없으면 ws 패키지로 채워서 어느 환경에서든 동작하게 한다.
+if (typeof globalThis.WebSocket === 'undefined') {
+  try { globalThis.WebSocket = require('ws').WebSocket; } catch (_) {}
+}
+
 let createClient = null;
 try {
   ({ createClient } = require('@supabase/supabase-js'));
@@ -60,17 +67,25 @@ class Sync {
     if (config.supabaseUrl.includes('여기에') ||
         config.supabaseAnonKey.includes('여기에')) { this.lastReason = '예시값 그대로'; return; } // 예시값 그대로면 무시
 
-    const storage = new FileStorage(path.join(configDir, 'session.json'));
-    this.client = createClient(config.supabaseUrl, config.supabaseAnonKey, {
-      auth: {
-        storage,
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: false
-      }
-    });
-    this.configured = true;
-    this.lastReason = 'ok';
+    // 클라이언트 생성 실패(잘못된 URL, 환경 미지원 등)를 잡아 사유에 그대로 남긴다
+    try {
+      const storage = new FileStorage(path.join(configDir, 'session.json'));
+      this.client = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+        auth: {
+          storage,
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false
+        }
+      });
+      this.configured = true;
+      this.lastReason = 'ok';
+    } catch (err) {
+      this.client = null;
+      this.configured = false;
+      this.lastReason = '초기화 오류: ' + ((err && err.message) || String(err));
+      console.error('sync init 실패:', err);
+    }
   }
 
   isConfigured() { return this.configured; }
