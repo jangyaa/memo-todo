@@ -1020,14 +1020,21 @@ function buildMemoBlock(memo) {
     memo.content = body.innerHTML;
     touchMemo(memo);
   });
+  // 5줄 초과 여부에 따라 … 표시 토글(레이아웃 후 측정)
+  const updateClampMark = () => requestAnimationFrame(() => {
+    body.classList.toggle('overflowing',
+      body.classList.contains('clamped') && body.scrollHeight > body.clientHeight + 2);
+  });
   body.addEventListener('blur', () => {
     linkifyElement(body);
     memo.content = body.innerHTML;
     save();
     body.classList.add('clamped'); // 편집 끝나면 다시 5줄 미리보기로 접기
+    updateClampMark();
   });
-  // 본 창은 5줄 미리보기(넘치면 다섯째 줄 끝에 …), 편집 들어가면 전체 펼침
+  // 본 창은 5줄 미리보기(넘치면 …), 편집 들어가면 전체 펼침
   body.classList.add('clamped');
+  updateClampMark();
   body.addEventListener('focus', () => body.classList.remove('clamped'));
   // 체크리스트 글머리 토글(왼쪽 클릭 영역)
   body.addEventListener('click', (e) => {
@@ -1044,18 +1051,18 @@ function buildMemoBlock(memo) {
   body.addEventListener('keydown', (e) => {
     if (handleMarkdownKey(e, body, () => { memo.content = body.innerHTML; save(); })) return;
     if (e.key === 'Backspace' && caretAtStart(body)) {
-      // 제목이 있으면 본문이 비어도 메모를 지우지 않음
-      if (plainText(memo.title).trim()) return;
+      // 이전 메모와 '내용 합치기'는 실수로 메모가 통째로 합쳐지고 인덱스에서 사라지는
+      // 사고가 잦아 제거. 제목/본문/태그/이미지가 전혀 없는 빈 메모만 삭제한다.
+      const empty = !plainText(memo.title).trim() && !body.textContent.trim() &&
+        !(memo.tags || []).length && !body.querySelector('img');
+      if (!empty) return;
       const idx = state.memos.findIndex((m) => m.id === memo.id);
       if (idx > 0) {
         e.preventDefault();
-        memo.content = body.innerHTML;
-        const prev = state.memos[idx - 1];
-        prev.content = (prev.content || '') + (memo.content || '');
         state.memos.splice(idx, 1);
         save();
         renderMemos();
-        focusNoteEnd(prev.id);
+        focusNoteEnd(state.memos[idx - 1].id);
       }
     }
   });
@@ -1768,13 +1775,9 @@ function deferRenderAfterDrag(fn) {
   }, 250);
 }
 
-// 드래그 세션 종료 때마다 상단바 드래그 영역을 재등록(먹통 상태 리셋)
-function refreshTitlebarDragRegion() {
-  const tb = document.querySelector('.titlebar');
-  if (!tb) return;
-  tb.style.webkitAppRegion = 'no-drag';
-  requestAnimationFrame(() => { tb.style.webkitAppRegion = ''; });
-}
+// 드래그 세션 종료 때마다 상단바 드래그 영역을 재등록(먹통 상태 리셋).
+// setupDragRegionGuard가 문서 전역 dragend/drop에도 걸어줘서 텍스트 드래그 등도 커버.
+const refreshTitlebarDragRegion = setupDragRegionGuard('.titlebar');
 
 function endBlockDrag() {
   if (blockDrag) blockDrag.block.classList.remove('dragging');

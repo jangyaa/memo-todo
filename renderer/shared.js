@@ -279,16 +279,38 @@ function handleMarkdownKey(e, body, persistCb) {
     // 현재 줄의 블록(요소)을 찾는다: body 바로 아래 자식까지 거슬러 올라감
     let blockEl = node.nodeType === 1 ? node : node.parentElement;
     while (blockEl && blockEl.parentElement && blockEl.parentElement !== body) blockEl = blockEl.parentElement;
-    if (blockEl && blockEl !== body && blockEl.parentElement === body && blockEl.nodeType === 1) {
-      while (blockEl.firstChild) newLi.appendChild(blockEl.firstChild); // 줄 내용(텍스트) 유지
-      body.replaceChild(list, blockEl);
+    const container = (blockEl && blockEl !== body && blockEl.parentElement === body && blockEl.nodeType === 1)
+      ? blockEl : null;
+    const host = container || body;
+    if (node.parentNode === host) {
+      // 현재 줄 범위 = node부터 다음 <br> 전까지. (Shift+Enter로 한 블록에 여러 줄이
+      // <br>로 들어있을 때 블록 전체를 삼키면 윗줄이 글머리에 합쳐지는 버그 방지)
+      const lineNodes = [node];
+      let s2 = node.nextSibling;
+      while (s2 && !(s2.nodeType === 1 && s2.tagName === 'BR')) { lineNodes.push(s2); s2 = s2.nextSibling; }
+      const nextBr = s2;
+      const prevSib = node.previousSibling;
+      if (container && !prevSib && !nextBr) {
+        // 블록에 이 줄뿐 → 블록째 목록으로 교체(기존 동작)
+        while (container.firstChild) newLi.appendChild(container.firstChild);
+        body.replaceChild(list, container);
+      } else {
+        // 한 블록에 여러 줄 → 현재 줄만 떼어 목록으로(앞/뒤 줄은 그대로 유지)
+        host.insertBefore(list, node);
+        lineNodes.forEach((ln) => newLi.appendChild(ln));
+        // 목록 자체가 블록이라 줄이 나뉘므로 인접한 <br>은 중복 줄바꿈 → 제거
+        if (list.previousSibling && list.previousSibling.nodeType === 1 &&
+            list.previousSibling.tagName === 'BR') list.previousSibling.remove();
+        if (list.nextSibling && list.nextSibling.nodeType === 1 &&
+            list.nextSibling.tagName === 'BR') list.nextSibling.remove();
+      }
     } else if (node.parentNode) {
-      node.parentNode.insertBefore(list, node); // 래퍼 없는 텍스트 줄
+      node.parentNode.insertBefore(list, node); // 중첩 래퍼 안 텍스트 줄
       newLi.appendChild(node);
     } else {
       body.appendChild(list);
     }
-    if (!newLi.firstChild) newLi.appendChild(document.createElement('br'));
+    if (!newLi.textContent && !newLi.querySelector('br,img')) newLi.appendChild(document.createElement('br'));
     // 커서를 글머리 내용 맨 앞에 둠(뒤 텍스트가 있으면 그 앞)
     const rr = document.createRange();
     if (node.parentNode && newLi.contains(node)) rr.setStart(node, 0);
@@ -298,6 +320,21 @@ function handleMarkdownKey(e, body, persistCb) {
   }
   persist();
   return true;
+}
+
+/* ----- 상단바 드래그 영역 가드 -----
+ * HTML5 드래그(순서변경/텍스트 드래그) 세션이 꼬이면 app-region 창 드래그가
+ * 먹통이 되는 크로미움 문제가 있어, 드래그가 끝날 때마다 드래그 영역을 재등록한다. */
+function setupDragRegionGuard(selector) {
+  const refresh = () => {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    el.style.webkitAppRegion = 'no-drag';
+    requestAnimationFrame(() => { el.style.webkitAppRegion = ''; });
+  };
+  document.addEventListener('dragend', refresh, true);
+  document.addEventListener('drop', refresh, true);
+  return refresh;
 }
 
 /* ----- 서식(HTML)을 유지한 채 텍스트 노드의 URL만 링크(.link)로 변환 -----

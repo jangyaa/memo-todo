@@ -755,12 +755,14 @@ body.selecting .memo-index:not(.pinned) { width: 50px; }
   word-break: break-word;
   -webkit-app-region: no-drag;
 }
-/* 본 창 미리보기: 5줄까지만 표시, 넘치면 다섯째 줄 끝에 … (편집 포커스 시 해제) */
-.note-body.clamped {
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* 본 창 미리보기: 5줄까지만 표시, 넘치면 우하단에 … (편집 포커스 시 해제)
+ * -webkit-line-clamp는 contenteditable에서 글자가 겹쳐 보이는 렌더 버그가 있어
+ * max-height(5줄) + overflow 방식 사용 */
+.note-body.clamped { max-height: calc(1.7em * 5); overflow: hidden; }
+.note-body.clamped.overflowing::after {
+  content: '…';
+  position: absolute; right: 2px; bottom: 0;
+  color: var(--ink-soft); line-height: 1.7;
 }
 .note-body:empty::after {
   content: "여기에 메모를 작성하세요.\A첫 줄이 제목이 됩니다.";
