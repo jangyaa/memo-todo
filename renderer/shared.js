@@ -300,6 +300,50 @@ function handleMarkdownKey(e, body, persistCb) {
   return true;
 }
 
+/* ----- 서식(HTML)을 유지한 채 텍스트 노드의 URL만 링크(.link)로 변환 -----
+ * 붙여넣기가 기존 링크 스팬 '안'으로 들어가 여러 URL이 한 링크로 뭉치는 문제가 있어,
+ * 먼저 내용이 href와 달라진(=오염된) 링크 스팬을 풀어낸 뒤 처음부터 다시 변환한다. */
+function linkifyElement(root) {
+  // 1) 오염된 링크 스팬 정규화: 텍스트가 저장된 href와 다르면 스팬을 풀어 일반 내용으로
+  root.querySelectorAll('span.link').forEach((span) => {
+    if (span.textContent.trim() === (span.dataset.href || '').trim() &&
+        !span.querySelector('br, div, p, span')) return; // 정상 링크는 유지
+    const frag = document.createDocumentFragment();
+    while (span.firstChild) frag.appendChild(span.firstChild); // <br> 등 줄바꿈 보존
+    span.parentNode.replaceChild(frag, span);
+  });
+  // 2) 텍스트 노드의 URL을 각각 개별 링크로 변환
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const targets = [];
+  let n;
+  while ((n = walker.nextNode())) {
+    if (n.parentElement && n.parentElement.closest('.link')) continue;
+    if (/https?:\/\//i.test(n.nodeValue)) targets.push(n);
+  }
+  targets.forEach((node) => {
+    const text = node.nodeValue;
+    const frag = document.createDocumentFragment();
+    const re = /https?:\/\/[^\s<]+/g;
+    let last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const span = document.createElement('span');
+      span.className = 'link';
+      span.dataset.href = m[0];
+      span.textContent = m[0];
+      frag.appendChild(span);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  });
+}
+// 링크 요소에서 열어야 할 주소: 표시 텍스트가 URL이면 그걸 우선(내용이 편집된 경우 대비)
+function linkHrefOf(el) {
+  const t = (el.textContent || '').trim();
+  return /^https?:\/\/\S+$/.test(t) ? t : (el.dataset.href || '');
+}
+
 /* ----- 글꼴 목록 ----- */
 const FONTS = [
   { id: '', name: '기본' },

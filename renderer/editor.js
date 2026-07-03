@@ -144,6 +144,13 @@ function save() {
 
 titleEl.addEventListener('input', save);
 bodyEl.addEventListener('input', save);
+// 편집 종료 시 URL을 링크로 변환(본 창과 동일) + 오염된 링크 스팬 정규화
+bodyEl.addEventListener('blur', () => { linkifyElement(bodyEl); save(); });
+// 링크 클릭 → 외부 브라우저(편집 진입 방지 위해 mousedown에서 처리)
+bodyEl.addEventListener('mousedown', (e) => {
+  const a = e.target.closest && e.target.closest('.link');
+  if (a) { e.preventDefault(); window.api.openExternal(linkHrefOf(a)); }
+});
 titleEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); bodyEl.focus(); }
 });

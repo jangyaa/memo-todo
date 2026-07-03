@@ -755,6 +755,13 @@ body.selecting .memo-index:not(.pinned) { width: 50px; }
   word-break: break-word;
   -webkit-app-region: no-drag;
 }
+/* 본 창 미리보기: 5줄까지만 표시, 넘치면 다섯째 줄 끝에 … (편집 포커스 시 해제) */
+.note-body.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .note-body:empty::after {
   content: "여기에 메모를 작성하세요.\A첫 줄이 제목이 됩니다.";
   white-space: pre-line;

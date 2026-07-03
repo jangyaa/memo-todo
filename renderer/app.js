@@ -86,33 +86,7 @@ function linkifyHtml(text) {
   return out.replace(/\n/g, '<br>');
 }
 
-/* 서식(HTML)을 유지한 채 텍스트 노드의 URL만 링크로 변환 */
-function linkifyElement(root) {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  const targets = [];
-  let n;
-  while ((n = walker.nextNode())) {
-    if (n.parentElement && n.parentElement.closest('.link')) continue;
-    if (/https?:\/\//i.test(n.nodeValue)) targets.push(n);
-  }
-  targets.forEach((node) => {
-    const text = node.nodeValue;
-    const frag = document.createDocumentFragment();
-    const re = /https?:\/\/[^\s<]+/g;
-    let last = 0, m;
-    while ((m = re.exec(text)) !== null) {
-      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-      const span = document.createElement('span');
-      span.className = 'link';
-      span.dataset.href = m[0];
-      span.textContent = m[0];
-      frag.appendChild(span);
-      last = m.index + m[0].length;
-    }
-    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
-    node.parentNode.replaceChild(frag, node);
-  });
-}
+// linkifyElement는 shared.js로 이동(상세편집창과 공용)
 
 function normalizeMemo(m, i) {
   let content = m.content || '';
@@ -866,12 +840,13 @@ function allTags() {
 }
 
 function visibleMemos() {
-  const hidden = new Set(state.folders.filter((f) => f.hidden).map((f) => f.id));
-  let arr = state.memos.filter((m) => !(m.folderId && hidden.has(m.folderId)));
+  // 태그 필터 사용 중엔 숨김 폴더 메모도 검색 대상(숨김은 평상시 목록에서만 가림)
   if (activeTags.size > 0) {
-    arr = arr.filter((m) => [...activeTags].every((t) => (m.tags || []).includes(t)));
+    return state.memos.filter((m) =>
+      [...activeTags].every((t) => (m.tags || []).includes(t)));
   }
-  return arr;
+  const hidden = new Set(state.folders.filter((f) => f.hidden).map((f) => f.id));
+  return state.memos.filter((m) => !(m.folderId && hidden.has(m.folderId)));
 }
 
 // folderId 지정 시 그 폴더 소속으로 생성(폴더 최하단). 없으면 폴더 미소속(인덱스 최하단).
@@ -922,19 +897,18 @@ function renderTagbar() {
 }
 
 /* --- 메모 블록들 --- */
-// 인덱스와 동일한 순서로 메모를 나열: 고정(상단) → 폴더순(각 폴더 메모) → 미고정 루즈(하단)
+// 본 창 메모 순서: 상단고정(폴더 소속 여부 무관, 무조건 최상단) → 폴더순 → 미고정 루즈.
+// 인덱스 창 배치는 그대로 두고(고정 메모가 폴더를 이탈하지 않음) 본 창 나열만 고정 우선.
 function memosInIndexOrder() {
   const vis = visibleMemos();
-  const ungrouped = vis.filter((m) =>
-    !m.folderId || !state.folders.some((f) => f.id === m.folderId));
-  const pinned = ungrouped.filter((m) => m.pinned)
+  const inFolder = (m) => m.folderId && state.folders.some((f) => f.id === m.folderId);
+  const pinned = vis.filter((m) => m.pinned)
     .sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0));
-  const loose = ungrouped.filter((m) => !m.pinned);
   const out = [...pinned];
   state.folders.forEach((f) => {
-    pinnedFirst(vis.filter((m) => m.folderId === f.id)).forEach((m) => out.push(m));
+    vis.filter((m) => m.folderId === f.id && !m.pinned).forEach((m) => out.push(m));
   });
-  loose.forEach((m) => out.push(m));
+  vis.filter((m) => !m.pinned && !inFolder(m)).forEach((m) => out.push(m));
   return out;
 }
 
@@ -1050,7 +1024,11 @@ function buildMemoBlock(memo) {
     linkifyElement(body);
     memo.content = body.innerHTML;
     save();
+    body.classList.add('clamped'); // 편집 끝나면 다시 5줄 미리보기로 접기
   });
+  // 본 창은 5줄 미리보기(넘치면 다섯째 줄 끝에 …), 편집 들어가면 전체 펼침
+  body.classList.add('clamped');
+  body.addEventListener('focus', () => body.classList.remove('clamped'));
   // 체크리스트 글머리 토글(왼쪽 클릭 영역)
   body.addEventListener('click', (e) => {
     const li = e.target.closest('li');
@@ -1662,7 +1640,7 @@ function showSyncPane(status) {
   };
   Object.entries(panes).forEach(([id, on]) =>
     document.getElementById(id).classList.toggle('active', on));
-  document.getElementById('btn-sync').classList.toggle('active', status.signedIn);
+  // (구름 버튼은 로그인해도 색을 바꾸지 않음 — 다른 창 버튼처럼 hover 때만 변함)
   // 미설정이면 원인 진단(버전/찾아본 경로/사유)을 화면에 그대로 표시
   const diag = document.getElementById('sync-diag');
   if (diag) {
@@ -1871,7 +1849,7 @@ function setupDnd() {
   [todoBoard, memoPage].forEach((c) => {
     c.addEventListener('mousedown', (e) => {
       const a = e.target.closest('.link');
-      if (a) { e.preventDefault(); window.api.openExternal(a.dataset.href); }
+      if (a) { e.preventDefault(); window.api.openExternal(linkHrefOf(a)); }
     });
   });
 }
