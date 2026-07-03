@@ -569,7 +569,7 @@ function buildBlock(todo) {
     e.stopPropagation();
     reorderList(todo.items, blockDrag.id, dropBeforeId);
     save();
-    renderTodos();
+    deferRenderAfterDrag(renderTodos);
   });
   block.appendChild(list);
 
@@ -1305,7 +1305,7 @@ function buildFolderEl(folder, vis) {
       memo.folderId = folder.id;
       reorderList(state.memos, blockDrag.id, dropBeforeId);
       save();
-      renderMemos();
+      deferRenderAfterDrag(renderMemos);
     }
   });
 
@@ -1754,6 +1754,28 @@ function startBlockDrag(e, kind, block, id, extra) {
   requestAnimationFrame(() => block.classList.add('dragging'));
 }
 
+/* 드롭 결과의 재렌더를 dragend 뒤로 미룬다.
+ * 드롭 즉시 재렌더하면 드래그 원본 요소가 DOM에서 사라져 dragend가 유실되고,
+ * 크로미움이 드래그 세션을 못 닫아 상단바 창 드래그(app-region)가 먹통이 되는
+ * 고질 증상(재시작 전까지 지속)의 원인이 된다. */
+let postDragRender = null;
+function deferRenderAfterDrag(fn) {
+  if (!blockDrag) { fn(); return; }
+  postDragRender = fn;
+  // dragend가 어떤 이유로 안 오더라도 렌더가 누락되지 않게 안전망
+  setTimeout(() => {
+    if (postDragRender === fn) { postDragRender = null; fn(); }
+  }, 250);
+}
+
+// 드래그 세션 종료 때마다 상단바 드래그 영역을 재등록(먹통 상태 리셋)
+function refreshTitlebarDragRegion() {
+  const tb = document.querySelector('.titlebar');
+  if (!tb) return;
+  tb.style.webkitAppRegion = 'no-drag';
+  requestAnimationFrame(() => { tb.style.webkitAppRegion = ''; });
+}
+
 function endBlockDrag() {
   if (blockDrag) blockDrag.block.classList.remove('dragging');
   if (dropIndicator.parentNode) dropIndicator.parentNode.removeChild(dropIndicator);
@@ -1761,6 +1783,10 @@ function endBlockDrag() {
   blockDrag = null;
   dropBeforeId = null;
   pendingFolderId = null;
+  const fn = postDragRender;
+  postDragRender = null;
+  if (fn) fn();
+  refreshTitlebarDragRegion();
 }
 
 function positionIndicator(container, selector, y) {
@@ -1798,7 +1824,7 @@ function setupDnd() {
     e.preventDefault();
     reorderList(state.todos, blockDrag.id, dropBeforeId);
     save();
-    renderTodos();
+    deferRenderAfterDrag(renderTodos);
   });
 
   memoPage.addEventListener('dragover', (e) => {
@@ -1811,7 +1837,7 @@ function setupDnd() {
     e.preventDefault();
     reorderList(state.memos, blockDrag.id, dropBeforeId);
     save();
-    renderMemos();
+    deferRenderAfterDrag(renderMemos);
   });
 
   // 인덱스 최상위: 메모(폴더 밖) 순서변경 / 폴더 순서변경
@@ -1836,12 +1862,12 @@ function setupDnd() {
         memo.folderId = pendingFolderId; // 폴더 밖
         reorderList(state.memos, blockDrag.id, dropBeforeId);
         save();
-        renderMemos();
+        deferRenderAfterDrag(renderMemos);
       }
     } else if (blockDrag.kind === 'folder') {
       reorderList(state.folders, blockDrag.id, dropBeforeId);
       save();
-      renderMemos(); // 본 창 메모 순서도 폴더 순서를 따르도록 함께 갱신
+      deferRenderAfterDrag(renderMemos); // 본 창 메모 순서도 폴더 순서를 따르도록 함께 갱신
     }
   });
 

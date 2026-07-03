@@ -137,14 +137,24 @@ function createWindow(views, isMain) {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'),
     { query: { views: orderViews(views).join(',') } });
   win.on('closed', () => { winViews.delete(win.id); });
-  // 메인 창의 이동/크기 변경을 저장 → 다음 실행 때 같은 자리
+  // 메인 창의 이동/크기 변경을 저장 → 다음 실행 때 같은 자리.
+  // move는 드래그 중 초당 수십 번 발생하므로 디바운스(멈춘 뒤 한 번만 기록) —
+  // 매번 동기 파일쓰기를 하면 창 드래그가 뚝뚝 끊긴다.
   if (isMain) {
+    let persistTimer = null;
     const persist = () => {
-      if (win.isDestroyed() || win.isMinimized() || win.isMaximized()) return;
-      saveWinState(win.getBounds());
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        if (win.isDestroyed() || win.isMinimized() || win.isMaximized()) return;
+        saveWinState(win.getBounds());
+      }, 400);
     };
     win.on('resize', persist);
     win.on('move', persist);
+    win.on('close', () => {
+      clearTimeout(persistTimer);
+      if (!win.isMinimized() && !win.isMaximized()) saveWinState(win.getBounds());
+    });
   }
   return win;
 }
