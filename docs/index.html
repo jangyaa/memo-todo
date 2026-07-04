@@ -110,29 +110,31 @@
   .cal-foot button { flex:1; border:none; border-radius:10px; padding:11px; font-size:14px; font-weight:700; }
   .cal-cancel { background:var(--pink-soft); color:var(--ink-soft); }
   .cal-ok { background:var(--pink-deep); color:#fff; }
+  .num-row { display:flex; align-items:center; justify-content:center; gap:22px; margin:6px 0 4px; }
+  .num-step { width:44px; height:44px; border:none; border-radius:12px; background:var(--pink-soft); color:var(--pink-deep); font-size:22px; }
+  .num-val { font-size:26px; font-weight:700; min-width:44px; text-align:center; color:var(--ink); }
 
   /* ── 투두 ── */
-  .item { position:relative; overflow:hidden; }
-  .item-inner { display:flex; align-items:flex-start; gap:9px; padding:6px 0; transition:transform 0.18s; }
   .item.dragging { background:var(--pink-soft); border-radius:8px; }
+  .item-row { position:relative; overflow:hidden; }
+  .item-inner { display:flex; align-items:flex-start; gap:9px; padding:6px 0; transition:transform 0.18s; }
   .item input[type=checkbox] {
     width:19px; height:19px; margin-top:1px; accent-color:var(--pink-deep); flex-shrink:0;
   }
   .item .txt { flex:1; border:none; background:transparent; font-size:14px; color:var(--ink);
     outline:none; word-break:break-word; min-height:20px; }
   .item.done .txt { color:var(--ink-soft); text-decoration:line-through; }
-  .item-x {
-    position:absolute; right:0; top:0; bottom:0; width:52px; border:none; border-radius:8px;
-    background:#e0a6a6; color:#fff; padding:0; opacity:0; transition:opacity 0.15s;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .item.revealed .item-x { opacity:1; }
-  .item-x .ic { width:16px; height:16px; }
-  /* 진행도 바 (제목 바로 아래) */
-  .prog-wrap { display:flex; align-items:center; gap:8px; margin:0 2px 10px; }
-  .prog-bar { flex:1; height:7px; border-radius:4px; background:var(--line); overflow:hidden; }
-  .prog-fill { height:100%; background:var(--pink-deep); border-radius:4px; transition:width 0.25s; }
-  .prog-num { font-size:11px; color:var(--ink-soft); flex-shrink:0; min-width:30px; text-align:right; }
+  .prog-count { flex-shrink:0; font-size:12px; color:var(--pink-deep); font-weight:700; margin-top:2px; }
+  .item-actions { position:absolute; top:0; right:0; bottom:0; display:flex; }
+  .item-actions button { width:50px; border:none; color:#fff; display:flex; align-items:center; justify-content:center; }
+  .item-actions .act-prog { background:#b3a6cd; }
+  .item-actions .act-del { background:#e0a6a6; }
+  .item-actions .ic { width:17px; height:17px; }
+  /* 세부항목별 분절 진행도 게이지 (해당 항목 아래) */
+  .item-prog { margin:1px 0 6px 30px; }
+  .pboxes { display:grid; gap:3px; }
+  .pseg { height:14px; border-radius:3px; background:var(--line); }
+  .pseg.filled { background:var(--pink-deep); }
   /* 세부항목 추가 라인 */
   .add-line {
     display:block; width:100%; border:none; background:transparent; color:var(--pink-deep);
@@ -149,8 +151,12 @@
   }
   .search-bar input {
     width:100%; border:1px solid var(--line); border-radius:20px; background:#fff;
-    padding:9px 14px 9px 38px; font-size:14px; outline:none; font-family:inherit;
+    padding:9px 40px 9px 38px; font-size:14px; outline:none; font-family:inherit;
   }
+  .search-clear { position:absolute; right:7px; top:6px; width:26px; height:26px; border:none;
+    background:var(--line); color:var(--ink-soft); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; }
+  .search-clear .ic { width:13px; height:13px; }
   .memo-row { display:flex; align-items:center; gap:6px; }
   .memo-row .m-title { font-weight:700; font-size:14px; flex:1; word-break:break-word; }
   /* 메모 카드 스와이프(왼쪽:색상·삭제 / 오른쪽:상단고정) */
@@ -318,7 +324,7 @@
   <div class="wrap">
     <div id="list-todo"></div>
     <div id="memo-view" class="hidden">
-      <div class="search-bar"><span class="search-ic" id="search-ic"></span><input id="memo-search" placeholder="검색" autocapitalize="off" /></div>
+      <div class="search-bar"><span class="search-ic" id="search-ic"></span><input id="memo-search" placeholder="검색" autocapitalize="off" /><button class="search-clear hidden" id="search-clear"></button></div>
       <div id="list-memo"></div>
     </div>
   </div>
@@ -362,6 +368,22 @@
   </div>
 </div>
 
+<!-- 7) 숫자 입력 모달(진행도 칸 수) -->
+<div id="num-overlay" class="cal-overlay">
+  <div class="cal" style="max-width:240px">
+    <div class="cal-title" id="num-title" style="margin-bottom:14px"></div>
+    <div class="num-row">
+      <button class="num-step" id="num-minus">−</button>
+      <div class="num-val" id="num-val">5</div>
+      <button class="num-step" id="num-plus">＋</button>
+    </div>
+    <div class="cal-foot">
+      <button class="cal-cancel" id="num-cancel">취소</button>
+      <button class="cal-ok" id="num-ok">확인</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -370,7 +392,7 @@
 /* Memo Todo 모바일 웹앱 — PC 앱과 같은 Supabase(app_state 한 행)를 읽고 씀.
  * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델.
  * 테마 색상만은 기기별(localStorage 'mt-theme')로 따로 저장돼 PC와 무관하게 동작. */
-const BUILD = 'v7 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
+const BUILD = 'v8 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
 const $ = (id) => document.getElementById(id);
 let client = null, user = null, state = null, remoteTs = 0, lastPushedAt = 0;
 let curMemoId = null, editing = false, pushTimer = null;
@@ -378,10 +400,11 @@ let curTab = 'todo', memoQuery = '', activeTags = new Set();
 
 /* ── 아이콘(이모지 대신 인라인 SVG) ── */
 const ICONS = {
-  pin: '<path d="M9 3h6M12 9v9M8 9h8l-1.2-4.2a1 1 0 0 0-1-.8h-3.6a1 1 0 0 0-1 .8L8 9z"/>',
+  pin: '<path d="M8.5 3h7M10 3v5l-2.5 3h9L14 8V3M12 11v9"/>',
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
-  palette: '<path d="M12 3.4c3.4 3.7 5.6 6.9 5.6 9.6a5.6 5.6 0 0 1-11.2 0C6.4 10.3 8.6 7.1 12 3.4z"/>',
+  palette: '<path d="M3 20.5c0-2.4 1.4-3.8 3.6-3.8 1.3 0 1.9.9 1.9 1.9 0 1.6-1.5 2-3.5 2H3z"/><path d="M8 16l8.5-8.5a2.1 2.1 0 0 1 3 3L11 19"/><path d="M14.5 5.5l4 4"/>',
+  chart: '<path d="M4 20V11M9.3 20V5M14.7 20v-6M20 20V8"/>',
   heart: '<path d="M12 20s-7-4.6-9.3-9A5 5 0 0 1 12 6.5 5 5 0 0 1 21.3 11c-2.3 4.4-9.3 9-9.3 9z"/>',
   eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff: '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.2A9.9 9.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.1 3.9M6.2 6.2A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 3-.5"/>',
@@ -404,6 +427,7 @@ function paintIcons() {
   $('bt-add').innerHTML = svg('plus');
   $('dv-back').innerHTML = svg('back');
   $('search-ic').innerHTML = svg('search');
+  $('search-clear').innerHTML = svg('close');
   $('drawer-head').innerHTML = '<span>List</span>'
     + '<span style="margin-left:auto;font-size:11px;font-weight:400;opacity:0.7">' + BUILD + '</span>';
   [...document.querySelectorAll('.brand')].forEach((h) => {
@@ -413,12 +437,12 @@ function paintIcons() {
 
 /* ── 테마(기기별) ── */
 const THEMES = {
-  pink:     { name:'핑크',   bg:'#faf8f9', deep:'#cdb0bb', bar:['#cdb6c0','#c4abb6'], soft:'#f7f2f4', pink:'#edd9e0' },
-  lavender: { name:'라벤더', bg:'#f9f8fb', deep:'#a99bc9', bar:['#bcb0d6','#b0a3cd'], soft:'#f3f1f7', pink:'#e2dcef' },
-  mint:     { name:'민트',   bg:'#f7faf8', deep:'#8ab892', bar:['#a6cbab','#98bf9e'], soft:'#eef5ef', pink:'#d8ecdb' },
-  sky:      { name:'하늘',   bg:'#f7f9fb', deep:'#8aabc8', bar:['#a6c3da','#98b8d1'], soft:'#eef3f8', pink:'#d9e6f1' },
-  butter:   { name:'버터',   bg:'#fbf9f5', deep:'#c9b183', bar:['#d8c6a1','#cfba93'], soft:'#f8f3ec', pink:'#efe3cd' },
-  gray:     { name:'그레이', bg:'#f8f8f9', deep:'#a29aa4', bar:['#b7afb9','#a9a2ab'], soft:'#f2f1f3', pink:'#e3dfe5' }
+  pink:     { name:'핑크',   bg:'#fbf7f9', deep:'#dca3bb', bar:['#e6adc6','#dd9fbb'], soft:'#faeef4', pink:'#f5d3e2' },
+  lavender: { name:'라벤더', bg:'#f9f7fc', deep:'#ac97e0', bar:['#c1a9ee','#b39ce6'], soft:'#f3eefc', pink:'#e6d7f8' },
+  mint:     { name:'민트',   bg:'#f5faf7', deep:'#74cc8b', bar:['#98dea6','#82d494'], soft:'#eaf7ee', pink:'#cfeed7' },
+  sky:      { name:'하늘',   bg:'#f5f9fc', deep:'#71b0e0', bar:['#95c8ee','#82bde6'], soft:'#eaf4fb', pink:'#cfe6f7' },
+  butter:   { name:'버터',   bg:'#fcf9f3', deep:'#e0b96b', bar:['#eecc8c','#e5be78'], soft:'#faf2e2', pink:'#f4e2bd' },
+  gray:     { name:'그레이', bg:'#f8f8fa', deep:'#a99fb5', bar:['#c2b6ca','#b4a8bd'], soft:'#f3f0f6', pink:'#e6dfed' }
 };
 function applyTheme(key) {
   const t = THEMES[key] || THEMES.pink;
@@ -706,6 +730,19 @@ $('cal-ok').addEventListener('click', () => {
   $('cal-overlay').classList.remove('open');
   if (calCb && calSel) calCb(calSel); calCb = null;
 });
+
+/* 숫자 입력 모달(진행도 칸 수) */
+let numCb = null, numV = 5;
+function numModal(title, initial, cb) {
+  numCb = cb; numV = Math.max(1, Math.min(99, initial || 5));
+  $('num-title').textContent = title; $('num-val').textContent = numV;
+  $('num-overlay').classList.add('open');
+}
+$('num-minus').addEventListener('click', () => { numV = Math.max(1, numV - 1); $('num-val').textContent = numV; });
+$('num-plus').addEventListener('click', () => { numV = Math.min(99, numV + 1); $('num-val').textContent = numV; });
+$('num-cancel').addEventListener('click', () => { $('num-overlay').classList.remove('open'); numCb = null; });
+$('num-overlay').addEventListener('click', (e) => { if (e.target === $('num-overlay')) { $('num-overlay').classList.remove('open'); numCb = null; } });
+$('num-ok').addEventListener('click', () => { $('num-overlay').classList.remove('open'); if (numCb) numCb(numV); numCb = null; });
 function buildDday() {
   const block = document.createElement('div'); block.className = 'dday-block';
   const head = document.createElement('div'); head.className = 'dday-head';
@@ -765,9 +802,30 @@ function renderTodos() {
 
     const items = todo.items || [];
     items.forEach((item) => {
-      const row = document.createElement('div');
-      row.className = 'item' + (item.done ? ' done' : '');
-      row.dataset.id = item.id;
+      const itemEl = document.createElement('div');
+      itemEl.className = 'item' + (item.done ? ' done' : '');
+      itemEl.dataset.id = item.id;
+
+      const rowEl = document.createElement('div'); rowEl.className = 'item-row';
+      // 왼쪽 스와이프로 드러나는 액션: 진행도 추가 / 삭제
+      const actions = document.createElement('div'); actions.className = 'item-actions';
+      const progBtn = document.createElement('button'); progBtn.className = 'act-prog'; progBtn.innerHTML = svg('chart'); progBtn.title = '진행도';
+      progBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        numModal('진행도 칸 수', item.progress ? item.progress.total : 5, (n) => {
+          const done = item.progress ? Math.min(item.progress.done, n) : 0;
+          item.progress = { total: Math.min(n, 99), done };
+          schedulePush(); renderTodos();
+        });
+      });
+      const delBtn = document.createElement('button'); delBtn.className = 'act-del'; delBtn.innerHTML = svg('close');
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        todo.items = (todo.items || []).filter((it) => it.id !== item.id);
+        schedulePush(); renderTodos();
+      });
+      actions.appendChild(progBtn); actions.appendChild(delBtn);
+
       const inner = document.createElement('div'); inner.className = 'item-inner';
       const cb = document.createElement('input');
       cb.type = 'checkbox'; cb.checked = !!item.done;
@@ -778,30 +836,20 @@ function renderTodos() {
         if (txt.innerText !== (item.text || '')) { item.text = txt.innerText; schedulePush(); }
       });
       inner.appendChild(cb); inner.appendChild(txt);
-      const xb = document.createElement('button');
-      xb.className = 'item-x'; xb.innerHTML = svg('close');
-      xb.addEventListener('click', (e) => {
-        e.stopPropagation();
-        todo.items = (todo.items || []).filter((it) => it.id !== item.id);
-        schedulePush(); renderTodos();
-      });
-      row.appendChild(inner); row.appendChild(xb);
-      setupItemGesture(row, inner, card, todo);
-      card.appendChild(row);
-    });
+      if (item.progress && item.progress.total > 0) {
+        const c = document.createElement('span'); c.className = 'prog-count';
+        c.textContent = item.progress.done + '/' + item.progress.total;
+        inner.appendChild(c);
+      }
+      rowEl.appendChild(actions); rowEl.appendChild(inner);
+      itemEl.appendChild(rowEl);
 
-    // 진행도 바 — 세부항목 아래
-    if (items.length) {
-      const done = items.filter((it) => it.done).length;
-      const pw = document.createElement('div'); pw.className = 'prog-wrap';
-      const bar = document.createElement('div'); bar.className = 'prog-bar';
-      const fill = document.createElement('div'); fill.className = 'prog-fill';
-      fill.style.width = Math.round(done / items.length * 100) + '%';
-      bar.appendChild(fill);
-      const num = document.createElement('span'); num.className = 'prog-num'; num.textContent = done + '/' + items.length;
-      pw.appendChild(bar); pw.appendChild(num);
-      card.appendChild(pw);
-    }
+      // 세부항목별 분절 진행도 게이지 — 해당 항목 바로 아래
+      if (item.progress && item.progress.total > 0) itemEl.appendChild(buildItemProgress(item));
+
+      setupItemGesture(itemEl, rowEl, inner, card, todo);
+      card.appendChild(itemEl);
+    });
 
     // 중앙 정렬 + 한 줄: 아무 곳이나 탭하면 세부항목 추가
     const add = document.createElement('button');
@@ -815,72 +863,95 @@ function renderTodos() {
   });
 }
 
+/* 세부항목별 분절 진행도 게이지: 칸마다 나뉘어 있고, 칸을 탭하면 그만큼 채워짐.
+ * 다 채우면 진행도 자체가 사라짐(세부항목은 유지) — PC 앱과 동일. */
+function buildItemProgress(item) {
+  const wrap = document.createElement('div'); wrap.className = 'item-prog';
+  const boxes = document.createElement('div'); boxes.className = 'pboxes';
+  const total = item.progress.total;
+  boxes.style.gridTemplateColumns = 'repeat(' + total + ', 1fr)';
+  for (let i = 0; i < total; i++) {
+    const seg = document.createElement('span');
+    seg.className = 'pseg' + (i < item.progress.done ? ' filled' : '');
+    seg.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!item.progress) return;
+      item.progress.done = (i + 1 === item.progress.done) ? i : i + 1;
+      if (item.progress.done >= total) item.progress = null; // 다 채우면 게이지 제거
+      schedulePush(); renderTodos();
+    });
+    boxes.appendChild(seg);
+  }
+  wrap.appendChild(boxes);
+  return wrap;
+}
+
 /* 세부항목 제스처:
- *  - 왼쪽으로 슬라이드 → X(삭제) 노출 (메일 앱처럼)
+ *  - 왼쪽으로 슬라이드 → 진행도추가/삭제 액션 노출 (메일 앱처럼)
  *  - 길게 눌러 잡은 채 위아래로 움직이면 → 순서 변경 */
-function setupItemGesture(row, inner, card, todo) {
+function setupItemGesture(itemEl, rowEl, inner, card, todo) {
   let timer = null, sy = 0, sx = 0, armed = false, mode = null; // 'drag' | 'swipe' | 'scroll'
   const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
-  const itemRows = () => [...card.querySelectorAll('.item')];
-  row.addEventListener('touchstart', (e) => {
+  const itemEls = () => [...card.querySelectorAll('.item')];
+  rowEl.addEventListener('touchstart', (e) => {
     const t = e.touches[0]; sy = t.clientY; sx = t.clientX; armed = false; mode = null;
-    clear(); timer = setTimeout(() => { timer = null; armed = true; row.classList.add('dragging'); }, 420);
+    clear(); timer = setTimeout(() => { timer = null; armed = true; itemEl.classList.add('dragging'); }, 420);
   }, { passive: true });
-  row.addEventListener('touchmove', (e) => {
+  rowEl.addEventListener('touchmove', (e) => {
     const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
     if (mode === null) {
       if (armed) { mode = 'drag'; clear(); }
       else if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
         clear();
         if (Math.abs(dx) > Math.abs(dy)) { mode = 'swipe'; inner.style.transition = 'none'; }
-        else { mode = 'scroll'; row.classList.remove('dragging'); }
+        else { mode = 'scroll'; itemEl.classList.remove('dragging'); }
       }
     }
     if (mode === 'drag') {
       e.preventDefault();
-      const y = t.clientY, rs = itemRows(), i = rs.indexOf(row);
-      for (let j = 0; j < rs.length; j++) {
-        if (rs[j] === row) continue;
-        const b = rs[j].getBoundingClientRect();
+      const y = t.clientY, els = itemEls(), i = els.indexOf(itemEl);
+      for (let j = 0; j < els.length; j++) {
+        if (els[j] === itemEl) continue;
+        const b = els[j].getBoundingClientRect();
         if (y > b.top && y < b.bottom) {
-          if (j < i) card.insertBefore(row, rs[j]);
-          else card.insertBefore(row, rs[j].nextSibling);
+          if (j < i) card.insertBefore(itemEl, els[j]);
+          else card.insertBefore(itemEl, els[j].nextSibling);
           break;
         }
       }
     } else if (mode === 'swipe') {
       e.preventDefault();
-      const tx = Math.max(-58, Math.min(0, dx));
+      const tx = Math.max(-104, Math.min(0, dx));
       inner.style.transform = 'translateX(' + tx + 'px)';
-      row.classList.toggle('revealed', dx < -34);
+      rowEl.classList.toggle('revealed', dx < -40);
     }
   });
-  row.addEventListener('touchend', (e) => {
+  rowEl.addEventListener('touchend', (e) => {
     clear();
     if (mode === 'drag') {
-      row.classList.remove('dragging');
-      const order = itemRows().map((r) => r.dataset.id);
+      itemEl.classList.remove('dragging');
+      const order = itemEls().map((el) => el.dataset.id);
       todo.items = order.map((id) => (todo.items || []).find((it) => it.id === id)).filter(Boolean);
       schedulePush(); renderTodos(); return;
     }
     if (mode === 'swipe') {
       inner.style.transition = '';
       const dx = (e.changedTouches && e.changedTouches[0].clientX - sx) || 0;
-      if (dx < -34) { row.classList.add('revealed'); inner.style.transform = 'translateX(-52px)'; }
-      else { row.classList.remove('revealed'); inner.style.transform = ''; }
+      if (dx < -40) { rowEl.classList.add('revealed'); inner.style.transform = 'translateX(-100px)'; }
+      else { rowEl.classList.remove('revealed'); inner.style.transform = ''; }
       return;
     }
-    row.classList.remove('dragging');
+    itemEl.classList.remove('dragging');
   });
-  row.addEventListener('touchcancel', () => {
-    clear(); row.classList.remove('dragging');
-    if (mode === 'swipe' && !row.classList.contains('revealed')) { inner.style.transition = ''; inner.style.transform = ''; }
+  rowEl.addEventListener('touchcancel', () => {
+    clear(); itemEl.classList.remove('dragging');
+    if (mode === 'swipe' && !rowEl.classList.contains('revealed')) { inner.style.transition = ''; inner.style.transform = ''; }
   });
 }
-// 편집영역 밖을 탭하면 (1) 열려있던 삭제 X 닫기 (2) 남은 텍스트 선택범위 해제
+// 편집영역 밖을 탭하면 (1) 열려있던 스와이프 액션 닫기 (2) 남은 텍스트 선택범위 해제
 document.addEventListener('touchstart', (e) => {
-  const keep = e.target.closest && e.target.closest('.item.revealed, .mcard.revealed');
-  [...document.querySelectorAll('.item.revealed, .mcard.revealed')].forEach((r) => {
+  const keep = e.target.closest && e.target.closest('.item-row.revealed, .mcard.revealed');
+  [...document.querySelectorAll('.item-row.revealed, .mcard.revealed')].forEach((r) => {
     if (r === keep) return;
     r.classList.remove('revealed');
     const inr = r.querySelector('.item-inner, .card-inner'); if (inr) inr.style.transform = '';
@@ -903,8 +974,9 @@ function filteredMemoRows() {
   }
   if (activeTags.size) {
     rows = rows.filter(({ m }) => (m.tags || []).some((t) => activeTags.has(t)));
-  } else {
-    // 숨긴 폴더의 메모는 본 목록에서 감춤(고정 메모는 항상 노출, 태그 검색 땐 노출)
+  }
+  // 숨긴 폴더의 메모는 기본 목록에선 감추되, 검색·태그 필터 중엔 결과에 노출
+  if (!memoQuery && !activeTags.size) {
     rows = rows.filter(({ m }) => m.pinned || !hiddenFolder(m));
   }
   return rows;
@@ -1023,7 +1095,15 @@ function renderTagBar() {
 }
 function renderAll() { renderTodos(); renderMemos(); renderTagBar(); renderDrawer(); }
 
-$('memo-search').addEventListener('input', (e) => { memoQuery = e.target.value.trim(); renderMemos(); });
+$('memo-search').addEventListener('input', (e) => {
+  memoQuery = e.target.value.trim();
+  $('search-clear').classList.toggle('hidden', !e.target.value);
+  renderMemos();
+});
+$('search-clear').addEventListener('click', () => {
+  $('memo-search').value = ''; memoQuery = '';
+  $('search-clear').classList.add('hidden'); renderMemos(); $('memo-search').focus();
+});
 
 /* ── 인덱스 드로어 ── */
 function openDrawer() { renderDrawer(); $('drawer').classList.add('open'); ensureScrim(); }
@@ -1078,6 +1158,7 @@ function renderDrawer() {
     dwx = null;
     if ($('pane-main').classList.contains('hidden')) { edge = null; return; }
     if (!$('sheet').classList.contains('hidden')) { edge = null; return; }
+    if (curTab !== 'memo') { edge = null; return; } // 목차는 메모 탭에서만 슬라이드로 열림
     edge = (t.clientX < 24) ? { x: t.clientX, y: t.clientY } : null;
   }, { passive: true });
   document.addEventListener('touchmove', (e) => {
