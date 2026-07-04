@@ -1016,6 +1016,7 @@ function buildMemoBlock(memo) {
   body.innerHTML = looksHtml(memo.content) ? memo.content : linkifyHtml(memo.content || '');
   if (normalizeNoteImages(body)) memo.content = body.innerHTML; // 옛 캡션/행 구조 정리
   setupUndo(body, () => { memo.content = body.innerHTML; touchMemo(memo); }); // Ctrl+Z
+  setupPlainPaste(body); // 붙여넣기는 서식 없이 '텍스트만'(현재 폰트/크기/색 상태로)
   body.addEventListener('input', () => {
     memo.content = body.innerHTML;
     touchMemo(memo);
@@ -1026,16 +1027,20 @@ function buildMemoBlock(memo) {
       body.classList.contains('clamped') && body.scrollHeight > body.clientHeight + 2);
   });
   body.addEventListener('blur', () => {
+    document.body.classList.remove('note-editing');
     linkifyElement(body);
     memo.content = body.innerHTML;
     save();
     body.classList.add('clamped'); // 편집 끝나면 다시 5줄 미리보기로 접기
     updateClampMark();
   });
-  // 본 창은 5줄 미리보기(넘치면 …), 편집 들어가면 전체 펼침
+  // 본 창은 5줄 미리보기(넘치면 페이드), 편집 들어가면 전체 펼침
   body.classList.add('clamped');
   updateClampMark();
-  body.addEventListener('focus', () => body.classList.remove('clamped'));
+  body.addEventListener('focus', () => {
+    body.classList.remove('clamped');
+    document.body.classList.add('note-editing'); // 편집 중엔 인덱스 hover 확장 차단
+  });
   // 체크리스트 글머리 토글(왼쪽 클릭 영역)
   body.addEventListener('click', (e) => {
     const li = e.target.closest('li');

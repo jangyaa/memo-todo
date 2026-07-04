@@ -476,8 +476,11 @@ figure.note-img img { max-width: 100%; height: auto; border-radius: 8px; cursor:
 }
 .memo-index:hover,
 .memo-index.pinned { width: 172px; }
-/* 본문 텍스트 선택(드래그) 중엔 인덱스가 hover로 열리지 않게 */
-body.selecting .memo-index:not(.pinned) { width: 50px; }
+/* 본문 텍스트 선택(드래그) 중이거나 메모 편집 중엔 인덱스가 hover로 열리지 않게 */
+body.selecting .memo-index:not(.pinned),
+body.note-editing .memo-index:not(.pinned) { width: 50px; }
+body.note-editing .memo-index:not(.pinned) .index-chip .label,
+body.note-editing .memo-index:not(.pinned) .index-title { opacity: 0; }
 
 .index-toolbar {
   display: flex;
@@ -759,10 +762,10 @@ body.selecting .memo-index:not(.pinned) { width: 50px; }
  * -webkit-line-clamp는 contenteditable에서 글자가 겹쳐 보이는 렌더 버그가 있어
  * max-height(5줄) + overflow 방식 사용 */
 .note-body.clamped { max-height: calc(1.7em * 5); overflow: hidden; }
-.note-body.clamped.overflowing::after {
-  content: '…';
-  position: absolute; right: 2px; bottom: 0;
-  color: var(--ink-soft); line-height: 1.7;
+/* 넘칠 땐 마지막 줄을 부드럽게 페이드(하드 컷으로 글자가 잘려 보이지 않게) */
+.note-body.clamped.overflowing {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5em), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5em), transparent);
 }
 .note-body:empty::after {
   content: "여기에 메모를 작성하세요.\A첫 줄이 제목이 됩니다.";

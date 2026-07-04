@@ -164,6 +164,7 @@ setupFormatToolbar({
 });
 
 setupImageControls(() => save());
+setupPlainPaste(bodyEl); // 붙여넣기는 서식 없이 '텍스트만'
 setupUndo(bodyEl, () => save()); // Ctrl+Z 실행취소(이미지 삽입/리사이즈/삭제/이동 포함)
 setupDragRegionGuard('.ed-topbar'); // 드래그 후 상단바 창 이동 먹통 방지
 setupHrClickSelect(bodyEl); // 구분선 클릭 시 선택 → Backspace로 삭제

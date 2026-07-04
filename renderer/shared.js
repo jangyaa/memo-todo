@@ -381,6 +381,18 @@ function linkHrefOf(el) {
   return /^https?:\/\/\S+$/.test(t) ? t : (el.dataset.href || '');
 }
 
+/* 붙여넣기는 서식 없이 '텍스트만' — 원본의 폰트/크기/색/배경(형광)을 긁어오지 않고
+ * 현재 캐럿 위치의 서식(메모에 적용 중인 폰트/크기/글자색) 그대로 들어간다.
+ * (execCommand insertText는 주변 서식을 상속하고, 형광은 기본 없음 상태가 된다) */
+function setupPlainPaste(el) {
+  el.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const cd = e.clipboardData || window.clipboardData;
+    const text = cd ? cd.getData('text/plain') : '';
+    document.execCommand('insertText', false, text);
+  });
+}
+
 /* ----- 글꼴 목록 ----- */
 const FONTS = [
   { id: '', name: '기본' },

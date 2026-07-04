@@ -53,7 +53,7 @@
     min-width:34px; height:32px; font-size:15px; padding:0 9px;
     display:inline-flex; align-items:center; justify-content:center;
   }
-  .tabs { display:flex; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:52px; z-index:9; }
+  .tabs { display:flex; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:var(--top-h,52px); z-index:9; }
   .tabs button {
     flex:1; border:none; background:transparent; padding:11px 0; font-size:14px; font-weight:700;
     color:var(--ink-soft); border-bottom:2px solid transparent;
@@ -121,7 +121,8 @@
   /* ── 투두 ── */
   .item.dragging { background:var(--pink-soft); border-radius:8px; }
   .item-row { position:relative; overflow:hidden; }
-  .item-inner { display:flex; align-items:flex-start; gap:9px; padding:6px 0; transition:transform 0.18s; }
+  .item-inner { display:flex; align-items:flex-start; gap:9px; padding:6px 0; transition:transform 0.18s;
+    position:relative; z-index:1; }
   .item input[type=checkbox] {
     width:19px; height:19px; margin-top:1px; accent-color:var(--pink-deep); flex-shrink:0;
   }
@@ -148,7 +149,7 @@
 
   /* ── 메모 목록 ── */
   .search-bar {
-    position:sticky; top:88px; z-index:8; background:var(--bg); padding:2px 0 10px;
+    position:sticky; top:var(--head-h,92px); z-index:8; background:var(--bg); padding:2px 0 10px;
   }
   .search-bar .search-ic {
     position:absolute; left:14px; top:11px; color:var(--ink-soft); pointer-events:none;
@@ -169,10 +170,11 @@
     position:relative; z-index:1; }
   .card-actions { position:absolute; top:0; right:0; bottom:0; display:flex; z-index:0; }
   .card-actions button { width:56px; border:none; color:#fff; display:flex; align-items:center; justify-content:center; }
+  .card-actions .act-pin { background:#cbb382; }
   .card-actions .act-color { background:#c1a6bd; }
   .card-actions .act-del { background:#e0a6a6; }
   .card-actions .ic { width:20px; height:20px; }
-  .mcard.revealed .card-inner { transform:translateX(-112px); }
+  .mcard.revealed .card-inner { transform:translateX(-168px); }
   .memo-prev { font-size:12.5px; color:var(--ink-soft); margin-top:6px;
     overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .m-tags { margin-top:8px; display:flex; flex-wrap:wrap; gap:5px; }
@@ -198,7 +200,9 @@
     padding-bottom:70px; -webkit-overflow-scrolling:touch;
   }
   .sheet .top button.save { background:#fff; color:var(--pink-deep); font-weight:700; }
-  .sheet-body { max-width:560px; margin:0 auto; padding:16px 16px 40px; }
+  .sheet-body { max-width:560px; margin:0 auto; padding:16px 14px 40px; }
+  /* 상세도 블럭 모양 카드 안에 표시 */
+  .sheet-card { border-radius:16px; padding:18px 16px 14px; box-shadow:0 2px 10px rgba(180,150,165,0.16); min-height:70vh; }
   #dv-title, #dv-content { outline:none; }
   #dv-title { font-size:20px; font-weight:700; margin-bottom:20px; min-height:28px; word-break:break-word; }
   #dv-title:empty::before { content:'제목'; color:var(--ink-soft); opacity:0.6; }
@@ -219,7 +223,17 @@
   .editing #dv-title, .editing #dv-content {
     background:#fff; border-radius:10px; padding:10px; box-shadow:inset 0 0 0 1px var(--line);
   }
-  .dv-tags { margin-top:22px; padding-top:10px; border-top:1px solid var(--line); }
+  /* 상세편집 태그 편집 라인 */
+  .dv-tags { margin-top:22px; padding-top:12px; border-top:1px solid rgba(140,120,130,0.18);
+    display:flex; flex-wrap:wrap; gap:6px; align-items:center; min-height:40px; }
+  .dtag { display:inline-flex; align-items:center; gap:3px; font-size:12px; color:var(--ink-soft);
+    background:rgba(255,255,255,0.55); border-radius:20px; padding:4px 10px; }
+  .dtag-x { display:none; border:none; background:transparent; color:#c66; padding:0 0 0 2px;
+    align-items:center; }
+  .dtag-x .ic { width:11px; height:11px; }
+  .dv-tags.removing .dtag-x { display:inline-flex; }
+  .dtag-add { border:none; background:transparent; outline:none; font-size:12.5px; color:var(--ink);
+    font-family:inherit; min-width:70px; flex:1; padding:4px 2px; }
 
   /* ── 인덱스 드로어 ── */
   .scrim { position:fixed; inset:0; z-index:34; background:rgba(70,60,68,0.28); }
@@ -242,9 +256,9 @@
   .dw-eye .ic { width:18px; height:18px; }
   .dw-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:9px; }
   .dw-item:active { background:var(--pink-soft); }
-  .dw-item .dw-ic { color:var(--pink-deep); flex-shrink:0; }
-  .dw-item .dw-ic .ic { width:17px; height:17px; }
+  .dw-item .sq { width:14px; height:14px; border-radius:5px; flex-shrink:0; }
   .dw-item .t { font-size:14px; flex:1; word-break:break-word; }
+  .dw-item.dragging { background:var(--pink-soft); }
 
   /* ── 컨텍스트 메뉴 ── */
   .ctx-menu {
@@ -344,9 +358,11 @@
     <button id="dv-save" class="save hidden">저장</button>
   </div>
   <div class="sheet-body" id="sheet-body">
-    <div id="dv-title"></div>
-    <div id="dv-content"></div>
-    <div class="dv-tags m-tags" id="dv-tags"></div>
+    <div class="sheet-card" id="sheet-card">
+      <div id="dv-title"></div>
+      <div id="dv-content"></div>
+      <div class="dv-tags" id="dv-tags"></div>
+    </div>
   </div>
 </div>
 
@@ -396,7 +412,7 @@
 /* Memo Todo 모바일 웹앱 — PC 앱과 같은 Supabase(app_state 한 행)를 읽고 씀.
  * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델.
  * 테마 색상만은 기기별(localStorage 'mt-theme')로 따로 저장돼 PC와 무관하게 동작. */
-const BUILD = 'v9 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
+const BUILD = 'v10 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
 const $ = (id) => document.getElementById(id);
 let client = null, user = null, state = null, remoteTs = 0, lastPushedAt = 0;
 let curMemoId = null, editing = false, pushTimer = null;
@@ -407,7 +423,7 @@ const ICONS = {
   pin: '<path d="M8.5 3h7M10 3v5l-2.5 3h9L14 8V3M12 11v9"/>',
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
-  palette: '<path d="M3 20.5c0-2.4 1.4-3.8 3.6-3.8 1.3 0 1.9.9 1.9 1.9 0 1.6-1.5 2-3.5 2H3z"/><path d="M8 16l8.5-8.5a2.1 2.1 0 0 1 3 3L11 19"/><path d="M14.5 5.5l4 4"/>',
+  palette: '<rect x="4" y="4" width="4.4" height="16" rx="1"/><rect x="9.8" y="4" width="4.4" height="16" rx="1"/><rect x="15.6" y="4" width="4.4" height="16" rx="1"/>',
   chart: '<path d="M4 20V11M9.3 20V5M14.7 20v-6M20 20V8"/>',
   heart: '<path d="M12 20s-7-4.6-9.3-9A5 5 0 0 1 12 6.5 5 5 0 0 1 21.3 11c-2.3 4.4-9.3 9-9.3 9z"/>',
   eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
@@ -441,12 +457,12 @@ function paintIcons() {
 
 /* ── 테마(기기별) ── */
 const THEMES = {
-  pink:     { name:'핑크',   bg:'#fbf7f9', deep:'#dca3bb', bar:['#e6adc6','#dd9fbb'], soft:'#faeef4', pink:'#f5d3e2' },
-  lavender: { name:'라벤더', bg:'#f9f7fc', deep:'#ac97e0', bar:['#c1a9ee','#b39ce6'], soft:'#f3eefc', pink:'#e6d7f8' },
-  mint:     { name:'민트',   bg:'#f5faf7', deep:'#74cc8b', bar:['#98dea6','#82d494'], soft:'#eaf7ee', pink:'#cfeed7' },
-  sky:      { name:'하늘',   bg:'#f5f9fc', deep:'#71b0e0', bar:['#95c8ee','#82bde6'], soft:'#eaf4fb', pink:'#cfe6f7' },
-  butter:   { name:'버터',   bg:'#fcf9f3', deep:'#e0b96b', bar:['#eecc8c','#e5be78'], soft:'#faf2e2', pink:'#f4e2bd' },
-  gray:     { name:'그레이', bg:'#f8f8fa', deep:'#a99fb5', bar:['#c2b6ca','#b4a8bd'], soft:'#f3f0f6', pink:'#e6dfed' }
+  pink:     { name:'핑크',   bg:'#fcf9fa', deep:'#e0b3c6', bar:['#ebc0d3','#e3b6ca'], soft:'#fbf1f6', pink:'#f6dae7' },
+  lavender: { name:'라벤더', bg:'#faf8fd', deep:'#bcafe6', bar:['#ccbcf1','#c1b1ec'], soft:'#f5f1fc', pink:'#e9def9' },
+  mint:     { name:'민트',   bg:'#f7fbf9', deep:'#93d6a4', bar:['#abe3b8','#9ddaac'], soft:'#eef8f1', pink:'#d6f0de' },
+  sky:      { name:'하늘',   bg:'#f7fafd', deep:'#94bce6', bar:['#acd2f0','#9dc9ec'], soft:'#eef5fb', pink:'#d8e9f8' },
+  butter:   { name:'버터',   bg:'#fdfbf5', deep:'#e8c98c', bar:['#f1d7a2','#ebcd92'], soft:'#fbf5e8', pink:'#f5e6c6' },
+  gray:     { name:'그레이', bg:'#f9f9fb', deep:'#b5adc0', bar:['#ccc2d4','#c0b6c9'], soft:'#f5f2f8', pink:'#e9e3ef' }
 };
 function applyTheme(key) {
   const t = THEMES[key] || THEMES.pink;
@@ -831,6 +847,7 @@ function renderTodos() {
       actions.appendChild(progBtn); actions.appendChild(delBtn);
 
       const inner = document.createElement('div'); inner.className = 'item-inner';
+      inner.style.background = blockBg(todo); // 스와이프 전엔 액션 버튼을 덮어 가림
       const cb = document.createElement('input');
       cb.type = 'checkbox'; cb.checked = !!item.done;
       cb.addEventListener('change', () => { item.done = cb.checked; schedulePush(); renderTodos(); });
@@ -995,9 +1012,15 @@ function renderMemos() {
   }
   rows.forEach(({ m }) => {
     const card = document.createElement('div');
-    card.className = 'card mcard';
-    // 왼쪽 스와이프 시 드러나는 액션(색상/삭제)
+    card.className = 'card mcard'; card.dataset.id = m.id;
+    // 왼쪽 스와이프 시 드러나는 액션: 상단고정 / 색상 / 삭제 (핀이 색상 왼쪽)
     const actions = document.createElement('div'); actions.className = 'card-actions';
+    const pinBtn = document.createElement('button'); pinBtn.className = 'act-pin'; pinBtn.innerHTML = svg('pin');
+    pinBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      m.pinned = !m.pinned; m.pinnedAt = m.pinned ? Date.now() : 0; schedulePush(); renderAll();
+      toast(m.pinned ? '상단 고정' : '고정 해제');
+    });
     const colBtn = document.createElement('button'); colBtn.className = 'act-color'; colBtn.innerHTML = svg('palette');
     colBtn.addEventListener('click', (e) => {
       e.stopPropagation(); const r = colBtn.getBoundingClientRect();
@@ -1010,7 +1033,7 @@ function renderMemos() {
       if (curMemoId === m.id) { $('sheet').classList.add('hidden'); curMemoId = null; }
       schedulePush(); renderMemos(); renderDrawer();
     });
-    actions.appendChild(colBtn); actions.appendChild(delBtn);
+    actions.appendChild(pinBtn); actions.appendChild(colBtn); actions.appendChild(delBtn);
     const inner = document.createElement('div'); inner.className = 'card-inner'; inner.style.background = blockBg(m);
     const row = document.createElement('div'); row.className = 'memo-row';
     const ti = document.createElement('div'); ti.className = 'm-title';
@@ -1034,8 +1057,7 @@ function renderMemos() {
       if (card.classList.contains('revealed')) { card.classList.remove('revealed'); inner.style.transform = ''; return; }
       openMemo(m.id, true);
     });
-    setupMemoSwipe(card, inner, m);
-    addLongPress(card, (x, y) => openMenu(x, y, blockMenuRows(m, 'memos', () => { renderMemos(); renderDrawer(); })));
+    setupMemoGesture(card, inner, m);
     root.appendChild(card);
   });
 }
@@ -1043,37 +1065,72 @@ function renderMemos() {
 function colorMenu(obj, list, x, y, after) {
   openMenu(x, y, [{ colors: true, onpick: (i) => { obj.color = 'var(--c' + i + ')'; schedulePush(); after(); } }]);
 }
-/* 메모 카드 스와이프: 왼쪽 → 색상/삭제 노출, 오른쪽 → 상단 고정 토글 */
-function setupMemoSwipe(card, inner, m) {
-  let sx = 0, sy = 0, mode = null;
+/* 메모 카드 제스처:
+ *  - 왼쪽 스와이프 → 고정/색상/삭제 액션 노출 (오른쪽 스와이프 고정은 제거 — 목차 열기와 충돌)
+ *  - 길게 눌러 잡은 채 위아래로 움직이면 → 메모 순서 변경 */
+function setupMemoGesture(card, inner, m) {
+  const list = $('list-memo');
+  let timer = null, sx = 0, sy = 0, armed = false, mode = null;
+  const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  const cards = () => [...list.querySelectorAll('.mcard')];
   card.addEventListener('touchstart', (e) => {
-    const t = e.touches[0]; sx = t.clientX; sy = t.clientY; mode = null; inner.style.transition = 'none';
+    const t = e.touches[0]; sx = t.clientX; sy = t.clientY; armed = false; mode = null;
+    clear(); timer = setTimeout(() => { timer = null; armed = true; card.classList.add('dragging'); }, 430);
   }, { passive: true });
   card.addEventListener('touchmove', (e) => {
     const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
-    if (mode === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) mode = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-    if (mode === 'h') {
+    if (mode === null) {
+      if (armed) { mode = 'drag'; clear(); }
+      else if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        clear();
+        if (Math.abs(dx) > Math.abs(dy)) { mode = 'swipe'; inner.style.transition = 'none'; }
+        else { mode = 'scroll'; card.classList.remove('dragging'); }
+      }
+    }
+    if (mode === 'drag') {
       e.preventDefault();
-      const base = card.classList.contains('revealed') ? -112 : 0;
-      inner.style.transform = 'translateX(' + Math.max(-124, Math.min(78, base + dx)) + 'px)';
+      const y = t.clientY, cs = cards(), i = cs.indexOf(card);
+      for (let j = 0; j < cs.length; j++) {
+        if (cs[j] === card) continue;
+        const b = cs[j].getBoundingClientRect();
+        if (y > b.top && y < b.bottom) {
+          if (j < i) list.insertBefore(card, cs[j]);
+          else list.insertBefore(card, cs[j].nextSibling);
+          break;
+        }
+      }
+    } else if (mode === 'swipe') {
+      e.preventDefault();
+      const base = card.classList.contains('revealed') ? -168 : 0;
+      inner.style.transform = 'translateX(' + Math.max(-176, Math.min(0, base + dx)) + 'px)';
+      card.classList.toggle('reveal-hint', (base + dx) < -60);
     }
   });
   card.addEventListener('touchend', (e) => {
-    inner.style.transition = '';
-    if (mode !== 'h') return;
-    card._swiped = true;
-    const dx = (e.changedTouches && e.changedTouches[0].clientX - sx) || 0;
-    const wasRevealed = card.classList.contains('revealed');
-    if (!wasRevealed && dx > 50) { // 오른쪽 스와이프 → 상단 고정
-      inner.style.transform = ''; card.classList.remove('revealed');
-      m.pinned = !m.pinned; m.pinnedAt = m.pinned ? Date.now() : 0; schedulePush(); renderAll();
-      toast(m.pinned ? '상단 고정' : '고정 해제'); return;
+    clear();
+    if (mode === 'drag') {
+      card.classList.remove('dragging'); card._swiped = true;
+      const order = cards().map((c) => c.dataset.id);
+      const seen = new Set(order);
+      const moved = order.map((id) => (state.memos || []).find((x) => x.id === id)).filter(Boolean);
+      const rest = (state.memos || []).filter((x) => !seen.has(x.id));
+      state.memos = [...moved, ...rest];
+      schedulePush(); renderAll(); return;
     }
-    const total = (wasRevealed ? -112 : 0) + dx;
-    if (total < -50) { card.classList.add('revealed'); inner.style.transform = 'translateX(-112px)'; }
-    else { card.classList.remove('revealed'); inner.style.transform = ''; }
+    if (mode === 'swipe') {
+      inner.style.transition = ''; card._swiped = true; card.classList.remove('reveal-hint');
+      const dx = (e.changedTouches && e.changedTouches[0].clientX - sx) || 0;
+      const total = (card.classList.contains('revealed') ? -168 : 0) + dx;
+      if (total < -70) { card.classList.add('revealed'); inner.style.transform = 'translateX(-168px)'; }
+      else { card.classList.remove('revealed'); inner.style.transform = ''; }
+      return;
+    }
+    card.classList.remove('dragging');
   });
-  card.addEventListener('touchcancel', () => { inner.style.transition = ''; if (!card.classList.contains('revealed')) inner.style.transform = ''; });
+  card.addEventListener('touchcancel', () => {
+    clear(); card.classList.remove('dragging');
+    if (mode === 'swipe' && !card.classList.contains('revealed')) { inner.style.transition = ''; inner.style.transform = ''; }
+  });
 }
 function allTags() {
   const set = new Set();
@@ -1144,7 +1201,8 @@ function renderDrawer() {
     const folder = folderOf(m);
     if (folder && folder.collapsed) return; // 숨긴 폴더의 메모는 목차에서 접힘
     const it = document.createElement('div'); it.className = 'dw-item';
-    it.appendChild(iconEl('memo', 'dw-ic'));
+    const sq = document.createElement('span'); sq.className = 'sq'; sq.style.background = accent(m);
+    it.appendChild(sq);
     const t = document.createElement('div'); t.className = 't';
     t.appendChild(document.createTextNode(plain(m.title).trim() || '제목 없음'));
     it.appendChild(t);
@@ -1182,12 +1240,74 @@ function openMemo(id, showSheet) {
   const m = (state.memos || []).find((x) => x.id === id);
   if (!m) { $('sheet').classList.add('hidden'); curMemoId = null; return; }
   curMemoId = id;
+  $('sheet-card').style.background = blockBg(m); // 블럭 모양(색) 안에 메모
   $('dv-title').innerHTML = m.title || '';
   $('dv-content').innerHTML = m.content || '';
-  const tg = $('dv-tags'); tg.innerHTML = '';
-  (m.tags || []).forEach((t) => { const s = document.createElement('span'); s.textContent = '#' + t; tg.appendChild(s); });
+  sanitizeLinks($('dv-content')); // 링크 뒤 텍스트가 링크로 물리지 않게 정리
+  renderDetailTags(m);
   setEditing(false);
   if (showSheet) $('sheet').classList.remove('hidden');
+}
+/* 상세편집 태그 편집: 가나다순 정렬, 꾹 누르면 X 노출/삭제, 라인 탭하면 추가 */
+function renderDetailTags(m) {
+  const c = $('dv-tags'); c.innerHTML = ''; c.classList.remove('removing');
+  m.tags = (m.tags || []).slice().sort((a, b) => a.localeCompare(b, 'ko'));
+  m.tags.forEach((tag) => {
+    const chip = document.createElement('span'); chip.className = 'dtag';
+    chip.appendChild(document.createTextNode('#' + tag));
+    const x = document.createElement('button'); x.className = 'dtag-x'; x.innerHTML = svg('close');
+    x.addEventListener('click', (e) => {
+      e.stopPropagation();
+      m.tags = (m.tags || []).filter((t) => t !== tag); m.updatedAt = Date.now();
+      schedulePush(); renderDetailTags(m); renderMemos(); renderTagBar();
+    });
+    chip.appendChild(x);
+    addLongPress(chip, () => c.classList.add('removing')); // 하나 꾹 누르면 전체 X 노출
+    c.appendChild(chip);
+  });
+  const add = document.createElement('input'); add.className = 'dtag-add'; add.placeholder = '＋ 태그';
+  add.autocapitalize = 'off';
+  const commit = () => {
+    const t = add.value.trim().replace(/^#/, '');
+    add.value = '';
+    if (!t) return;
+    m.tags = m.tags || []; if (!m.tags.includes(t)) m.tags.push(t);
+    m.updatedAt = Date.now(); schedulePush(); renderDetailTags(m); renderMemos(); renderTagBar();
+    setTimeout(() => { const a2 = $('dv-tags').querySelector('.dtag-add'); if (a2) a2.focus(); }, 0);
+  };
+  add.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+  add.addEventListener('blur', commit);
+  c.appendChild(add);
+}
+// 태그 라인 아무 곳이나 누르면 입력 포커스(= 태그 추가). 삭제모드일 땐 먼저 해제 (리스너 1회만)
+$('dv-tags').addEventListener('mousedown', (e) => {
+  const c = $('dv-tags');
+  if (c.classList.contains('removing') && !e.target.closest('.dtag-x')) { c.classList.remove('removing'); return; }
+  if (!e.target.closest('.dtag') && !e.target.closest('.dtag-add')) {
+    e.preventDefault(); const a = c.querySelector('.dtag-add'); if (a) a.focus();
+  }
+});
+/* 링크 뒤에 이어 친 일반 텍스트가 같은 하이퍼링크로 물리는 현상 정리 */
+function sanitizeLinks(root) {
+  [...root.querySelectorAll('a, .link')].forEach((el) => {
+    const full = (el.textContent || '');
+    const murl = full.match(/^(https?:\/\/\S+)/);
+    if (!murl) { // URL로 시작하지 않으면 링크 해제
+      if (el.classList.contains('link') || el.tagName === 'A') unwrap(el);
+      return;
+    }
+    const url = murl[1], rest = full.slice(url.length);
+    if (rest) { // URL 뒤 남은 텍스트는 링크 밖으로 빼냄
+      el.textContent = url;
+      if (el.dataset) el.dataset.href = url;
+      el.parentNode.insertBefore(document.createTextNode(rest), el.nextSibling);
+    }
+  });
+}
+function unwrap(el) {
+  const p = el.parentNode; if (!p) return;
+  while (el.firstChild) p.insertBefore(el.firstChild, el);
+  p.removeChild(el);
 }
 function setEditing(on) {
   editing = on;
@@ -1203,6 +1323,23 @@ $('dv-back').addEventListener('click', () => {
 });
 $('dv-edit').addEventListener('click', () => setEditing(true));
 $('dv-save').addEventListener('click', () => { saveMemo(); setEditing(false); });
+// 상세페이지 왼쪽 끝에서 안쪽으로 슬라이드 → 이전(메모 리스트)로
+(function () {
+  const sheet = $('sheet'); let ex = null, ey = 0;
+  sheet.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; ex = (t.clientX < 26) ? t.clientX : null; ey = t.clientY;
+  }, { passive: true });
+  sheet.addEventListener('touchmove', (e) => {
+    if (ex === null) return;
+    const t = e.touches[0];
+    if (t.clientX - ex > 50 && Math.abs(t.clientY - ey) < 45) {
+      ex = null;
+      if (editing) saveMemo();
+      sheet.classList.add('hidden'); curMemoId = null;
+    }
+  }, { passive: true });
+  sheet.addEventListener('touchend', () => { ex = null; });
+})();
 function saveMemo() {
   const m = (state.memos || []).find((x) => x.id === curMemoId);
   if (!m) return;
@@ -1211,18 +1348,22 @@ function saveMemo() {
   m.updatedAt = Date.now();
   schedulePush(); renderMemos(); renderDrawer();
 }
-// 보기 모드에서 체크리스트(li) 탭 → 완료 토글 / 링크 탭 → 새 탭
+// 보기 모드: 체크리스트 탭 → 완료 토글 / 링크 탭 → 새 탭 / 그 외 탭 → 편집 모드 진입
 $('dv-content').addEventListener('click', (e) => {
   if (editing) return;
-  const a = e.target.closest && e.target.closest('.link');
-  if (a) { window.open(a.dataset.href || a.textContent.trim(), '_blank'); return; }
+  const a = e.target.closest && e.target.closest('.link, a');
+  if (a) { window.open(linkHref(a), '_blank'); return; }
   const li = e.target.closest && e.target.closest('ul.md-check > li');
   if (li) {
     li.classList.toggle('done');
     const m = (state.memos || []).find((x) => x.id === curMemoId);
     if (m) { m.content = $('dv-content').innerHTML; m.updatedAt = Date.now(); schedulePush(); renderMemos(); }
+    return;
   }
+  setEditing(true); $('dv-content').focus(); // 편집 버튼 없이 바로 편집
 });
+$('dv-title').addEventListener('click', () => { if (!editing) { setEditing(true); $('dv-title').focus(); } });
+const linkHref = (a) => (a.dataset && a.dataset.href) || a.getAttribute('href') || a.textContent.trim();
 // 글머리: 줄 맨 앞에 -, *, 숫자., ㅁ 입력 후 스페이스 → 목록/체크리스트로 변환
 $('dv-content').addEventListener('beforeinput', (e) => {
   if (!editing) return;
@@ -1291,11 +1432,24 @@ document.addEventListener('visibilitychange', async () => {
   }
 });
 
+/* 상단바+탭 높이를 측정해 검색바가 그 아래에 정확히 고정되도록(안 접히게) */
+function measureHeader() {
+  const top = $('pane-main').querySelector('.top');
+  const tabs = document.querySelector('.tabs');
+  if (!top || !tabs) return;
+  const r = document.documentElement.style;
+  r.setProperty('--top-h', top.offsetHeight + 'px');
+  r.setProperty('--head-h', (top.offsetHeight + tabs.offsetHeight) + 'px');
+}
+window.addEventListener('resize', measureHeader);
+window.addEventListener('orientationchange', () => setTimeout(measureHeader, 200));
+
 /* ── 시작 ── */
 async function start() {
   await pull();
   renderAll(); setTab('todo');
   show('pane-main');
+  measureHeader();
   subscribe();
 }
 paintIcons();
