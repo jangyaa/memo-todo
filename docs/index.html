@@ -30,14 +30,14 @@
   /* ── 상단바 ── */
   .top {
     position:sticky; top:0; z-index:10; background:var(--titlebar); color:#fff;
-    display:flex; align-items:center; gap:8px; padding:10px 14px;
+    display:flex; align-items:center; gap:6px; padding:10px 12px;
     padding-top:calc(10px + env(safe-area-inset-top)); margin-top:calc(-1 * env(safe-area-inset-top));
   }
   .top b { font-size:16px; letter-spacing:-0.01em; }
   .top .sp { flex:1; }
   .top button {
     border:none; background:rgba(255,255,255,0.18); color:#fff; border-radius:9px;
-    min-width:34px; height:32px; font-size:15px; padding:0 10px;
+    min-width:34px; height:32px; font-size:15px; padding:0 9px;
   }
   .tabs { display:flex; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:52px; z-index:9; }
   .tabs button {
@@ -51,23 +51,47 @@
   /* ── 카드 공통 ── */
   .card {
     background:#fff; border-radius:14px; padding:14px 14px 12px; margin-bottom:12px;
-    box-shadow:0 2px 8px rgba(180,150,165,0.12);
+    box-shadow:0 2px 8px rgba(180,150,165,0.12); position:relative;
   }
+  .card.dim { opacity:0.55; }
   .card h3 { font-size:15px; margin-bottom:8px; word-break:break-word; }
   .pin { color:var(--pink-deep); font-size:12px; margin-right:4px; }
 
   /* ── 투두 ── */
-  .item { display:flex; align-items:flex-start; gap:9px; padding:6px 0; }
+  .item { display:flex; align-items:flex-start; gap:9px; padding:6px 0; position:relative; }
+  .item.dragging { background:var(--pink-soft); border-radius:8px; }
   .item input[type=checkbox] {
     width:19px; height:19px; margin-top:1px; accent-color:var(--pink-deep); flex-shrink:0;
   }
   .item .txt { flex:1; border:none; background:transparent; font-size:14px; color:var(--ink);
     outline:none; word-break:break-word; min-height:20px; }
   .item.done .txt { color:var(--ink-soft); text-decoration:line-through; }
-  .item .prog { font-size:11px; color:var(--ink-soft); flex-shrink:0; margin-top:3px; }
-  .add-line { border:none; background:transparent; color:var(--ink-soft); font-size:13px; padding:6px 0 0; }
+  .item-x {
+    display:none; flex-shrink:0; width:22px; height:22px; border:none; border-radius:50%;
+    background:#e5b7b7; color:#fff; font-size:13px; line-height:22px; padding:0; margin-top:0;
+  }
+  .item.armed { background:var(--pink-soft); border-radius:8px; }
+  .item.armed .item-x { display:block; }
+  /* 진행도 바 */
+  .prog-wrap { display:flex; align-items:center; gap:8px; margin:8px 2px 2px; }
+  .prog-bar { flex:1; height:7px; border-radius:4px; background:var(--line); overflow:hidden; }
+  .prog-fill { height:100%; background:var(--pink-deep); border-radius:4px; transition:width 0.25s; }
+  .prog-num { font-size:11px; color:var(--ink-soft); flex-shrink:0; min-width:30px; text-align:right; }
+  /* 세부항목 추가 라인 */
+  .add-line {
+    display:block; width:100%; border:none; background:transparent; color:var(--pink-deep);
+    font-size:20px; font-weight:700; padding:8px 0 2px; margin-top:4px;
+    border-top:1px dashed var(--line); text-align:center; line-height:1;
+  }
 
   /* ── 메모 목록 ── */
+  .search-bar {
+    position:sticky; top:88px; z-index:8; background:var(--bg); padding:2px 0 10px;
+  }
+  .search-bar input {
+    width:100%; border:1px solid var(--line); border-radius:20px; background:#fff;
+    padding:9px 14px; font-size:14px; outline:none; font-family:inherit;
+  }
   .memo-row { display:flex; align-items:center; gap:10px; }
   .memo-row .sq { width:14px; height:14px; border-radius:5px; flex-shrink:0; }
   .memo-row .m-title { font-weight:700; font-size:14px; flex:1; word-break:break-word; }
@@ -76,7 +100,19 @@
   .m-tags { margin-top:8px; display:flex; flex-wrap:wrap; gap:5px; }
   .m-tags span { font-size:11px; color:var(--ink-soft); background:var(--pink-soft);
     border-radius:20px; padding:2px 9px; }
-  .folder-label { font-size:12px; color:var(--ink-soft); margin:14px 4px 8px; font-weight:700; }
+
+  /* ── 하단 해시태그 필터 바 ── */
+  .tag-bar {
+    position:fixed; left:0; right:0; bottom:0; z-index:15; background:#fff;
+    border-top:1px solid var(--line); display:flex; gap:7px; overflow-x:auto;
+    padding:9px 12px calc(9px + env(safe-area-inset-bottom)); -webkit-overflow-scrolling:touch;
+  }
+  .tag-bar::-webkit-scrollbar { display:none; }
+  .tag-bar button {
+    flex-shrink:0; border:1px solid var(--line); background:var(--pink-soft); color:var(--ink-soft);
+    border-radius:20px; padding:6px 13px; font-size:12.5px; white-space:nowrap;
+  }
+  .tag-bar button.on { background:var(--pink-deep); border-color:var(--pink-deep); color:#fff; }
 
   /* ── 메모 상세 ── */
   .sheet {
@@ -107,6 +143,37 @@
   }
   .dv-tags { margin-top:22px; padding-top:10px; border-top:1px solid var(--line); }
 
+  /* ── 인덱스 드로어 ── */
+  .scrim { position:fixed; inset:0; z-index:34; background:rgba(70,60,68,0.28); }
+  .drawer {
+    position:fixed; top:0; left:0; bottom:0; z-index:35; width:80%; max-width:320px;
+    background:var(--bg); box-shadow:2px 0 18px rgba(120,100,115,0.25);
+    transform:translateX(-100%); transition:transform 0.22s ease; overflow-y:auto;
+    -webkit-overflow-scrolling:touch; padding-top:env(safe-area-inset-top);
+  }
+  .drawer.open { transform:translateX(0); }
+  .drawer-head { background:var(--titlebar); color:#fff; padding:14px 16px; font-weight:700; font-size:15px; }
+  .drawer-list { padding:8px 6px 30px; }
+  .dw-folder { font-size:12px; color:var(--ink-soft); font-weight:700; margin:12px 10px 4px; }
+  .dw-item { display:flex; align-items:center; gap:9px; padding:10px 12px; border-radius:9px; }
+  .dw-item:active { background:var(--pink-soft); }
+  .dw-item .sq { width:11px; height:11px; border-radius:4px; flex-shrink:0; }
+  .dw-item .t { font-size:14px; flex:1; word-break:break-word; }
+
+  /* ── 컨텍스트 메뉴 ── */
+  .ctx-menu {
+    position:fixed; z-index:50; background:#fff; border-radius:12px; min-width:170px;
+    box-shadow:0 8px 26px rgba(110,90,105,0.28); overflow:hidden; padding:5px;
+  }
+  .ctx-item {
+    display:block; width:100%; border:none; background:transparent; text-align:left;
+    padding:11px 12px; font-size:14px; color:var(--ink); border-radius:8px;
+  }
+  .ctx-item:active { background:var(--pink-soft); }
+  .ctx-item.danger { color:#c66; }
+  .ctx-colors { display:flex; gap:7px; padding:9px 10px; }
+  .ctx-sw { width:26px; height:26px; border-radius:50%; border:2px solid; padding:0; }
+
   /* ── 로그인/설정 ── */
   .auth { max-width:400px; margin:0 auto; padding:46px 24px; }
   .auth h1 { font-size:20px; color:var(--pink-deep); margin-bottom:6px; }
@@ -128,10 +195,11 @@
     width:52px; height:52px; border:none; border-radius:50%; background:var(--pink-deep);
     color:#fff; font-size:26px; box-shadow:0 4px 14px rgba(170,140,155,0.4);
   }
+  .fab.raised { bottom:calc(72px + env(safe-area-inset-bottom)); }
   .toast {
     position:fixed; left:50%; transform:translateX(-50%); bottom:calc(80px + env(safe-area-inset-bottom));
     background:rgba(85,80,85,0.92); color:#fff; font-size:13px; border-radius:20px;
-    padding:8px 16px; z-index:40; opacity:0; transition:opacity 0.25s; pointer-events:none;
+    padding:8px 16px; z-index:60; opacity:0; transition:opacity 0.25s; pointer-events:none;
   }
   .toast.on { opacity:1; }
 </style>
@@ -162,7 +230,9 @@
 <!-- 3) 메인 -->
 <div id="pane-main" class="hidden">
   <div class="top">
+    <button id="bt-menu" title="목차">☰</button>
     <b>Memo Todo</b><span class="sp"></span>
+    <button id="bt-theme" title="테마 색상">🎨</button>
     <button id="bt-refresh" title="새로고침">↻</button>
     <button id="bt-logout" title="로그아웃">⎋</button>
   </div>
@@ -172,9 +242,13 @@
   </div>
   <div class="wrap">
     <div id="list-todo"></div>
-    <div id="list-memo" class="hidden"></div>
+    <div id="memo-view" class="hidden">
+      <div class="search-bar"><input id="memo-search" placeholder="🔍 메모 검색" autocapitalize="off" /></div>
+      <div id="list-memo"></div>
+    </div>
   </div>
   <button class="fab" id="bt-add">＋</button>
+  <div id="tag-bar" class="tag-bar hidden"></div>
 </div>
 
 <!-- 4) 메모 상세/편집 -->
@@ -191,16 +265,49 @@
   </div>
 </div>
 
+<!-- 5) 인덱스 드로어 -->
+<div id="drawer" class="drawer">
+  <div class="drawer-head">🗂 목차</div>
+  <div class="drawer-list" id="drawer-list"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 'use strict';
 /* Memo Todo 모바일 웹앱 — PC 앱과 같은 Supabase(app_state 한 행)를 읽고 씀.
- * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델. */
+ * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델.
+ * 테마 색상만은 기기별(localStorage 'mt-theme')로 따로 저장돼 PC와 무관하게 동작. */
 const $ = (id) => document.getElementById(id);
 let client = null, user = null, state = null, remoteTs = 0, lastPushedAt = 0;
 let curMemoId = null, editing = false, pushTimer = null;
+let curTab = 'todo', memoQuery = '', activeTags = new Set();
+
+/* ── 테마(기기별) ── */
+const THEMES = {
+  pink:     { name:'핑크',   bg:'#faf8f9', deep:'#cdb0bb', bar:['#cdb6c0','#c4abb6'], soft:'#f7f2f4', pink:'#edd9e0' },
+  lavender: { name:'라벤더', bg:'#f9f8fb', deep:'#a99bc9', bar:['#bcb0d6','#b0a3cd'], soft:'#f3f1f7', pink:'#e2dcef' },
+  mint:     { name:'민트',   bg:'#f7faf8', deep:'#8ab892', bar:['#a6cbab','#98bf9e'], soft:'#eef5ef', pink:'#d8ecdb' },
+  sky:      { name:'하늘',   bg:'#f7f9fb', deep:'#8aabc8', bar:['#a6c3da','#98b8d1'], soft:'#eef3f8', pink:'#d9e6f1' },
+  butter:   { name:'버터',   bg:'#fbf9f5', deep:'#c9b183', bar:['#d8c6a1','#cfba93'], soft:'#f8f3ec', pink:'#efe3cd' },
+  gray:     { name:'그레이', bg:'#f8f8f9', deep:'#a29aa4', bar:['#b7afb9','#a9a2ab'], soft:'#f2f1f3', pink:'#e3dfe5' }
+};
+function applyTheme(key) {
+  const t = THEMES[key] || THEMES.pink;
+  const r = document.documentElement.style;
+  r.setProperty('--bg', t.bg);
+  r.setProperty('--pink-deep', t.deep);
+  r.setProperty('--pink-soft', t.soft);
+  r.setProperty('--pink', t.pink);
+  r.setProperty('--titlebar', 'linear-gradient(180deg,' + t.bar[0] + ',' + t.bar[1] + ')');
+  try {
+    const m = document.querySelector('meta[name=theme-color]');
+    if (m) m.setAttribute('content', t.bar[0]);
+  } catch (_) {}
+}
+function saveTheme(key) { try { localStorage.setItem('mt-theme', key); } catch (_) {} applyTheme(key); }
+applyTheme((function () { try { return localStorage.getItem('mt-theme'); } catch (_) { return null; } })() || 'pink');
 
 /* ── 화면 전환 ── */
 function show(pane) {
@@ -287,11 +394,10 @@ function subscribe() {
 
 /* ── 유틸 ── */
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
-  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const plain = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent || ''; };
-const accent = (m) => 'var(--a' + (String(m.color || '').match(/\d/) ? String(m.color).match(/\d/)[0] : 0) + ')';
-const blockBg = (m) => 'var(--c' + (String(m.color || '').match(/\d/) ? String(m.color).match(/\d/)[0] : 0) + ')';
+const cidx = (m) => { const g = String(m && m.color || '').match(/\d/); return g ? g[0] : '0'; };
+const accent = (m) => 'var(--a' + cidx(m) + ')';
+const blockBg = (m) => 'var(--c' + cidx(m) + ')';
 // PC 본 창과 같은 나열 순서: 고정 → 폴더순 → 루즈
 function memosInOrder() {
   const folders = state.folders || [], memos = state.memos || [];
@@ -304,11 +410,94 @@ function memosInOrder() {
   return out;
 }
 
+/* ── 롱프레스 헬퍼 (터치 꾹 누르기 + 데스크톱 우클릭 폴백) ── */
+function addLongPress(el, fn, ms) {
+  ms = ms || 440;
+  let timer = null, sx = 0, sy = 0;
+  const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  el.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+    clear(); timer = setTimeout(() => { timer = null; fn(sx, sy); }, ms);
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) clear();
+  }, { passive: true });
+  el.addEventListener('touchend', clear);
+  el.addEventListener('touchcancel', clear);
+  el.addEventListener('contextmenu', (e) => { e.preventDefault(); fn(e.clientX || sx, e.clientY || sy); });
+}
+
+/* ── 컨텍스트 메뉴 ── */
+function closeMenu() { const m = $('ctx-menu'); if (m) m.remove(); }
+function openMenu(x, y, rows) {
+  closeMenu();
+  const menu = document.createElement('div'); menu.className = 'ctx-menu'; menu.id = 'ctx-menu';
+  menu.addEventListener('click', (e) => e.stopPropagation());
+  rows.forEach((r) => {
+    if (r.colors) {
+      const cw = document.createElement('div'); cw.className = 'ctx-colors';
+      for (let i = 0; i < 6; i++) {
+        const sw = document.createElement('button');
+        sw.className = 'ctx-sw'; sw.style.background = 'var(--c' + i + ')'; sw.style.borderColor = 'var(--a' + i + ')';
+        sw.addEventListener('click', ((idx) => () => { r.onpick(idx); closeMenu(); })(i));
+        cw.appendChild(sw);
+      }
+      menu.appendChild(cw);
+    } else {
+      const b = document.createElement('button');
+      b.className = 'ctx-item' + (r.danger ? ' danger' : ''); b.textContent = r.label;
+      b.addEventListener('click', () => { r.onclick(); closeMenu(); });
+      menu.appendChild(b);
+    }
+  });
+  document.body.appendChild(menu);
+  const mw = menu.offsetWidth || 180, mh = menu.offsetHeight || 160;
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - mw - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - mh - 8)) + 'px';
+  setTimeout(() => document.addEventListener('click', closeMenu, { once: true }), 0);
+}
+function themeMenu(x, y) {
+  closeMenu();
+  const menu = document.createElement('div'); menu.className = 'ctx-menu'; menu.id = 'ctx-menu';
+  menu.addEventListener('click', (e) => e.stopPropagation());
+  Object.keys(THEMES).forEach((key) => {
+    const b = document.createElement('button'); b.className = 'ctx-item';
+    const dot = document.createElement('span');
+    dot.style.cssText = 'display:inline-block;width:16px;height:16px;border-radius:50%;margin-right:9px;vertical-align:-3px;background:' + THEMES[key].deep;
+    b.appendChild(dot); b.appendChild(document.createTextNode(THEMES[key].name));
+    b.addEventListener('click', () => { saveTheme(key); closeMenu(); toast('테마: ' + THEMES[key].name); });
+    menu.appendChild(b);
+  });
+  document.body.appendChild(menu);
+  const mw = menu.offsetWidth || 180, mh = menu.offsetHeight || 240;
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - mw - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - mh - 8)) + 'px';
+  setTimeout(() => document.addEventListener('click', closeMenu, { once: true }), 0);
+}
+$('bt-theme').addEventListener('click', (e) => themeMenu(e.clientX || window.innerWidth - 90, (e.clientY || 40) + 8));
+
+/* 블럭(투두/메모) 공통 메뉴: 상단 고정 / 색상 / 삭제 */
+function blockMenuRows(obj, list, afterRender) {
+  return [
+    { label: obj.pinned ? '상단 고정 해제' : '상단 고정', onclick: () => {
+      obj.pinned = !obj.pinned; obj.pinnedAt = obj.pinned ? Date.now() : 0; schedulePush(); afterRender();
+    } },
+    { colors: true, onpick: (i) => { obj.color = 'var(--c' + i + ')'; schedulePush(); afterRender(); } },
+    { label: '삭제', danger: true, onclick: () => {
+      const arr = state[list] || [];
+      state[list] = arr.filter((x) => x.id !== obj.id);
+      if (list === 'memos' && curMemoId === obj.id) { $('sheet').classList.add('hidden'); curMemoId = null; }
+      schedulePush(); afterRender();
+    } }
+  ];
+}
+
 /* ── 투두 렌더 ── */
 function renderTodos() {
   const root = $('list-todo'); root.innerHTML = '';
   const todos = [
-    ...(state.todos || []).filter((t) => t.pinned),
+    ...(state.todos || []).filter((t) => t.pinned).sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0)),
     ...(state.todos || []).filter((t) => !t.pinned)
   ];
   if (!todos.length) { root.innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:40px 0">할 일이 없어요</p>'; return; }
@@ -318,10 +507,14 @@ function renderTodos() {
     const h = document.createElement('h3');
     if (todo.pinned) h.innerHTML = '<span class="pin">📌</span>';
     h.appendChild(document.createTextNode(todo.title || 'To-do'));
+    // 블럭 제목 꾹 누르기 → 상단 고정/색상/삭제
+    addLongPress(h, (x, y) => openMenu(x, y, blockMenuRows(todo, 'todos', renderTodos)));
     card.appendChild(h);
+
     (todo.items || []).forEach((item) => {
       const row = document.createElement('div');
       row.className = 'item' + (item.done ? ' done' : '');
+      row.dataset.id = item.id;
       const cb = document.createElement('input');
       cb.type = 'checkbox'; cb.checked = !!item.done;
       cb.addEventListener('change', () => { item.done = cb.checked; schedulePush(); renderTodos(); });
@@ -330,16 +523,35 @@ function renderTodos() {
       txt.addEventListener('blur', () => {
         if (txt.innerText !== (item.text || '')) { item.text = txt.innerText; schedulePush(); }
       });
-      row.appendChild(cb); row.appendChild(txt);
-      if (item.progress && item.progress.total) {
-        const p = document.createElement('span');
-        p.className = 'prog'; p.textContent = (item.progress.done || 0) + '/' + item.progress.total;
-        row.appendChild(p);
-      }
+      const xb = document.createElement('button');
+      xb.className = 'item-x'; xb.textContent = '✕';
+      xb.addEventListener('click', (e) => {
+        e.stopPropagation();
+        todo.items = (todo.items || []).filter((it) => it.id !== item.id);
+        schedulePush(); renderTodos();
+      });
+      row.appendChild(cb); row.appendChild(txt); row.appendChild(xb);
+      setupItemGesture(row, card, todo);
       card.appendChild(row);
     });
+
+    // 진행도 바
+    const items = todo.items || [];
+    if (items.length) {
+      const done = items.filter((it) => it.done).length;
+      const pw = document.createElement('div'); pw.className = 'prog-wrap';
+      const bar = document.createElement('div'); bar.className = 'prog-bar';
+      const fill = document.createElement('div'); fill.className = 'prog-fill';
+      fill.style.width = Math.round(done / items.length * 100) + '%';
+      bar.appendChild(fill);
+      const num = document.createElement('span'); num.className = 'prog-num'; num.textContent = done + '/' + items.length;
+      pw.appendChild(bar); pw.appendChild(num);
+      card.appendChild(pw);
+    }
+
+    // 중앙 정렬 + 한 줄: 아무 곳이나 탭하면 세부항목 추가
     const add = document.createElement('button');
-    add.className = 'add-line'; add.textContent = '＋ 세부항목';
+    add.className = 'add-line'; add.textContent = '＋';
     add.addEventListener('click', () => {
       (todo.items = todo.items || []).push({ id: uid(), text: '', done: false });
       schedulePush(); renderTodos();
@@ -349,19 +561,76 @@ function renderTodos() {
   });
 }
 
-/* ── 메모 렌더 ── */
+/* 세부항목 제스처: 꾹 누르면 X(삭제) 노출, 누른 채 움직이면 순서 변경 */
+function setupItemGesture(row, card, todo) {
+  let timer = null, sy = 0, sx = 0, armed = false, dragging = false;
+  const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  const itemRows = () => [...card.querySelectorAll('.item')];
+  row.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; sy = t.clientY; sx = t.clientX; dragging = false;
+    clear(); timer = setTimeout(() => { timer = null; armed = true; armRow(row); }, 420);
+  }, { passive: true });
+  row.addEventListener('touchmove', (e) => {
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (timer) { if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clear(); return; }
+    if (armed && !dragging) { dragging = true; row.classList.add('dragging'); row.classList.remove('armed'); }
+    if (dragging) {
+      e.preventDefault();
+      const y = t.clientY, rs = itemRows(), i = rs.indexOf(row);
+      for (let j = 0; j < rs.length; j++) {
+        if (rs[j] === row) continue;
+        const b = rs[j].getBoundingClientRect();
+        if (y > b.top && y < b.bottom) {
+          if (j < i) card.insertBefore(row, rs[j]);
+          else card.insertBefore(row, rs[j].nextSibling);
+          break;
+        }
+      }
+    }
+  });
+  row.addEventListener('touchend', () => {
+    clear();
+    if (dragging) {
+      dragging = false; armed = false; row.classList.remove('dragging');
+      const order = itemRows().map((r) => r.dataset.id);
+      todo.items = order.map((id) => (todo.items || []).find((it) => it.id === id)).filter(Boolean);
+      schedulePush(); renderTodos();
+    }
+  });
+  row.addEventListener('touchcancel', () => { clear(); if (dragging) { dragging = false; row.classList.remove('dragging'); } });
+}
+function armRow(row) {
+  [...document.querySelectorAll('.item.armed')].forEach((r) => { if (r !== row) r.classList.remove('armed'); });
+  row.classList.add('armed');
+}
+// 다른 곳을 터치하면 X 상태 해제
+document.addEventListener('touchstart', (e) => {
+  if (!e.target.closest || !e.target.closest('.item.armed')) {
+    [...document.querySelectorAll('.item.armed')].forEach((r) => r.classList.remove('armed'));
+  }
+}, { passive: true });
+
+/* ── 메모 목록(파일명/폴더 라벨 없이) ── */
+function filteredMemoRows() {
+  let rows = memosInOrder();
+  if (memoQuery) {
+    const q = memoQuery.toLowerCase();
+    rows = rows.filter(({ m }) => (plain(m.title) + ' ' + plain(m.content)).toLowerCase().indexOf(q) >= 0);
+  }
+  if (activeTags.size) {
+    rows = rows.filter(({ m }) => (m.tags || []).some((t) => activeTags.has(t)));
+  }
+  return rows;
+}
 function renderMemos() {
   const root = $('list-memo'); root.innerHTML = '';
-  const rows = memosInOrder();
-  if (!rows.length) { root.innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:40px 0">메모가 없어요</p>'; return; }
-  let lastLabel = null;
-  rows.forEach(({ m, label }) => {
-    if (label !== lastLabel && label) {
-      const fl = document.createElement('div');
-      fl.className = 'folder-label'; fl.textContent = '📁 ' + label;
-      root.appendChild(fl);
-    }
-    lastLabel = label;
+  const rows = filteredMemoRows();
+  if (!rows.length) {
+    const msg = (memoQuery || activeTags.size) ? '조건에 맞는 메모가 없어요' : '메모가 없어요';
+    root.innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:40px 0">' + msg + '</p>';
+    return;
+  }
+  rows.forEach(({ m }) => {
     const card = document.createElement('div');
     card.className = 'card'; card.style.background = blockBg(m);
     const row = document.createElement('div'); row.className = 'memo-row';
@@ -381,10 +650,84 @@ function renderMemos() {
       card.appendChild(tg);
     }
     card.addEventListener('click', () => openMemo(m.id, true));
+    // 메모 블럭 꾹 누르기 → 상단 고정/색상/삭제
+    addLongPress(card, (x, y) => openMenu(x, y, blockMenuRows(m, 'memos', () => { renderMemos(); renderDrawer(); })));
     root.appendChild(card);
   });
 }
-function renderAll() { renderTodos(); renderMemos(); }
+function allTags() {
+  const set = new Set();
+  (state.memos || []).forEach((m) => (m.tags || []).forEach((t) => set.add(t)));
+  return [...set];
+}
+function renderTagBar() {
+  const bar = $('tag-bar'); bar.innerHTML = '';
+  const tags = allTags();
+  bar.classList.toggle('hidden', curTab !== 'memo' || !tags.length);
+  if (curTab !== 'memo' || !tags.length) { $('bt-add').classList.remove('raised'); return; }
+  $('bt-add').classList.add('raised');
+  tags.forEach((t) => {
+    const b = document.createElement('button');
+    b.textContent = '#' + t; b.className = activeTags.has(t) ? 'on' : '';
+    b.addEventListener('click', () => {
+      if (activeTags.has(t)) activeTags.delete(t); else activeTags.add(t);
+      renderMemos(); renderTagBar();
+    });
+    bar.appendChild(b);
+  });
+}
+function renderAll() { renderTodos(); renderMemos(); renderTagBar(); renderDrawer(); }
+
+$('memo-search').addEventListener('input', (e) => { memoQuery = e.target.value.trim(); renderMemos(); });
+
+/* ── 인덱스 드로어 ── */
+function openDrawer() { renderDrawer(); $('drawer').classList.add('open'); ensureScrim(); }
+function closeDrawer() { $('drawer').classList.remove('open'); const s = $('drawer-scrim'); if (s) s.remove(); }
+function ensureScrim() {
+  if ($('drawer-scrim')) return;
+  const s = document.createElement('div'); s.id = 'drawer-scrim'; s.className = 'scrim';
+  s.addEventListener('click', closeDrawer);
+  document.body.appendChild(s);
+}
+function renderDrawer() {
+  const root = $('drawer-list'); if (!root) return;
+  root.innerHTML = '';
+  const rows = memosInOrder();
+  if (!rows.length) { root.innerHTML = '<p style="color:var(--ink-soft);padding:20px 14px">메모가 없어요</p>'; return; }
+  let lastLabel = ' ';
+  rows.forEach(({ m, label }) => {
+    if (label !== lastLabel) {
+      lastLabel = label;
+      if (label) { const fl = document.createElement('div'); fl.className = 'dw-folder'; fl.textContent = '📁 ' + label; root.appendChild(fl); }
+    }
+    const it = document.createElement('div'); it.className = 'dw-item';
+    const sq = document.createElement('span'); sq.className = 'sq'; sq.style.background = accent(m);
+    const t = document.createElement('div'); t.className = 't';
+    t.textContent = (m.pinned ? '📌 ' : '') + (plain(m.title).trim() || '제목 없음');
+    it.appendChild(sq); it.appendChild(t);
+    it.addEventListener('click', () => { closeDrawer(); setTab('memo'); openMemo(m.id, true); });
+    // 인덱스 항목 꾹 누르기 → 우클릭과 같은 메뉴(고정/색상/삭제)
+    addLongPress(it, (x, y) => openMenu(x, y, blockMenuRows(m, 'memos', () => { renderMemos(); renderDrawer(); })));
+    root.appendChild(it);
+  });
+}
+$('bt-menu').addEventListener('click', openDrawer);
+// 화면 왼쪽 경계에서 안쪽으로 슬라이드 → 드로어 열기
+(function () {
+  let edge = null;
+  document.addEventListener('touchstart', (e) => {
+    if ($('pane-main').classList.contains('hidden')) { edge = null; return; }
+    if (!$('sheet').classList.contains('hidden')) { edge = null; return; }
+    const t = e.touches[0];
+    edge = (t.clientX < 24) ? { x: t.clientX, y: t.clientY } : null;
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!edge) return;
+    const t = e.touches[0];
+    if (t.clientX - edge.x > 48 && Math.abs(t.clientY - edge.y) < 45) { openDrawer(); edge = null; }
+  }, { passive: true });
+  document.addEventListener('touchend', () => { edge = null; });
+})();
 
 /* ── 메모 상세/편집 ── */
 function openMemo(id, showSheet) {
@@ -418,7 +761,7 @@ function saveMemo() {
   m.title = $('dv-title').innerHTML;
   m.content = $('dv-content').innerHTML;
   m.updatedAt = Date.now();
-  schedulePush(); renderMemos();
+  schedulePush(); renderMemos(); renderDrawer();
 }
 // 보기 모드에서 체크리스트(li) 탭 → 완료 토글 / 링크 탭 → 새 탭
 $('dv-content').addEventListener('click', (e) => {
@@ -434,25 +777,25 @@ $('dv-content').addEventListener('click', (e) => {
 });
 
 /* ── 탭/추가/새로고침 ── */
-let curTab = 'todo';
 function setTab(t) {
   curTab = t;
   $('tab-todo').classList.toggle('on', t === 'todo');
   $('tab-memo').classList.toggle('on', t === 'memo');
   $('list-todo').classList.toggle('hidden', t !== 'todo');
-  $('list-memo').classList.toggle('hidden', t !== 'memo');
+  $('memo-view').classList.toggle('hidden', t !== 'memo');
+  renderTagBar();
 }
 $('tab-todo').addEventListener('click', () => setTab('todo'));
 $('tab-memo').addEventListener('click', () => setTab('memo'));
 $('bt-add').addEventListener('click', () => {
   if (curTab === 'todo') {
-    (state.todos = state.todos || []).push({ id: uid(), title: '', color: 'var(--c0)', items: [{ id: uid(), text: '', done: false }] });
+    (state.todos = state.todos || []).push({ id: uid(), title: '', color: 'var(--c0)', pinned: false, items: [{ id: uid(), text: '', done: false }] });
     schedulePush(); renderTodos();
   } else {
     const m = { id: uid(), title: '', content: '', tags: [], color: 'var(--c0)', folderId: null,
       pinned: false, pinnedAt: 0, createdAt: Date.now(), updatedAt: Date.now() };
     (state.memos = state.memos || []).push(m);
-    schedulePush(); renderMemos(); openMemo(m.id, true); setEditing(true);
+    schedulePush(); renderMemos(); renderDrawer(); openMemo(m.id, true); setEditing(true);
   }
 });
 $('bt-refresh').addEventListener('click', async () => {

@@ -1,6 +1,6 @@
 {
   "name": "memo-todo",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "스티커 메모 스타일의 투두리스트 + 메모 결합 데스크톱 앱",
   "main": "main.js",
   "author": "",
