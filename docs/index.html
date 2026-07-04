@@ -25,7 +25,7 @@
     font-family:'Apple SD Gothic Neo','Pretendard','Malgun Gothic',sans-serif;
     background:var(--bg); color:var(--ink); font-size:15px;
     padding-top:env(safe-area-inset-top);
-    -webkit-user-select:none; user-select:none;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   }
   /* 편집 중(입력창/편집영역)에서만 텍스트 선택 허용 */
   input, textarea, [contenteditable="true"] { -webkit-user-select:text; user-select:text; }
@@ -64,8 +64,8 @@
     box-shadow:0 2px 8px rgba(180,150,165,0.12); position:relative;
   }
   .card h3 { font-size:15px; margin-bottom:8px; word-break:break-word; }
-  .pin { color:var(--pink-deep); margin-right:5px; }
-  .pin .ic { width:0.82em; height:0.82em; }
+  .pin { color:var(--pink-deep); margin-right:6px; }
+  .pin .ic { width:1.2em; height:1.2em; vertical-align:-0.24em; }
 
   /* ── D-DAY ── */
   .dday-block {
@@ -80,18 +80,40 @@
   .add-line .ic { width:20px; height:20px; }
   .dday-empty { font-size:12.5px; color:var(--ink-soft); padding:4px 2px; }
   .dday-item { display:flex; align-items:center; gap:10px; padding:5px 0; }
-  .dday-badge { position:relative; min-width:52px; text-align:center; font-weight:700; font-size:12.5px;
-    color:var(--pink-deep); background:var(--pink-soft); border-radius:8px; padding:5px 8px; }
+  .dday-badge { min-width:52px; text-align:center; font-weight:700; font-size:12.5px; border:none;
+    color:var(--pink-deep); background:var(--pink-soft); border-radius:8px; padding:6px 8px; }
   .dday-badge.today { color:#c67; }
   .dday-badge.past { color:var(--ink-soft); }
-  .dday-date { position:absolute; inset:0; opacity:0; width:100%; height:100%; border:none; }
   .dday-name { flex:1; border:none; background:transparent; font-size:14px; color:var(--ink);
     outline:none; min-width:0; }
   .dday-del { border:none; background:transparent; color:var(--ink-soft); width:24px; height:24px;
     display:inline-flex; align-items:center; justify-content:center; }
 
+  /* 예쁜 달력 모달 */
+  .cal-overlay { position:fixed; inset:0; z-index:55; background:rgba(70,60,68,0.32);
+    display:none; align-items:center; justify-content:center; padding:24px; }
+  .cal-overlay.open { display:flex; }
+  .cal { background:#fff; border-radius:18px; width:100%; max-width:320px; padding:16px 16px 12px;
+    box-shadow:0 12px 34px rgba(110,90,105,0.32); }
+  .cal-top { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .cal-title { flex:1; text-align:center; font-weight:700; font-size:15px; color:var(--ink); }
+  .cal-nav { border:none; background:var(--pink-soft); color:var(--pink-deep); width:32px; height:32px;
+    border-radius:9px; display:inline-flex; align-items:center; justify-content:center; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .cal-dow { text-align:center; font-size:11px; color:var(--ink-soft); padding:4px 0; }
+  .cal-day { aspect-ratio:1; border:none; background:transparent; color:var(--ink); font-size:13px;
+    border-radius:9px; display:flex; align-items:center; justify-content:center; }
+  .cal-day.other { color:#d7d2d6; }
+  .cal-day.today { box-shadow:inset 0 0 0 1.5px var(--pink-deep); font-weight:700; }
+  .cal-day.sel { background:var(--pink-deep); color:#fff; font-weight:700; }
+  .cal-foot { display:flex; gap:8px; margin-top:12px; }
+  .cal-foot button { flex:1; border:none; border-radius:10px; padding:11px; font-size:14px; font-weight:700; }
+  .cal-cancel { background:var(--pink-soft); color:var(--ink-soft); }
+  .cal-ok { background:var(--pink-deep); color:#fff; }
+
   /* ── 투두 ── */
-  .item { display:flex; align-items:flex-start; gap:9px; padding:6px 0; position:relative; }
+  .item { position:relative; overflow:hidden; }
+  .item-inner { display:flex; align-items:flex-start; gap:9px; padding:6px 0; transition:transform 0.18s; }
   .item.dragging { background:var(--pink-soft); border-radius:8px; }
   .item input[type=checkbox] {
     width:19px; height:19px; margin-top:1px; accent-color:var(--pink-deep); flex-shrink:0;
@@ -100,12 +122,12 @@
     outline:none; word-break:break-word; min-height:20px; }
   .item.done .txt { color:var(--ink-soft); text-decoration:line-through; }
   .item-x {
-    display:none; flex-shrink:0; width:22px; height:22px; border:none; border-radius:50%;
-    background:#e5b7b7; color:#fff; padding:0; align-items:center; justify-content:center;
+    position:absolute; right:0; top:0; bottom:0; width:52px; border:none; border-radius:8px;
+    background:#e0a6a6; color:#fff; padding:0; opacity:0; transition:opacity 0.15s;
+    display:flex; align-items:center; justify-content:center;
   }
-  .item-x .ic { width:12px; height:12px; }
-  .item.armed { background:var(--pink-soft); border-radius:8px; }
-  .item.armed .item-x { display:inline-flex; }
+  .item.revealed .item-x { opacity:1; }
+  .item-x .ic { width:16px; height:16px; }
   /* 진행도 바 (제목 바로 아래) */
   .prog-wrap { display:flex; align-items:center; gap:8px; margin:0 2px 10px; }
   .prog-bar { flex:1; height:7px; border-radius:4px; background:var(--line); overflow:hidden; }
@@ -129,9 +151,18 @@
     width:100%; border:1px solid var(--line); border-radius:20px; background:#fff;
     padding:9px 14px 9px 38px; font-size:14px; outline:none; font-family:inherit;
   }
-  .memo-row { display:flex; align-items:center; gap:10px; }
-  .memo-row .sq { width:14px; height:14px; border-radius:5px; flex-shrink:0; }
+  .memo-row { display:flex; align-items:center; gap:6px; }
   .memo-row .m-title { font-weight:700; font-size:14px; flex:1; word-break:break-word; }
+  /* 메모 카드 스와이프(왼쪽:색상·삭제 / 오른쪽:상단고정) */
+  .mcard { overflow:hidden; padding:0; }
+  .mcard .card-inner { padding:14px 14px 12px; border-radius:14px; transition:transform 0.18s;
+    position:relative; z-index:1; }
+  .card-actions { position:absolute; top:0; right:0; bottom:0; display:flex; z-index:0; }
+  .card-actions button { width:56px; border:none; color:#fff; display:flex; align-items:center; justify-content:center; }
+  .card-actions .act-color { background:#c1a6bd; }
+  .card-actions .act-del { background:#e0a6a6; }
+  .card-actions .ic { width:20px; height:20px; }
+  .mcard.revealed .card-inner { transform:translateX(-112px); }
   .memo-prev { font-size:12.5px; color:var(--ink-soft); margin-top:6px;
     overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .m-tags { margin-top:8px; display:flex; flex-wrap:wrap; gap:5px; }
@@ -192,14 +223,17 @@
   .drawer-head { background:var(--titlebar); color:#fff; padding:14px 16px; font-weight:700; font-size:15px;
     display:flex; align-items:center; gap:8px; }
   .drawer-list { padding:8px 6px 30px; }
-  .dw-folder { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft);
-    font-weight:700; margin:12px 10px 4px; }
+  .dw-folder { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink-soft);
+    font-weight:700; margin:14px 10px 5px; }
+  .dw-folder .ic { width:18px; height:18px; color:var(--pink-deep); }
   .dw-fname { flex:1; word-break:break-word; }
   .dw-eye { border:none; background:transparent; color:var(--ink-soft); padding:2px 4px;
     display:inline-flex; align-items:center; }
-  .dw-item { display:flex; align-items:center; gap:9px; padding:10px 12px; border-radius:9px; }
+  .dw-eye .ic { width:18px; height:18px; }
+  .dw-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:9px; }
   .dw-item:active { background:var(--pink-soft); }
-  .dw-item .sq { width:11px; height:11px; border-radius:4px; flex-shrink:0; }
+  .dw-item .dw-ic { color:var(--pink-deep); flex-shrink:0; }
+  .dw-item .dw-ic .ic { width:17px; height:17px; }
   .dw-item .t { font-size:14px; flex:1; word-break:break-word; }
 
   /* ── 컨텍스트 메뉴 ── */
@@ -312,6 +346,22 @@
   <div class="drawer-list" id="drawer-list"></div>
 </div>
 
+<!-- 6) 예쁜 달력 모달 -->
+<div id="cal-overlay" class="cal-overlay">
+  <div class="cal">
+    <div class="cal-top">
+      <button class="cal-nav" id="cal-prev">‹</button>
+      <div class="cal-title" id="cal-title"></div>
+      <button class="cal-nav" id="cal-next">›</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-foot">
+      <button class="cal-cancel" id="cal-cancel">취소</button>
+      <button class="cal-ok" id="cal-ok">확인</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -320,7 +370,7 @@
 /* Memo Todo 모바일 웹앱 — PC 앱과 같은 Supabase(app_state 한 행)를 읽고 씀.
  * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델.
  * 테마 색상만은 기기별(localStorage 'mt-theme')로 따로 저장돼 PC와 무관하게 동작. */
-const BUILD = 'v6 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
+const BUILD = 'v7 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
 const $ = (id) => document.getElementById(id);
 let client = null, user = null, state = null, remoteTs = 0, lastPushedAt = 0;
 let curMemoId = null, editing = false, pushTimer = null;
@@ -331,7 +381,7 @@ const ICONS = {
   pin: '<path d="M9 3h6M12 9v9M8 9h8l-1.2-4.2a1 1 0 0 0-1-.8h-3.6a1 1 0 0 0-1 .8L8 9z"/>',
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
-  palette: '<circle cx="13.5" cy="6.5" r="1.3"/><circle cx="17.5" cy="10.5" r="1.3"/><circle cx="8.5" cy="7.5" r="1.3"/><circle cx="6.5" cy="12.5" r="1.3"/><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 9 9 0 0 0-11-8z"/>',
+  palette: '<path d="M12 3.4c3.4 3.7 5.6 6.9 5.6 9.6a5.6 5.6 0 0 1-11.2 0C6.4 10.3 8.6 7.1 12 3.4z"/>',
   heart: '<path d="M12 20s-7-4.6-9.3-9A5 5 0 0 1 12 6.5 5 5 0 0 1 21.3 11c-2.3 4.4-9.3 9-9.3 9z"/>',
   eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff: '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.2A9.9 9.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.1 3.9M6.2 6.2A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 3-.5"/>',
@@ -339,7 +389,8 @@ const ICONS = {
   refresh: '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
   back: '<path d="M15 5l-7 7 7 7"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>'
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  memo: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8.5 12.5h7M8.5 16h5"/>'
 };
 const svg = (name) => '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
 function iconEl(name, cls) {
@@ -353,7 +404,7 @@ function paintIcons() {
   $('bt-add').innerHTML = svg('plus');
   $('dv-back').innerHTML = svg('back');
   $('search-ic').innerHTML = svg('search');
-  $('drawer-head').innerHTML = svg('folder') + '<span>목차</span>'
+  $('drawer-head').innerHTML = '<span>List</span>'
     + '<span style="margin-left:auto;font-size:11px;font-weight:400;opacity:0.7">' + BUILD + '</span>';
   [...document.querySelectorAll('.brand')].forEach((h) => {
     const t = h.textContent; h.innerHTML = svg('heart') + '<span>' + t + '</span>';
@@ -485,6 +536,16 @@ function memosInOrder() {
 }
 const folderOf = (m) => (state.folders || []).find((f) => f.id === m.folderId) || null;
 const hiddenFolder = (m) => { const f = folderOf(m); return !!(f && f.collapsed); };
+// 목차(인덱스)용 순서: 고정 메모를 위로 끌어올리지 않고, 폴더 순서대로 그대로
+function memosInFolderOrder() {
+  const folders = state.folders || [], memos = state.memos || [];
+  const inFolder = (m) => m.folderId && folders.some((f) => f.id === m.folderId);
+  const out = [];
+  folders.forEach((f) => memos.filter((m) => m.folderId === f.id)
+    .forEach((m) => out.push({ m, label: f.name || '폴더' })));
+  memos.filter((m) => !inFolder(m)).forEach((m) => out.push({ m, label: null }));
+  return out;
+}
 
 /* ── 롱프레스 헬퍼 (터치 꾹 누르기 + 데스크톱 우클릭 폴백) ── */
 function addLongPress(el, fn, ms) {
@@ -600,6 +661,51 @@ function todayIso() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+
+/* 커스텀 달력 모달 */
+let calCb = null, calY = 0, calM = 0, calSel = '';
+const isoOf = (y, m, d) => y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+function pickDate(initial, cb) {
+  calCb = cb; calSel = initial || '';
+  const base = initial ? new Date(initial + 'T00:00:00') : new Date();
+  const d = isNaN(base.getTime()) ? new Date() : base;
+  calY = d.getFullYear(); calM = d.getMonth();
+  renderCalendar();
+  $('cal-overlay').classList.add('open');
+}
+function renderCalendar() {
+  $('cal-title').textContent = calY + '년 ' + (calM + 1) + '월';
+  const grid = $('cal-grid'); grid.innerHTML = '';
+  ['일', '월', '화', '수', '목', '금', '토'].forEach((w) => {
+    const c = document.createElement('div'); c.className = 'cal-dow'; c.textContent = w; grid.appendChild(c);
+  });
+  const first = new Date(calY, calM, 1).getDay();
+  const days = new Date(calY, calM + 1, 0).getDate();
+  const prevDays = new Date(calY, calM, 0).getDate();
+  const tIso = todayIso();
+  for (let i = 0; i < 42; i++) {
+    const cell = document.createElement('button'); cell.className = 'cal-day';
+    let y = calY, m = calM, day;
+    if (i < first) { m = calM - 1; day = prevDays - first + 1 + i; cell.classList.add('other'); }
+    else if (i >= first + days) { m = calM + 1; day = i - first - days + 1; cell.classList.add('other'); }
+    else day = i - first + 1;
+    const dt = new Date(y, m, day); const iso = isoOf(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    cell.textContent = day;
+    if (iso === tIso) cell.classList.add('today');
+    if (iso === calSel) cell.classList.add('sel');
+    cell.addEventListener('click', () => { calSel = iso; renderCalendar(); });
+    grid.appendChild(cell);
+    if (i >= first + days && day > 7) break;
+  }
+}
+$('cal-prev').addEventListener('click', () => { calM--; if (calM < 0) { calM = 11; calY--; } renderCalendar(); });
+$('cal-next').addEventListener('click', () => { calM++; if (calM > 11) { calM = 0; calY++; } renderCalendar(); });
+$('cal-cancel').addEventListener('click', () => { $('cal-overlay').classList.remove('open'); calCb = null; });
+$('cal-overlay').addEventListener('click', (e) => { if (e.target === $('cal-overlay')) { $('cal-overlay').classList.remove('open'); calCb = null; } });
+$('cal-ok').addEventListener('click', () => {
+  $('cal-overlay').classList.remove('open');
+  if (calCb && calSel) calCb(calSel); calCb = null;
+});
 function buildDday() {
   const block = document.createElement('div'); block.className = 'dday-block';
   const head = document.createElement('div'); head.className = 'dday-head';
@@ -622,11 +728,10 @@ function buildDday() {
 }
 function buildDdayItem(d) {
   const row = document.createElement('div'); row.className = 'dday-item'; row.dataset.id = d.id;
-  const badge = document.createElement('label'); badge.className = 'dday-badge' + ddayCls(d.date);
-  const di = document.createElement('input'); di.type = 'date'; di.className = 'dday-date'; di.value = d.date || '';
-  di.addEventListener('change', () => { d.date = di.value; schedulePush(); renderTodos(); });
+  const badge = document.createElement('button'); badge.className = 'dday-badge' + ddayCls(d.date);
   const lb = document.createElement('span'); lb.textContent = ddayLabel(d.date);
-  badge.appendChild(di); badge.appendChild(lb);
+  badge.appendChild(lb);
+  badge.addEventListener('click', () => pickDate(d.date, (date) => { d.date = date; schedulePush(); renderTodos(); }));
   const name = document.createElement('input'); name.className = 'dday-name'; name.placeholder = '제목'; name.value = d.title || '';
   name.addEventListener('input', () => { d.title = name.value; schedulePush(); });
   const del = document.createElement('button'); del.className = 'dday-del'; del.innerHTML = svg('close');
@@ -658,8 +763,34 @@ function renderTodos() {
     addLongPress(h, (x, y) => openMenu(x, y, blockMenuRows(todo, 'todos', renderTodos)));
     card.appendChild(h);
 
-    // 진행도 바 — 제목 바로 아래(세부항목 위)
     const items = todo.items || [];
+    items.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'item' + (item.done ? ' done' : '');
+      row.dataset.id = item.id;
+      const inner = document.createElement('div'); inner.className = 'item-inner';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = !!item.done;
+      cb.addEventListener('change', () => { item.done = cb.checked; schedulePush(); renderTodos(); });
+      const txt = document.createElement('div');
+      txt.className = 'txt'; txt.contentEditable = 'true'; txt.textContent = item.text || '';
+      txt.addEventListener('blur', () => {
+        if (txt.innerText !== (item.text || '')) { item.text = txt.innerText; schedulePush(); }
+      });
+      inner.appendChild(cb); inner.appendChild(txt);
+      const xb = document.createElement('button');
+      xb.className = 'item-x'; xb.innerHTML = svg('close');
+      xb.addEventListener('click', (e) => {
+        e.stopPropagation();
+        todo.items = (todo.items || []).filter((it) => it.id !== item.id);
+        schedulePush(); renderTodos();
+      });
+      row.appendChild(inner); row.appendChild(xb);
+      setupItemGesture(row, inner, card, todo);
+      card.appendChild(row);
+    });
+
+    // 진행도 바 — 세부항목 아래
     if (items.length) {
       const done = items.filter((it) => it.done).length;
       const pw = document.createElement('div'); pw.className = 'prog-wrap';
@@ -671,30 +802,6 @@ function renderTodos() {
       pw.appendChild(bar); pw.appendChild(num);
       card.appendChild(pw);
     }
-
-    items.forEach((item) => {
-      const row = document.createElement('div');
-      row.className = 'item' + (item.done ? ' done' : '');
-      row.dataset.id = item.id;
-      const cb = document.createElement('input');
-      cb.type = 'checkbox'; cb.checked = !!item.done;
-      cb.addEventListener('change', () => { item.done = cb.checked; schedulePush(); renderTodos(); });
-      const txt = document.createElement('div');
-      txt.className = 'txt'; txt.contentEditable = 'true'; txt.textContent = item.text || '';
-      txt.addEventListener('blur', () => {
-        if (txt.innerText !== (item.text || '')) { item.text = txt.innerText; schedulePush(); }
-      });
-      const xb = document.createElement('button');
-      xb.className = 'item-x'; xb.innerHTML = svg('close');
-      xb.addEventListener('click', (e) => {
-        e.stopPropagation();
-        todo.items = (todo.items || []).filter((it) => it.id !== item.id);
-        schedulePush(); renderTodos();
-      });
-      row.appendChild(cb); row.appendChild(txt); row.appendChild(xb);
-      setupItemGesture(row, card, todo);
-      card.appendChild(row);
-    });
 
     // 중앙 정렬 + 한 줄: 아무 곳이나 탭하면 세부항목 추가
     const add = document.createElement('button');
@@ -708,20 +815,28 @@ function renderTodos() {
   });
 }
 
-/* 세부항목 제스처: 꾹 누르면 X(삭제) 노출, 누른 채 움직이면 순서 변경 */
-function setupItemGesture(row, card, todo) {
-  let timer = null, sy = 0, sx = 0, armed = false, dragging = false;
+/* 세부항목 제스처:
+ *  - 왼쪽으로 슬라이드 → X(삭제) 노출 (메일 앱처럼)
+ *  - 길게 눌러 잡은 채 위아래로 움직이면 → 순서 변경 */
+function setupItemGesture(row, inner, card, todo) {
+  let timer = null, sy = 0, sx = 0, armed = false, mode = null; // 'drag' | 'swipe' | 'scroll'
   const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
   const itemRows = () => [...card.querySelectorAll('.item')];
   row.addEventListener('touchstart', (e) => {
-    const t = e.touches[0]; sy = t.clientY; sx = t.clientX; dragging = false;
-    clear(); timer = setTimeout(() => { timer = null; armed = true; armRow(row); }, 420);
+    const t = e.touches[0]; sy = t.clientY; sx = t.clientX; armed = false; mode = null;
+    clear(); timer = setTimeout(() => { timer = null; armed = true; row.classList.add('dragging'); }, 420);
   }, { passive: true });
   row.addEventListener('touchmove', (e) => {
     const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
-    if (timer) { if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clear(); return; }
-    if (armed && !dragging) { dragging = true; row.classList.add('dragging'); row.classList.remove('armed'); }
-    if (dragging) {
+    if (mode === null) {
+      if (armed) { mode = 'drag'; clear(); }
+      else if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        clear();
+        if (Math.abs(dx) > Math.abs(dy)) { mode = 'swipe'; inner.style.transition = 'none'; }
+        else { mode = 'scroll'; row.classList.remove('dragging'); }
+      }
+    }
+    if (mode === 'drag') {
       e.preventDefault();
       const y = t.clientY, rs = itemRows(), i = rs.indexOf(row);
       for (let j = 0; j < rs.length; j++) {
@@ -733,27 +848,50 @@ function setupItemGesture(row, card, todo) {
           break;
         }
       }
+    } else if (mode === 'swipe') {
+      e.preventDefault();
+      const tx = Math.max(-58, Math.min(0, dx));
+      inner.style.transform = 'translateX(' + tx + 'px)';
+      row.classList.toggle('revealed', dx < -34);
     }
   });
-  row.addEventListener('touchend', () => {
+  row.addEventListener('touchend', (e) => {
     clear();
-    if (dragging) {
-      dragging = false; armed = false; row.classList.remove('dragging');
+    if (mode === 'drag') {
+      row.classList.remove('dragging');
       const order = itemRows().map((r) => r.dataset.id);
       todo.items = order.map((id) => (todo.items || []).find((it) => it.id === id)).filter(Boolean);
-      schedulePush(); renderTodos();
+      schedulePush(); renderTodos(); return;
     }
+    if (mode === 'swipe') {
+      inner.style.transition = '';
+      const dx = (e.changedTouches && e.changedTouches[0].clientX - sx) || 0;
+      if (dx < -34) { row.classList.add('revealed'); inner.style.transform = 'translateX(-52px)'; }
+      else { row.classList.remove('revealed'); inner.style.transform = ''; }
+      return;
+    }
+    row.classList.remove('dragging');
   });
-  row.addEventListener('touchcancel', () => { clear(); if (dragging) { dragging = false; row.classList.remove('dragging'); } });
+  row.addEventListener('touchcancel', () => {
+    clear(); row.classList.remove('dragging');
+    if (mode === 'swipe' && !row.classList.contains('revealed')) { inner.style.transition = ''; inner.style.transform = ''; }
+  });
 }
-function armRow(row) {
-  [...document.querySelectorAll('.item.armed')].forEach((r) => { if (r !== row) r.classList.remove('armed'); });
-  row.classList.add('armed');
-}
+// 편집영역 밖을 탭하면 (1) 열려있던 삭제 X 닫기 (2) 남은 텍스트 선택범위 해제
 document.addEventListener('touchstart', (e) => {
-  if (!e.target.closest || !e.target.closest('.item.armed')) {
-    [...document.querySelectorAll('.item.armed')].forEach((r) => r.classList.remove('armed'));
-  }
+  const keep = e.target.closest && e.target.closest('.item.revealed, .mcard.revealed');
+  [...document.querySelectorAll('.item.revealed, .mcard.revealed')].forEach((r) => {
+    if (r === keep) return;
+    r.classList.remove('revealed');
+    const inr = r.querySelector('.item-inner, .card-inner'); if (inr) inr.style.transform = '';
+  });
+}, { passive: true });
+document.addEventListener('touchend', (e) => {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) return;
+  const t = e.target;
+  if (t && t.closest && t.closest('input,textarea,[contenteditable="true"]')) return;
+  sel.removeAllRanges();
 }, { passive: true });
 
 /* ── 메모 목록(파일명/폴더 라벨 없이) ── */
@@ -781,28 +919,85 @@ function renderMemos() {
   }
   rows.forEach(({ m }) => {
     const card = document.createElement('div');
-    card.className = 'card'; card.style.background = blockBg(m);
+    card.className = 'card mcard';
+    // 왼쪽 스와이프 시 드러나는 액션(색상/삭제)
+    const actions = document.createElement('div'); actions.className = 'card-actions';
+    const colBtn = document.createElement('button'); colBtn.className = 'act-color'; colBtn.innerHTML = svg('palette');
+    colBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); const r = colBtn.getBoundingClientRect();
+      colorMenu(m, 'memos', r.left - 120, r.bottom + 4, () => { renderMemos(); renderDrawer(); });
+    });
+    const delBtn = document.createElement('button'); delBtn.className = 'act-del'; delBtn.innerHTML = svg('close');
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.memos = (state.memos || []).filter((x) => x.id !== m.id);
+      if (curMemoId === m.id) { $('sheet').classList.add('hidden'); curMemoId = null; }
+      schedulePush(); renderMemos(); renderDrawer();
+    });
+    actions.appendChild(colBtn); actions.appendChild(delBtn);
+    const inner = document.createElement('div'); inner.className = 'card-inner'; inner.style.background = blockBg(m);
     const row = document.createElement('div'); row.className = 'memo-row';
-    const sq = document.createElement('span'); sq.className = 'sq'; sq.style.background = accent(m);
     const ti = document.createElement('div'); ti.className = 'm-title';
     if (m.pinned) ti.appendChild(iconEl('pin', 'pin'));
     ti.appendChild(document.createTextNode(plain(m.title).trim() || '제목 없음'));
-    row.appendChild(sq); row.appendChild(ti);
-    card.appendChild(row);
+    row.appendChild(ti);
+    inner.appendChild(row);
     const prev = plain(m.content).trim();
     if (prev) {
       const pv = document.createElement('div'); pv.className = 'memo-prev'; pv.textContent = prev;
-      card.appendChild(pv);
+      inner.appendChild(pv);
     }
     if ((m.tags || []).length) {
       const tg = document.createElement('div'); tg.className = 'm-tags';
       m.tags.forEach((t) => { const s = document.createElement('span'); s.textContent = '#' + t; tg.appendChild(s); });
-      card.appendChild(tg);
+      inner.appendChild(tg);
     }
-    card.addEventListener('click', () => openMemo(m.id, true));
+    card.appendChild(actions); card.appendChild(inner);
+    card.addEventListener('click', () => {
+      if (card._swiped) { card._swiped = false; return; }
+      if (card.classList.contains('revealed')) { card.classList.remove('revealed'); inner.style.transform = ''; return; }
+      openMemo(m.id, true);
+    });
+    setupMemoSwipe(card, inner, m);
     addLongPress(card, (x, y) => openMenu(x, y, blockMenuRows(m, 'memos', () => { renderMemos(); renderDrawer(); })));
     root.appendChild(card);
   });
+}
+/* 색상만 고르는 미니 메뉴 */
+function colorMenu(obj, list, x, y, after) {
+  openMenu(x, y, [{ colors: true, onpick: (i) => { obj.color = 'var(--c' + i + ')'; schedulePush(); after(); } }]);
+}
+/* 메모 카드 스와이프: 왼쪽 → 색상/삭제 노출, 오른쪽 → 상단 고정 토글 */
+function setupMemoSwipe(card, inner, m) {
+  let sx = 0, sy = 0, mode = null;
+  card.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; sx = t.clientX; sy = t.clientY; mode = null; inner.style.transition = 'none';
+  }, { passive: true });
+  card.addEventListener('touchmove', (e) => {
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (mode === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) mode = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+    if (mode === 'h') {
+      e.preventDefault();
+      const base = card.classList.contains('revealed') ? -112 : 0;
+      inner.style.transform = 'translateX(' + Math.max(-124, Math.min(78, base + dx)) + 'px)';
+    }
+  });
+  card.addEventListener('touchend', (e) => {
+    inner.style.transition = '';
+    if (mode !== 'h') return;
+    card._swiped = true;
+    const dx = (e.changedTouches && e.changedTouches[0].clientX - sx) || 0;
+    const wasRevealed = card.classList.contains('revealed');
+    if (!wasRevealed && dx > 50) { // 오른쪽 스와이프 → 상단 고정
+      inner.style.transform = ''; card.classList.remove('revealed');
+      m.pinned = !m.pinned; m.pinnedAt = m.pinned ? Date.now() : 0; schedulePush(); renderAll();
+      toast(m.pinned ? '상단 고정' : '고정 해제'); return;
+    }
+    const total = (wasRevealed ? -112 : 0) + dx;
+    if (total < -50) { card.classList.add('revealed'); inner.style.transform = 'translateX(-112px)'; }
+    else { card.classList.remove('revealed'); inner.style.transform = ''; }
+  });
+  card.addEventListener('touchcancel', () => { inner.style.transition = ''; if (!card.classList.contains('revealed')) inner.style.transform = ''; });
 }
 function allTags() {
   const set = new Set();
@@ -842,7 +1037,7 @@ function ensureScrim() {
 function renderDrawer() {
   const root = $('drawer-list'); if (!root) return;
   root.innerHTML = '';
-  const rows = memosInOrder();
+  const rows = memosInFolderOrder(); // 고정 메모를 위로 안 올림 — 각자 속한 폴더에 그대로
   if (!rows.length) { root.innerHTML = '<p style="color:var(--ink-soft);padding:20px 14px">메모가 없어요</p>'; return; }
   let curFolderId = '__init__';
   rows.forEach(({ m, label }) => {
@@ -863,43 +1058,38 @@ function renderDrawer() {
       root.appendChild(fl);
     }
     const folder = folderOf(m);
-    if (folder && folder.collapsed && !m.pinned) return; // 숨긴 폴더의 메모는 목차에서 접힘
+    if (folder && folder.collapsed) return; // 숨긴 폴더의 메모는 목차에서 접힘
     const it = document.createElement('div'); it.className = 'dw-item';
-    const sq = document.createElement('span'); sq.className = 'sq'; sq.style.background = accent(m);
+    it.appendChild(iconEl('memo', 'dw-ic'));
     const t = document.createElement('div'); t.className = 't';
-    if (m.pinned) t.appendChild(iconEl('pin', 'pin'));
     t.appendChild(document.createTextNode(plain(m.title).trim() || '제목 없음'));
-    it.appendChild(sq); it.appendChild(t);
+    it.appendChild(t);
     it.addEventListener('click', () => { closeDrawer(); setTab('memo'); openMemo(m.id, true); });
     addLongPress(it, (x, y) => openMenu(x, y, blockMenuRows(m, 'memos', () => { renderMemos(); renderDrawer(); })));
     root.appendChild(it);
   });
 }
-// 화면 왼쪽 경계 밖→안 슬라이드 → 드로어 열기 / 드로어에서 오른→왼 슬라이드 → 닫기
+// 왼쪽 경계 밖→안 슬라이드 → 드로어 열기 / 열려 있을 땐 화면 어디서든 오른→왼 슬라이드 → 닫기
 (function () {
-  let edge = null;
+  let edge = null, dwx = null, dwy = null;
   document.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    if ($('drawer').classList.contains('open')) { dwx = t.clientX; dwy = t.clientY; edge = null; return; }
+    dwx = null;
     if ($('pane-main').classList.contains('hidden')) { edge = null; return; }
     if (!$('sheet').classList.contains('hidden')) { edge = null; return; }
-    if ($('drawer').classList.contains('open')) { edge = null; return; }
-    const t = e.touches[0];
     edge = (t.clientX < 24) ? { x: t.clientX, y: t.clientY } : null;
   }, { passive: true });
   document.addEventListener('touchmove', (e) => {
-    if (!edge) return;
     const t = e.touches[0];
+    if (dwx !== null) { // 드로어 열림 상태 — 좌로 밀면 닫기
+      if (dwx - t.clientX > 45 && Math.abs(t.clientY - dwy) < 60) { closeDrawer(); dwx = null; }
+      return;
+    }
+    if (!edge) return;
     if (t.clientX - edge.x > 48 && Math.abs(t.clientY - edge.y) < 45) { openDrawer(); edge = null; }
   }, { passive: true });
-  document.addEventListener('touchend', () => { edge = null; });
-
-  const dw = $('drawer'); let sx = null, sy = null;
-  dw.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, { passive: true });
-  dw.addEventListener('touchmove', (e) => {
-    if (sx === null) return;
-    const t = e.touches[0];
-    if (sx - t.clientX > 48 && Math.abs(t.clientY - sy) < 55) { closeDrawer(); sx = null; }
-  }, { passive: true });
-  dw.addEventListener('touchend', () => { sx = null; });
+  document.addEventListener('touchend', () => { edge = null; dwx = null; });
 })();
 
 /* ── 메모 상세/편집 ── */
