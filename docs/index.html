@@ -117,6 +117,8 @@
   .num-row { display:flex; align-items:center; justify-content:center; gap:22px; margin:6px 0 4px; }
   .num-step { width:44px; height:44px; border:none; border-radius:12px; background:var(--pink-soft); color:var(--pink-deep); font-size:22px; }
   .num-val { font-size:26px; font-weight:700; min-width:44px; text-align:center; color:var(--ink); }
+  .txt-input { width:100%; border:1px solid var(--line); border-radius:10px; padding:11px 12px;
+    font-size:15px; outline:none; font-family:inherit; background:#fff; }
 
   /* ── 투두 ── */
   .item.dragging { background:var(--pink-soft); border-radius:8px; }
@@ -132,8 +134,8 @@
   .prog-count { flex-shrink:0; font-size:12px; color:var(--pink-deep); font-weight:700; margin-top:2px; }
   .item-actions { position:absolute; top:0; right:0; bottom:0; display:flex; }
   .item-actions button { width:50px; border:none; color:#fff; display:flex; align-items:center; justify-content:center; }
-  .item-actions .act-prog { background:#b3a6cd; }
-  .item-actions .act-del { background:#e0a6a6; }
+  .item-actions .act-prog { background:#b6a2e0; }
+  .item-actions .act-del { background:#eeacac; }
   .item-actions .ic { width:17px; height:17px; }
   /* 세부항목별 분절 진행도 게이지 (해당 항목 아래) */
   .item-prog { margin:1px 0 6px 30px; }
@@ -170,9 +172,9 @@
     position:relative; z-index:1; }
   .card-actions { position:absolute; top:0; right:0; bottom:0; display:flex; z-index:0; }
   .card-actions button { width:56px; border:none; color:#fff; display:flex; align-items:center; justify-content:center; }
-  .card-actions .act-pin { background:#cbb382; }
-  .card-actions .act-color { background:#c1a6bd; }
-  .card-actions .act-del { background:#e0a6a6; }
+  .card-actions .act-pin { background:#dcc084; }
+  .card-actions .act-color { background:#d0a8cc; }
+  .card-actions .act-del { background:#eeacac; }
   .card-actions .ic { width:20px; height:20px; }
   .mcard.revealed .card-inner { transform:translateX(-168px); }
   .memo-prev { font-size:12.5px; color:var(--ink-soft); margin-top:6px;
@@ -198,15 +200,17 @@
   .sheet {
     position:fixed; inset:0; z-index:30; background:var(--bg); overflow-y:auto;
     padding-bottom:70px; -webkit-overflow-scrolling:touch;
+    transform:translateX(100%); transition:transform 0.24s ease;
   }
-  .sheet .top button.save { background:#fff; color:var(--pink-deep); font-weight:700; }
+  .sheet.open { transform:translateX(0); }
+  .sheet .top button.save { font-weight:700; } /* 뒤로가기 버튼과 같은 색(흰 배경 제거) */
   .sheet-body { max-width:560px; margin:0 auto; padding:16px 14px 40px; }
   /* 상세도 블럭 모양 카드 안에 표시 */
   .sheet-card { border-radius:16px; padding:18px 16px 14px; box-shadow:0 2px 10px rgba(180,150,165,0.16); min-height:70vh; }
   #dv-title, #dv-content { outline:none; }
   #dv-title { font-size:20px; font-weight:700; margin-bottom:20px; min-height:28px; word-break:break-word; }
   #dv-title:empty::before { content:'제목'; color:var(--ink-soft); opacity:0.6; }
-  #dv-content { font-size:15px; line-height:1.85; min-height:200px; word-break:break-word; white-space:pre-wrap; }
+  #dv-content { font-size:15px; line-height:1.85; min-height:140px; word-break:break-word; white-space:pre-wrap; }
   #dv-content img { max-width:100%; height:auto; border-radius:8px; }
   #dv-content hr { border:none; border-top:1px solid var(--line); margin:8px 0; }
   #dv-content blockquote { margin:4px 0; padding-left:10px; border-left:3px solid var(--line); color:var(--ink-soft); }
@@ -220,12 +224,12 @@
   #dv-content ul.md-check > li.done::before { background:var(--pink-deep); }
   #dv-content ul.md-check > li.done { color:var(--ink-soft); text-decoration:line-through; }
   #dv-content .link { color:var(--pink-deep); text-decoration:underline; word-break:break-all; }
-  .editing #dv-title, .editing #dv-content {
-    background:#fff; border-radius:10px; padding:10px; box-shadow:inset 0 0 0 1px var(--line);
-  }
-  /* 상세편집 태그 편집 라인 */
-  .dv-tags { margin-top:22px; padding-top:12px; border-top:1px solid rgba(140,120,130,0.18);
-    display:flex; flex-wrap:wrap; gap:6px; align-items:center; min-height:40px; }
+  /* 편집 모드여도 흰 배경 없이 블럭 색 그대로 유지 */
+  .editing #dv-title, .editing #dv-content { background:transparent; box-shadow:none; }
+  /* 상세편집 태그 편집 라인 (한두 줄로 제한) */
+  .dv-tags { margin-top:14px; padding-top:9px; border-top:1px solid rgba(140,120,130,0.18);
+    display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+    max-height:62px; overflow-y:auto; }
   .dtag { display:inline-flex; align-items:center; gap:3px; font-size:12px; color:var(--ink-soft);
     background:rgba(255,255,255,0.55); border-radius:20px; padding:4px 10px; }
   .dtag-x { display:none; border:none; background:transparent; color:#c66; padding:0 0 0 2px;
@@ -247,13 +251,13 @@
   .drawer-head { background:var(--titlebar); color:#fff; padding:14px 16px; font-weight:700; font-size:15px;
     display:flex; align-items:center; gap:8px; }
   .drawer-list { padding:8px 6px 30px; }
-  .dw-folder { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink-soft);
-    font-weight:700; margin:14px 10px 5px; }
+  .dw-folder { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-soft);
+    font-weight:700; margin:12px 8px 4px; padding:4px 4px; border-radius:8px; }
+  .dw-folder:active { background:var(--pink-soft); }
   .dw-folder .ic { width:18px; height:18px; color:var(--pink-deep); }
+  .dw-caret .ic { width:14px; height:14px; transition:transform 0.15s; }
+  .dw-folder:not(.closed) .dw-caret .ic { transform:rotate(90deg); }
   .dw-fname { flex:1; word-break:break-word; }
-  .dw-eye { border:none; background:transparent; color:var(--ink-soft); padding:2px 4px;
-    display:inline-flex; align-items:center; }
-  .dw-eye .ic { width:18px; height:18px; }
   .dw-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:9px; }
   .dw-item:active { background:var(--pink-soft); }
   .dw-item .sq { width:14px; height:14px; border-radius:5px; flex-shrink:0; }
@@ -404,6 +408,18 @@
   </div>
 </div>
 
+<!-- 8) 텍스트 입력 모달(폴더 이름 등) -->
+<div id="txt-overlay" class="cal-overlay">
+  <div class="cal" style="max-width:280px">
+    <div class="cal-title" id="txt-title" style="margin-bottom:12px"></div>
+    <input id="txt-input" class="txt-input" autocapitalize="off" />
+    <div class="cal-foot">
+      <button class="cal-cancel" id="txt-cancel">취소</button>
+      <button class="cal-ok" id="txt-ok">확인</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -412,7 +428,7 @@
 /* Memo Todo 모바일 웹앱 — PC 앱과 같은 Supabase(app_state 한 행)를 읽고 씀.
  * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델.
  * 테마 색상만은 기기별(localStorage 'mt-theme')로 따로 저장돼 PC와 무관하게 동작. */
-const BUILD = 'v10 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
+const BUILD = 'v11 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
 const $ = (id) => document.getElementById(id);
 let client = null, user = null, state = null, remoteTs = 0, lastPushedAt = 0;
 let curMemoId = null, editing = false, pushTimer = null;
@@ -423,7 +439,7 @@ const ICONS = {
   pin: '<path d="M8.5 3h7M10 3v5l-2.5 3h9L14 8V3M12 11v9"/>',
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
-  palette: '<rect x="4" y="4" width="4.4" height="16" rx="1"/><rect x="9.8" y="4" width="4.4" height="16" rx="1"/><rect x="15.6" y="4" width="4.4" height="16" rx="1"/>',
+  palette: '<circle cx="12" cy="12" r="8"/>',
   chart: '<path d="M4 20V11M9.3 20V5M14.7 20v-6M20 20V8"/>',
   heart: '<path d="M12 20s-7-4.6-9.3-9A5 5 0 0 1 12 6.5 5 5 0 0 1 21.3 11c-2.3 4.4-9.3 9-9.3 9z"/>',
   eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
@@ -433,7 +449,8 @@ const ICONS = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
   back: '<path d="M15 5l-7 7 7 7"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
-  memo: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8.5 12.5h7M8.5 16h5"/>'
+  memo: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8.5 12.5h7M8.5 16h5"/>',
+  caret: '<path d="M9 6l6 6-6 6"/>'
 };
 const svg = (name) => '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
 function iconEl(name, cls) {
@@ -457,12 +474,12 @@ function paintIcons() {
 
 /* ── 테마(기기별) ── */
 const THEMES = {
-  pink:     { name:'핑크',   bg:'#fcf9fa', deep:'#e0b3c6', bar:['#ebc0d3','#e3b6ca'], soft:'#fbf1f6', pink:'#f6dae7' },
-  lavender: { name:'라벤더', bg:'#faf8fd', deep:'#bcafe6', bar:['#ccbcf1','#c1b1ec'], soft:'#f5f1fc', pink:'#e9def9' },
-  mint:     { name:'민트',   bg:'#f7fbf9', deep:'#93d6a4', bar:['#abe3b8','#9ddaac'], soft:'#eef8f1', pink:'#d6f0de' },
-  sky:      { name:'하늘',   bg:'#f7fafd', deep:'#94bce6', bar:['#acd2f0','#9dc9ec'], soft:'#eef5fb', pink:'#d8e9f8' },
-  butter:   { name:'버터',   bg:'#fdfbf5', deep:'#e8c98c', bar:['#f1d7a2','#ebcd92'], soft:'#fbf5e8', pink:'#f5e6c6' },
-  gray:     { name:'그레이', bg:'#f9f9fb', deep:'#b5adc0', bar:['#ccc2d4','#c0b6c9'], soft:'#f5f2f8', pink:'#e9e3ef' }
+  pink:     { name:'핑크',   bg:'#fdfbfc', deep:'#e6c0d0', bar:['#f0cddc','#e9c3d3'], soft:'#fcf4f8', pink:'#f8e0ec' },
+  lavender: { name:'라벤더', bg:'#fbfafe', deep:'#c8bdec', bar:['#d6c9f4','#cdc0ef'], soft:'#f7f4fd', pink:'#eee5fb' },
+  mint:     { name:'민트',   bg:'#f9fcfa', deep:'#a6e0b4', bar:['#bbe9c6','#addfbb'], soft:'#f1faf3', pink:'#dff3e5' },
+  sky:      { name:'하늘',   bg:'#f9fbfe', deep:'#a6cbee', bar:['#bcdcf4','#aed3f0'], soft:'#f1f7fc', pink:'#e0eefa' },
+  butter:   { name:'버터',   bg:'#fefcf7', deep:'#eed6a1', bar:['#f5e0b3','#f0d7a6'], soft:'#fcf8ee', pink:'#f8ecd2' },
+  gray:     { name:'그레이', bg:'#fafafc', deep:'#c4bcce', bar:['#d8d0de','#cdc4d5'], soft:'#f7f5fa', pink:'#ede8f2' }
 };
 function applyTheme(key) {
   const t = THEMES[key] || THEMES.pink;
@@ -674,8 +691,29 @@ function blockMenuRows(obj, list, afterRender) {
     { label: '삭제', danger: true, onclick: () => {
       const arr = state[list] || [];
       state[list] = arr.filter((x) => x.id !== obj.id);
-      if (list === 'memos' && curMemoId === obj.id) { $('sheet').classList.add('hidden'); curMemoId = null; }
+      if (list === 'memos' && curMemoId === obj.id) { slideOutSheet(); }
       schedulePush(); afterRender();
+    } }
+  ];
+}
+
+/* 폴더 롱프레스 메뉴: 이름 변경 / 메모 추가 / 폴더 삭제 */
+function folderMenuRows(folder) {
+  return [
+    { label: '이름 변경', onclick: () => textModal('폴더 이름', folder.name || '', (v) => {
+      folder.name = v; schedulePush(); renderMemos(); renderDrawer();
+    }) },
+    { label: '메모 추가', onclick: () => {
+      const m = { id: uid(), title: '', content: '', tags: [], color: 'var(--c0)', folderId: folder.id,
+        pinned: false, pinnedAt: 0, createdAt: Date.now(), updatedAt: Date.now() };
+      (state.memos = state.memos || []).push(m);
+      folder.collapsed = false; schedulePush(); renderAll();
+      closeDrawer(); setTab('memo'); openMemo(m.id, true); setEditing(true);
+    } },
+    { label: '폴더 삭제', danger: true, onclick: () => {
+      (state.memos || []).forEach((m) => { if (m.folderId === folder.id) m.folderId = null; });
+      state.folders = (state.folders || []).filter((f) => f.id !== folder.id);
+      schedulePush(); renderAll();
     } }
   ];
 }
@@ -763,6 +801,20 @@ $('num-plus').addEventListener('click', () => { numV = Math.min(99, numV + 1); $
 $('num-cancel').addEventListener('click', () => { $('num-overlay').classList.remove('open'); numCb = null; });
 $('num-overlay').addEventListener('click', (e) => { if (e.target === $('num-overlay')) { $('num-overlay').classList.remove('open'); numCb = null; } });
 $('num-ok').addEventListener('click', () => { $('num-overlay').classList.remove('open'); if (numCb) numCb(numV); numCb = null; });
+
+/* 텍스트 입력 모달(폴더 이름 등) */
+let txtCb = null;
+function textModal(title, initial, cb) {
+  txtCb = cb; $('txt-title').textContent = title; $('txt-input').value = initial || '';
+  $('txt-overlay').classList.add('open'); setTimeout(() => { $('txt-input').focus(); $('txt-input').select(); }, 50);
+}
+$('txt-cancel').addEventListener('click', () => { $('txt-overlay').classList.remove('open'); txtCb = null; });
+$('txt-overlay').addEventListener('click', (e) => { if (e.target === $('txt-overlay')) { $('txt-overlay').classList.remove('open'); txtCb = null; } });
+$('txt-ok').addEventListener('click', () => {
+  const v = $('txt-input').value.trim(); $('txt-overlay').classList.remove('open');
+  if (txtCb && v) txtCb(v); txtCb = null;
+});
+$('txt-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('txt-ok').click(); } });
 function buildDday() {
   const block = document.createElement('div'); block.className = 'dday-block';
   const head = document.createElement('div'); head.className = 'dday-head';
@@ -1030,7 +1082,7 @@ function renderMemos() {
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       state.memos = (state.memos || []).filter((x) => x.id !== m.id);
-      if (curMemoId === m.id) { $('sheet').classList.add('hidden'); curMemoId = null; }
+      if (curMemoId === m.id) { slideOutSheet(); }
       schedulePush(); renderMemos(); renderDrawer();
     });
     actions.appendChild(pinBtn); actions.appendChild(colBtn); actions.appendChild(delBtn);
@@ -1185,17 +1237,18 @@ function renderDrawer() {
     if (label && m.folderId !== curFolderId) {
       curFolderId = m.folderId;
       const folder = folderOf(m);
-      const fl = document.createElement('div'); fl.className = 'dw-folder';
+      const fl = document.createElement('div');
+      fl.className = 'dw-folder' + (folder && folder.collapsed ? ' closed' : '');
+      fl.appendChild(iconEl('caret', 'dw-caret'));
       fl.appendChild(iconEl('folder'));
       const nm = document.createElement('span'); nm.className = 'dw-fname'; nm.textContent = label;
-      const eye = document.createElement('button'); eye.className = 'dw-eye';
-      eye.innerHTML = svg(folder && folder.collapsed ? 'eyeoff' : 'eye');
-      eye.title = folder && folder.collapsed ? '폴더 보이기' : '폴더 숨기기';
-      eye.addEventListener('click', (e) => {
-        e.stopPropagation();
+      fl.appendChild(nm);
+      // 한 번 클릭 → 폴더 열기/닫기
+      fl.addEventListener('click', () => {
         if (folder) { folder.collapsed = !folder.collapsed; schedulePush(); renderMemos(); renderDrawer(); }
       });
-      fl.appendChild(nm); fl.appendChild(eye);
+      // 꾹 누르면 [이름 변경 / 메모 추가 / 폴더 삭제]
+      if (folder) addLongPress(fl, (x, y) => openMenu(x, y, folderMenuRows(folder)));
       root.appendChild(fl);
     }
     const folder = folderOf(m);
@@ -1219,7 +1272,7 @@ function renderDrawer() {
     if ($('drawer').classList.contains('open')) { dwx = t.clientX; dwy = t.clientY; edge = null; return; }
     dwx = null;
     if ($('pane-main').classList.contains('hidden')) { edge = null; return; }
-    if (!$('sheet').classList.contains('hidden')) { edge = null; return; }
+    if ($('sheet').classList.contains('open')) { edge = null; return; }
     if (curTab !== 'memo') { edge = null; return; } // 목차는 메모 탭에서만 슬라이드로 열림
     edge = (t.clientX < 24) ? { x: t.clientX, y: t.clientY } : null;
   }, { passive: true });
@@ -1236,9 +1289,19 @@ function renderDrawer() {
 })();
 
 /* ── 메모 상세/편집 ── */
+/* 상세 시트 슬라이드 인/아웃(목차처럼 부드럽게) */
+function slideInSheet() {
+  const s = $('sheet'); s.classList.remove('hidden');
+  requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add('open')));
+}
+function slideOutSheet() {
+  const s = $('sheet'); s.classList.remove('open'); curMemoId = null;
+  clearTimeout(slideOutSheet._t);
+  slideOutSheet._t = setTimeout(() => { if (!s.classList.contains('open')) s.classList.add('hidden'); }, 240);
+}
 function openMemo(id, showSheet) {
   const m = (state.memos || []).find((x) => x.id === id);
-  if (!m) { $('sheet').classList.add('hidden'); curMemoId = null; return; }
+  if (!m) { slideOutSheet(); return; }
   curMemoId = id;
   $('sheet-card').style.background = blockBg(m); // 블럭 모양(색) 안에 메모
   $('dv-title').innerHTML = m.title || '';
@@ -1246,7 +1309,7 @@ function openMemo(id, showSheet) {
   sanitizeLinks($('dv-content')); // 링크 뒤 텍스트가 링크로 물리지 않게 정리
   renderDetailTags(m);
   setEditing(false);
-  if (showSheet) $('sheet').classList.remove('hidden');
+  if (showSheet) slideInSheet();
 }
 /* 상세편집 태그 편집: 가나다순 정렬, 꾹 누르면 X 노출/삭제, 라인 탭하면 추가 */
 function renderDetailTags(m) {
@@ -1319,7 +1382,7 @@ function setEditing(on) {
 }
 $('dv-back').addEventListener('click', () => {
   if (editing) saveMemo();
-  $('sheet').classList.add('hidden'); curMemoId = null;
+  slideOutSheet();
 });
 $('dv-edit').addEventListener('click', () => setEditing(true));
 $('dv-save').addEventListener('click', () => { saveMemo(); setEditing(false); });
@@ -1335,7 +1398,7 @@ $('dv-save').addEventListener('click', () => { saveMemo(); setEditing(false); })
     if (t.clientX - ex > 50 && Math.abs(t.clientY - ey) < 45) {
       ex = null;
       if (editing) saveMemo();
-      sheet.classList.add('hidden'); curMemoId = null;
+      slideOutSheet();
     }
   }, { passive: true });
   sheet.addEventListener('touchend', () => { ex = null; });

@@ -1482,7 +1482,7 @@ function openFolderCtx(x, y, folder) {
   addM.addEventListener('click', () => { hideMenus(); addMemo(folder.id); });
   const del = document.createElement('button');
   del.className = 'ctx-item ctx-del';
-  del.textContent = '폴더 삭제 (메모는 유지)';
+  del.textContent = '폴더 삭제';
   del.addEventListener('click', () => {
     state.memos.forEach((m) => { if (m.folderId === folder.id) m.folderId = null; });
     state.folders = state.folders.filter((f) => f.id !== folder.id);
