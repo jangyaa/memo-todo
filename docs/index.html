@@ -9,6 +9,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Memo Todo" />
 <meta name="theme-color" content="#cdb6c0" />
+<!-- 폰 브라우저가 옛 버전을 캐시로 붙잡지 않도록 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <link rel="apple-touch-icon" href="icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
@@ -392,7 +396,7 @@
 /* Memo Todo 모바일 웹앱 — PC 앱과 같은 Supabase(app_state 한 행)를 읽고 씀.
  * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델.
  * 테마 색상만은 기기별(localStorage 'mt-theme')로 따로 저장돼 PC와 무관하게 동작. */
-const BUILD = 'v8 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
+const BUILD = 'v9 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
 const $ = (id) => document.getElementById(id);
 let client = null, user = null, state = null, remoteTs = 0, lastPushedAt = 0;
 let curMemoId = null, editing = false, pushTimer = null;
