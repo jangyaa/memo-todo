@@ -75,7 +75,9 @@
   .dday-head { display:flex; align-items:center; margin-bottom:6px; }
   .dday-head b { font-size:12px; letter-spacing:0.06em; color:var(--pink-deep); flex:1; }
   .dday-add { border:none; background:var(--pink-soft); color:var(--pink-deep);
-    width:26px; height:26px; border-radius:8px; font-size:17px; line-height:1; }
+    width:26px; height:26px; border-radius:8px; font-size:17px; line-height:1;
+    display:inline-flex; align-items:center; justify-content:center; }
+  .add-line .ic { width:20px; height:20px; }
   .dday-empty { font-size:12.5px; color:var(--ink-soft); padding:4px 2px; }
   .dday-item { display:flex; align-items:center; gap:10px; padding:5px 0; }
   .dday-badge { position:relative; min-width:52px; text-align:center; font-weight:700; font-size:12.5px;
@@ -318,6 +320,7 @@
 /* Memo Todo 모바일 웹앱 — PC 앱과 같은 Supabase(app_state 한 행)를 읽고 씀.
  * 마지막 저장이 이기는(last-write-wins) 동일한 동기화 모델.
  * 테마 색상만은 기기별(localStorage 'mt-theme')로 따로 저장돼 PC와 무관하게 동작. */
+const BUILD = 'v6 · 07-04'; // 목차 상단에 표시 — 폰이 최신본을 받았는지 확인용
 const $ = (id) => document.getElementById(id);
 let client = null, user = null, state = null, remoteTs = 0, lastPushedAt = 0;
 let curMemoId = null, editing = false, pushTimer = null;
@@ -332,7 +335,11 @@ const ICONS = {
   heart: '<path d="M12 20s-7-4.6-9.3-9A5 5 0 0 1 12 6.5 5 5 0 0 1 21.3 11c-2.3 4.4-9.3 9-9.3 9z"/>',
   eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff: '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.2A9.9 9.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.1 3.9M6.2 6.2A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 3-.5"/>',
-  close: '<path d="M6 6l12 12M18 6L6 18"/>'
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>'
 };
 const svg = (name) => '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
 function iconEl(name, cls) {
@@ -341,8 +348,13 @@ function iconEl(name, cls) {
 }
 function paintIcons() {
   $('bt-theme').innerHTML = svg('palette');
+  $('bt-refresh').innerHTML = svg('refresh');
+  $('bt-logout').innerHTML = svg('logout');
+  $('bt-add').innerHTML = svg('plus');
+  $('dv-back').innerHTML = svg('back');
   $('search-ic').innerHTML = svg('search');
-  $('drawer-head').innerHTML = svg('folder') + '<span>목차</span>';
+  $('drawer-head').innerHTML = svg('folder') + '<span>목차</span>'
+    + '<span style="margin-left:auto;font-size:11px;font-weight:400;opacity:0.7">' + BUILD + '</span>';
   [...document.querySelectorAll('.brand')].forEach((h) => {
     const t = h.textContent; h.innerHTML = svg('heart') + '<span>' + t + '</span>';
   });
@@ -492,19 +504,27 @@ function addLongPress(el, fn, ms) {
   el.addEventListener('contextmenu', (e) => { e.preventDefault(); fn(e.clientX || sx, e.clientY || sy); });
 }
 
-/* ── 컨텍스트 메뉴 ── */
-function closeMenu() { const m = $('ctx-menu'); if (m) m.remove(); }
+/* ── 컨텍스트 메뉴 ──
+ * 바깥 닫기는 전용 스크림으로 처리한다. (예전 document click once 방식은
+ * 항목 선택 시 stopPropagation 때문에 리스너가 남아 '다음 탭'을 먹어버리는
+ * 버그가 있었음 — 테마 변경 후 아이콘이 한 번에 안 눌리던 원인) */
+function closeMenu() {
+  const m = $('ctx-menu'); if (m) m.remove();
+  const s = $('ctx-scrim'); if (s) s.remove();
+}
 function placeMenu(menu, x, y) {
+  const scrim = document.createElement('div'); scrim.id = 'ctx-scrim';
+  scrim.style.cssText = 'position:fixed;inset:0;z-index:49;background:transparent;';
+  scrim.addEventListener('click', closeMenu);
+  document.body.appendChild(scrim);
   document.body.appendChild(menu);
   const mw = menu.offsetWidth || 180, mh = menu.offsetHeight || 160;
   menu.style.left = Math.max(8, Math.min(x, window.innerWidth - mw - 8)) + 'px';
   menu.style.top = Math.max(8, Math.min(y, window.innerHeight - mh - 8)) + 'px';
-  setTimeout(() => document.addEventListener('click', closeMenu, { once: true }), 0);
 }
 function openMenu(x, y, rows) {
   closeMenu();
   const menu = document.createElement('div'); menu.className = 'ctx-menu'; menu.id = 'ctx-menu';
-  menu.addEventListener('click', (e) => e.stopPropagation());
   rows.forEach((r) => {
     if (r.colors) {
       const cw = document.createElement('div'); cw.className = 'ctx-colors';
@@ -527,7 +547,6 @@ function openMenu(x, y, rows) {
 function themeMenu(x, y) {
   closeMenu();
   const menu = document.createElement('div'); menu.className = 'ctx-menu'; menu.id = 'ctx-menu';
-  menu.addEventListener('click', (e) => e.stopPropagation());
   Object.keys(THEMES).forEach((key) => {
     const b = document.createElement('button'); b.className = 'ctx-item';
     const dot = document.createElement('span');
@@ -585,7 +604,7 @@ function buildDday() {
   const block = document.createElement('div'); block.className = 'dday-block';
   const head = document.createElement('div'); head.className = 'dday-head';
   const b = document.createElement('b'); b.textContent = 'D-DAY';
-  const add = document.createElement('button'); add.className = 'dday-add'; add.textContent = '＋'; add.title = '디데이 추가';
+  const add = document.createElement('button'); add.className = 'dday-add'; add.innerHTML = svg('plus'); add.title = '디데이 추가';
   add.addEventListener('click', () => {
     const d = { id: uid(), title: '', date: todayIso() };
     (state.ddays = state.ddays || []).push(d); schedulePush(); renderTodos();
@@ -679,7 +698,7 @@ function renderTodos() {
 
     // 중앙 정렬 + 한 줄: 아무 곳이나 탭하면 세부항목 추가
     const add = document.createElement('button');
-    add.className = 'add-line'; add.textContent = '＋';
+    add.className = 'add-line'; add.innerHTML = svg('plus');
     add.addEventListener('click', () => {
       (todo.items = todo.items || []).push({ id: uid(), text: '', done: false });
       schedulePush(); renderTodos();
