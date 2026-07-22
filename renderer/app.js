@@ -50,6 +50,9 @@ let state = {
   todos: [], // { id, title, color, items, pinned, pinnedAt }
   memos: [], // { id, content, tags, color, folderId, pinned, pinnedAt }
   folders: [], // { id, name, collapsed }
+  projects: [], // { id, title, color, deadline, progress, segs, done, note }
+  events: [], // { id, title, date, time, color, note } — 월간 일정
+  cycles: [], // { id, name, color, entries:[iso], note } — thinking cycle
   settings: { theme: 'default', profileImage: null }
 };
 
@@ -165,6 +168,9 @@ async function load() {
     state.todos = Array.isArray(data.todos) ? data.todos : [];
     state.memos = Array.isArray(data.memos) ? data.memos.map(normalizeMemo) : [];
     state.folders = Array.isArray(data.folders) ? data.folders : [];
+    state.projects = Array.isArray(data.projects) ? data.projects : [];
+    state.events = Array.isArray(data.events) ? data.events : [];
+    state.cycles = Array.isArray(data.cycles) ? data.cycles : [];
     state.settings = normalizeSettings(data.settings);
   }
   pruneDdays(); // 지난 디데이 정리
@@ -184,24 +190,37 @@ window.api.onDataChanged((data) => {
   state.todos = data.todos || [];
   state.memos = (data.memos || []).map(normalizeMemo);
   state.folders = data.folders || [];
+  state.projects = data.projects || [];
+  state.events = data.events || [];
+  state.cycles = data.cycles || [];
   state.settings = normalizeSettings(data.settings);
   applySettings();
   renderTodos();
   renderMemos();
+  if (window.renderFeatureViews) window.renderFeatureViews();
+  if (window.checkDeadlineAlerts) window.checkDeadlineAlerts();
 });
 
 /* =========================================================================
  * 탭(뷰) 관리 — 창마다 가진 뷰가 다름
  * ========================================================================= */
+const ALL_VIEWS = ['todo', 'memo', 'project', 'calendar', 'cycle'];
 const params = new URLSearchParams(location.search);
-let myViews = (params.get('views') || 'todo,memo').split(',').filter(Boolean);
+let myViews = (params.get('views') || ALL_VIEWS.join(',')).split(',').filter(Boolean);
 let currentView = myViews[0] || 'todo';
 
-const VIEW_LABEL = { todo: '투두 리스트', memo: '메모' };
+const VIEW_LABEL = {
+  todo: '투두', memo: '메모', project: '프로젝트',
+  calendar: '일정', cycle: '사이클'
+};
 
 function applyView() {
-  document.getElementById('view-todo').classList.toggle('active', currentView === 'todo');
-  document.getElementById('view-memo').classList.toggle('active', currentView === 'memo');
+  ALL_VIEWS.forEach((v) => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('active', currentView === v);
+  });
+  // 뷰 전환 때 기능 뷰가 최신 상태로 그려지도록
+  if (window.onViewShown) window.onViewShown(currentView);
 }
 
 function setView(v) {
@@ -2231,6 +2250,8 @@ async function init() {
   await load();
   renderTodos();
   renderMemos();
+  if (window.renderFeatureViews) window.renderFeatureViews();
+  if (window.checkDeadlineAlerts) window.checkDeadlineAlerts();
 }
 
 init();

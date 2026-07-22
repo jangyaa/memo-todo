@@ -29,6 +29,24 @@ contextBridge.exposeInMainWorld('api', {
   onThemePreview: (callback) =>
     ipcRenderer.on('theme:preview', (_e, color) => callback(color)),
 
+  // 위젯(배경화면 고정) 모드
+  widget: {
+    status: () => ipcRenderer.invoke('widget:status'),
+    set: (patch) => ipcRenderer.invoke('widget:set', patch)
+  },
+
+  // 로컬 자동 백업(스냅샷)
+  backup: {
+    status: () => ipcRenderer.invoke('backup:status'),
+    setEnabled: (on) => ipcRenderer.invoke('backup:setEnabled', on),
+    now: () => ipcRenderer.invoke('backup:now'),
+    chooseDir: () => ipcRenderer.invoke('backup:chooseDir'),
+    resetDir: () => ipcRenderer.invoke('backup:resetDir')
+  },
+
+  // OS 알림(임박 마감 등)
+  notify: (title, body) => ipcRenderer.invoke('notify', { title, body }),
+
   // 클라우드 동기화
   sync: {
     status: () => ipcRenderer.invoke('sync:status'),

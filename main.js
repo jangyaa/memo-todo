@@ -1,9 +1,13 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen,
+        Tray, Menu, Notification, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const sync = require('./sync');
+
+// 창이 가질 수 있는 뷰 집합(순서 고정) — 탭 분리/합치기·기본 창 생성에 공용
+const ALL_VIEWS = ['todo', 'memo', 'project', 'calendar', 'cycle'];
 
 // ---------------------------------------------------------------------------
 // 파일 경로
@@ -111,7 +115,131 @@ function broadcast(channel, payload, exceptId = null) {
 }
 
 function orderViews(views) {
-  return ['todo', 'memo'].filter((v) => views.includes(v));
+  return ALL_VIEWS.filter((v) => views.includes(v));
+}
+
+// ---------------------------------------------------------------------------
+// 위젯(데스크톱 고정) / 백업 — 기기별 로컬 설정(동기화되는 data와 분리)
+// ---------------------------------------------------------------------------
+function localCfgPath() {
+  return path.join(app.getPath('userData'), 'widget-config.json');
+}
+function loadLocalCfg() {
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(localCfgPath(), 'utf-8')) || {}; } catch (_) {}
+  return Object.assign({
+    desktopMode: false,   // 배경화면 위젯 모드
+    alwaysOnTop: true,    // 위젯일 때 항상 위(핀) — 창이 뒤로 사라져 '실종'되는 걸 방지
+    backupEnabled: true,  // 매일 로컬 스냅샷 백업
+    backupDir: null,      // 백업 폴더(비우면 userData/backups) — 구글드라이브 동기화 폴더 지정 가능
+    lastBackupAt: 0
+  }, cfg);
+}
+function saveLocalCfg(patch) {
+  const cfg = Object.assign(loadLocalCfg(), patch || {});
+  try { fs.writeFileSync(localCfgPath(), JSON.stringify(cfg, null, 2), 'utf-8'); } catch (_) {}
+  return cfg;
+}
+
+// 창 하나에 현재 위젯 설정을 반영
+function applyWidgetMode(win) {
+  if (!win || win.isDestroyed()) return;
+  const cfg = loadLocalCfg();
+  const desktop = !!cfg.desktopMode;
+  try { win.setSkipTaskbar(desktop); } catch (_) {}
+  // 위젯 모드: 사용자가 켜두면 항상 위로 핀(뒤로 사라져 못 찾는 사고 방지). 끄면 일반 창.
+  try {
+    if (desktop && cfg.alwaysOnTop) win.setAlwaysOnTop(true, 'screen-saver');
+    else win.setAlwaysOnTop(false);
+  } catch (_) {}
+  try { win.setVisibleOnAllWorkspaces(desktop); } catch (_) {}
+}
+function applyWidgetToAll() {
+  BrowserWindow.getAllWindows().forEach(applyWidgetMode);
+  updateTrayMenu();
+}
+
+// --- 트레이 --- (위젯 모드에서 창을 닫아도 사라지지 않게: 닫기=숨김, 종료는 트레이에서)
+let tray = null;
+function buildTray() {
+  if (tray) return;
+  let img = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png'));
+  if (!img.isEmpty()) img = img.resize({ width: 16, height: 16 });
+  try {
+    tray = new Tray(img.isEmpty() ? nativeImage.createEmpty() : img);
+  } catch (_) { tray = null; return; }
+  tray.setToolTip('Memo Todo · 개인 홈');
+  tray.on('click', () => showMainWindow());
+  updateTrayMenu();
+}
+function updateTrayMenu() {
+  if (!tray) return;
+  const cfg = loadLocalCfg();
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: '홈 위젯 열기', click: () => showMainWindow() },
+    { type: 'separator' },
+    {
+      label: '배경 위젯 모드', type: 'checkbox', checked: !!cfg.desktopMode,
+      click: (mi) => { saveLocalCfg({ desktopMode: mi.checked }); applyWidgetToAll(); }
+    },
+    {
+      label: '항상 위 고정', type: 'checkbox', checked: !!cfg.alwaysOnTop,
+      click: (mi) => { saveLocalCfg({ alwaysOnTop: mi.checked }); applyWidgetToAll(); }
+    },
+    { type: 'separator' },
+    { label: '종료', click: () => { app.isQuitting = true; app.quit(); } }
+  ]));
+}
+function showMainWindow() {
+  if (firstWindow && !firstWindow.isDestroyed()) {
+    if (!firstWindow.isVisible()) firstWindow.show();
+    if (firstWindow.isMinimized()) firstWindow.restore();
+    firstWindow.focus();
+  } else {
+    firstWindow = createWindow(ALL_VIEWS.slice(), true);
+  }
+}
+
+// --- 로컬 스냅샷 백업 (최신 1개만 유지) ---
+function resolveBackupDir() {
+  const cfg = loadLocalCfg();
+  return cfg.backupDir || path.join(app.getPath('userData'), 'backups');
+}
+function runBackup(force) {
+  const cfg = loadLocalCfg();
+  if (!force && cfg.backupEnabled === false) return { ok: false, reason: 'disabled' };
+  const data = loadData();
+  if (!data) return { ok: false, reason: 'no-data' };
+  const dir = resolveBackupDir();
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    // '이전 파일은 최근 거 올리면서 지워지게' — 기존 백업 제거 후 오늘 자 1개만 남김
+    for (const f of fs.readdirSync(dir)) {
+      if (/^memo-todo-backup.*\.json$/.test(f)) {
+        try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
+      }
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const file = path.join(dir, `memo-todo-backup-${stamp}.json`);
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8');
+    saveLocalCfg({ lastBackupAt: Date.now() });
+    return { ok: true, file, at: Date.now() };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+// 하루 한 번: 시작 시 오늘 백업이 없으면 한 번, 이후 6시간마다 점검
+function scheduleBackups() {
+  const check = () => {
+    const cfg = loadLocalCfg();
+    if (cfg.backupEnabled === false) return;
+    const last = new Date(cfg.lastBackupAt || 0);
+    const now = new Date();
+    const sameDay = last.toDateString() === now.toDateString();
+    if (!sameDay) runBackup();
+  };
+  setTimeout(check, 8000); // 시작 직후(데이터 로드 뒤)
+  setInterval(check, 6 * 60 * 60 * 1000);
 }
 
 function createWindow(views, isMain) {
@@ -136,7 +264,18 @@ function createWindow(views, isMain) {
   winViews.set(win.id, orderViews(views));
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'),
     { query: { views: orderViews(views).join(',') } });
+  applyWidgetMode(win); // 위젯(배경 고정) 설정 반영
   win.on('closed', () => { winViews.delete(win.id); });
+  // 위젯 모드에서 메인 창의 X/닫기는 '종료'가 아니라 '트레이로 숨김'.
+  // (창 정리하다 실수로 없애버리는 걸 방지 — 종료는 트레이 메뉴에서만)
+  if (isMain) {
+    win.on('close', (e) => {
+      if (!app.isQuitting && loadLocalCfg().desktopMode) {
+        e.preventDefault();
+        win.hide();
+      }
+    });
+  }
   // 메인 창의 이동/크기 변경을 저장 → 다음 실행 때 같은 자리.
   // move는 드래그 중 초당 수십 번 발생하므로 디바운스(멈춘 뒤 한 번만 기록) —
   // 매번 동기 파일쓰기를 하면 창 드래그가 뚝뚝 끊긴다.
@@ -293,6 +432,57 @@ ipcMain.handle('open:external', (_e, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
 });
 
+// --- 위젯(배경 고정) 설정 IPC ---
+ipcMain.handle('widget:status', () => {
+  const c = loadLocalCfg();
+  return { desktopMode: !!c.desktopMode, alwaysOnTop: !!c.alwaysOnTop, platform: process.platform };
+});
+ipcMain.handle('widget:set', (_e, patch) => {
+  const clean = {};
+  if (patch && typeof patch.desktopMode === 'boolean') clean.desktopMode = patch.desktopMode;
+  if (patch && typeof patch.alwaysOnTop === 'boolean') clean.alwaysOnTop = patch.alwaysOnTop;
+  const c = saveLocalCfg(clean);
+  applyWidgetToAll();
+  return { desktopMode: !!c.desktopMode, alwaysOnTop: !!c.alwaysOnTop, platform: process.platform };
+});
+
+// --- 백업 IPC ---
+ipcMain.handle('backup:status', () => {
+  const c = loadLocalCfg();
+  return { enabled: c.backupEnabled !== false, dir: resolveBackupDir(), lastBackupAt: c.lastBackupAt || 0 };
+});
+ipcMain.handle('backup:setEnabled', (_e, on) => {
+  saveLocalCfg({ backupEnabled: !!on });
+  const c = loadLocalCfg();
+  return { enabled: c.backupEnabled !== false, dir: resolveBackupDir(), lastBackupAt: c.lastBackupAt || 0 };
+});
+ipcMain.handle('backup:now', () => runBackup(true));
+ipcMain.handle('backup:chooseDir', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const res = await dialog.showOpenDialog(win, {
+    title: '백업 폴더 선택 (구글드라이브 동기화 폴더를 고르면 매일 드라이브로 올라갑니다)',
+    properties: ['openDirectory', 'createDirectory']
+  });
+  if (!res.canceled && res.filePaths[0]) saveLocalCfg({ backupDir: res.filePaths[0] });
+  const c = loadLocalCfg();
+  return { enabled: c.backupEnabled !== false, dir: resolveBackupDir(), lastBackupAt: c.lastBackupAt || 0 };
+});
+ipcMain.handle('backup:resetDir', () => {
+  saveLocalCfg({ backupDir: null });
+  const c = loadLocalCfg();
+  return { enabled: c.backupEnabled !== false, dir: resolveBackupDir(), lastBackupAt: c.lastBackupAt || 0 };
+});
+
+// --- 임박 마감 알림(OS 알림) ---
+ipcMain.handle('notify', (_e, { title, body } = {}) => {
+  try {
+    if (Notification.isSupported()) {
+      new Notification({ title: title || '알림', body: body || '' }).show();
+    }
+  } catch (_) {}
+  return true;
+});
+
 // 메모 별도 편집 창 (프레임리스 → 앱과 동일한 커스텀 테마색 상단바)
 ipcMain.handle('memo:openEditor', (_e, id) => {
   const win = new BrowserWindow({
@@ -313,7 +503,7 @@ ipcMain.handle('memo:openEditor', (_e, id) => {
 ipcMain.handle('view:tearOut', (event, view) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return;
-  const cur = winViews.get(win.id) || ['todo', 'memo'];
+  const cur = winViews.get(win.id) || ALL_VIEWS.slice();
   if (cur.length < 2) return; // 탭이 하나뿐이면 분리 불가
   const remaining = orderViews(cur.filter((v) => v !== view));
   winViews.set(win.id, remaining);
@@ -325,7 +515,7 @@ ipcMain.handle('view:tearOut', (event, view) => {
 ipcMain.handle('window:requestClose', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return;
-  const cur = winViews.get(win.id) || ['todo', 'memo'];
+  const cur = winViews.get(win.id) || ALL_VIEWS.slice();
   const others = BrowserWindow.getAllWindows().filter((w) => w.id !== win.id);
   if (cur.length === 1 && others.length > 0) {
     const target = others[0];
@@ -407,16 +597,23 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     applyAutoLaunch();
-    firstWindow = createWindow(['todo', 'memo'], true);
+    buildTray();
+    scheduleBackups();
+    firstWindow = createWindow(ALL_VIEWS.slice(), true);
     firstWindow.webContents.once('did-finish-load', () => { startSync(); });
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        firstWindow = createWindow(['todo', 'memo'], true);
+        firstWindow = createWindow(ALL_VIEWS.slice(), true);
       }
     });
   });
 
+  app.on('before-quit', () => { app.isQuitting = true; });
+
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    // 위젯 모드에선 트레이로 살아있으므로 종료하지 않음(사고 방지).
+    if (process.platform === 'darwin') return;
+    if (loadLocalCfg().desktopMode && !app.isQuitting) return;
+    app.quit();
   });
 }

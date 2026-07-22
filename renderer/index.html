@@ -15,11 +15,15 @@
       <button class="profile-btn" id="btn-profile" title="프로필">♡</button>
       <div class="titlebar-tabs" id="tabs"></div>
       <div class="titlebar-right">
+        <button class="icon-btn" id="btn-settings" title="설정">⚙</button>
         <button class="icon-btn" id="btn-sync" title="클라우드 동기화">☁</button>
         <button class="icon-btn" id="btn-min" title="최소화">─</button>
         <button class="icon-btn" id="btn-close" title="닫기">✕</button>
       </div>
     </header>
+
+    <!-- 임박 마감 알림 배너 -->
+    <div class="deadline-alert" id="deadline-alert"></div>
 
     <!-- ===================== 할 일(투두) 뷰 ===================== -->
     <section class="view view-todo" id="view-todo">
@@ -54,6 +58,97 @@
       </div>
       <button class="fab" id="btn-add-memo" title="메모 추가">＋</button>
     </section>
+
+    <!-- ===================== 프로젝트(마감 관리) 뷰 ===================== -->
+    <section class="view view-project" id="view-project">
+      <div class="proj-board" id="proj-board"></div>
+      <button class="fab" id="btn-add-project" title="프로젝트 추가">＋</button>
+    </section>
+
+    <!-- ===================== 월간 일정 뷰 ===================== -->
+    <section class="view view-calendar" id="view-calendar">
+      <div class="mcal">
+        <div class="mcal-head">
+          <button class="cal-nav" id="mcal-prev">‹</button>
+          <span class="cal-title" id="mcal-title"></span>
+          <button class="cal-nav" id="mcal-next">›</button>
+          <button class="icon-btn small" id="mcal-today" title="오늘">오늘</button>
+        </div>
+        <div class="mcal-grid" id="mcal-grid"></div>
+      </div>
+      <div class="mcal-day">
+        <div class="mcal-day-head">
+          <span id="mcal-day-title">날짜를 선택하세요</span>
+        </div>
+        <div class="mcal-events" id="mcal-events"></div>
+      </div>
+      <button class="fab" id="btn-add-event" title="일정 추가">＋</button>
+    </section>
+
+    <!-- ===================== thinking cycle 뷰 ===================== -->
+    <section class="view view-cycle" id="view-cycle">
+      <div class="cycle-board" id="cycle-board"></div>
+      <button class="fab" id="btn-add-cycle" title="사이클 추가">＋</button>
+    </section>
+  </div>
+
+  <!-- ===================== 설정 패널 ===================== -->
+  <div class="modal-overlay" id="settings-overlay">
+    <div class="modal settings-modal">
+      <div class="modal-head">
+        <span>⚙ 설정</span>
+        <button class="icon-btn" id="settings-close">✕</button>
+      </div>
+
+      <div class="set-section">
+        <div class="set-title">테마</div>
+        <div class="theme-actions">
+          <button class="theme-action" id="set-bg-image">배경화면 변경</button>
+          <button class="theme-action" id="set-bg-remove">배경화면 삭제</button>
+          <button class="theme-action" id="set-theme-color">테마 컬러 변경</button>
+        </div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-title">배경화면 위젯</div>
+        <p class="set-hint">배경화면에 고정해두는 위젯 모드입니다. 켜면 작업표시줄·Alt-Tab 목록에서
+          빠지고, 창을 닫아도 종료되지 않고 트레이(오른쪽 아래 아이콘)로 숨어요 —
+          실수로 없애버리는 걸 막아줍니다.</p>
+        <label class="set-toggle">
+          <input type="checkbox" id="set-widget-mode" />
+          <span>배경 위젯 모드 켜기</span>
+        </label>
+        <label class="set-toggle">
+          <input type="checkbox" id="set-widget-top" />
+          <span>항상 위 고정 (뒤로 사라져 못 찾는 사고 방지)</span>
+        </label>
+        <p class="set-hint" id="set-widget-note"></p>
+      </div>
+
+      <div class="set-section">
+        <div class="set-title">백업</div>
+        <p class="set-hint">매일 자동으로 데이터 스냅샷을 저장합니다. 최신 1개만 남기고
+          이전 백업은 자동으로 지워집니다. 백업 폴더를 <b>구글드라이브 동기화 폴더</b>로
+          지정하면 드라이브가 알아서 매일 업로드해줘요(구글 로그인·키 설정 불필요).</p>
+        <label class="set-toggle">
+          <input type="checkbox" id="set-backup-enabled" />
+          <span>매일 자동 백업</span>
+        </label>
+        <div class="set-row">
+          <span class="set-label">폴더</span>
+          <span class="set-path" id="set-backup-dir">—</span>
+        </div>
+        <div class="set-row" id="set-backup-last-row">
+          <span class="set-label">마지막 백업</span>
+          <span class="set-val" id="set-backup-last">—</span>
+        </div>
+        <div class="sync-btns">
+          <button class="btn-primary" id="set-backup-now">지금 백업</button>
+          <button class="btn-ghost" id="set-backup-dir-btn">폴더 지정</button>
+          <button class="btn-ghost" id="set-backup-dir-reset">기본 폴더</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 우클릭 컨텍스트 메뉴 -->
@@ -236,5 +331,6 @@
 
   <script src="shared.js"></script>
   <script src="app.js"></script>
+  <script src="features.js"></script>
 </body>
 </html>
